@@ -20,23 +20,33 @@ const RTC_CONFIG: RTCConfiguration = {
 const CHANNEL_LABEL = 'shillak-sync'
 const ICE_TIMEOUT_MS = 5000
 
-export interface WebRTCSession {
+/** Device A session — channel already created, just needs remote description. */
+export interface WebRTCOfferSession {
   connection: RTCPeerConnection
   channel: RTCDataChannel
-  /** Encoded SDP string — display as QR */
+  encodedSDP: string
+}
+
+/**
+ * Device B session — channel arrives via 'datachannel' event AFTER Device A
+ * scans the answer QR and completes ICE. Never await channelPromise before
+ * showing the answer QR or it will time out.
+ */
+export interface WebRTCAnswerSession {
+  connection: RTCPeerConnection
+  channelPromise: Promise<RTCDataChannel>
   encodedSDP: string
 }
 
 // ─── Device A — creates offer ─────────────────────────────────────────────────
 
-export async function createOffer(): Promise<WebRTCSession> {
+export async function createOffer(): Promise<WebRTCOfferSession> {
   const pc = new RTCPeerConnection(RTC_CONFIG)
   const channel = pc.createDataChannel(CHANNEL_LABEL)
 
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
 
-  // Wait for ICE gathering to complete
   await waitForICEGathering(pc)
 
   if (!pc.localDescription) throw new Error('ICE gathering completed but localDescription is null')
@@ -46,7 +56,7 @@ export async function createOffer(): Promise<WebRTCSession> {
 
 /** After Device B shows their answer QR — Device A scans and calls this. */
 export async function applyAnswer(
-  session: WebRTCSession,
+  session: WebRTCOfferSession,
   encodedAnswer: string,
 ): Promise<RTCDataChannel> {
   const answerSDP = decodeSDP(encodedAnswer)
@@ -75,13 +85,21 @@ export async function applyAnswer(
 
 // ─── Device B — receives offer, creates answer ────────────────────────────────
 
-export async function createAnswer(encodedOffer: string): Promise<WebRTCSession> {
+/**
+ * Device B: decode the offer QR, create an answer, return immediately.
+ * The caller must show encodedSDP as a QR for Device A to scan.
+ * Only after Device A scans will channelPromise resolve.
+ */
+export async function createAnswer(encodedOffer: string): Promise<WebRTCAnswerSession> {
   const offerSDP = decodeSDP(encodedOffer)
   const pc = new RTCPeerConnection(RTC_CONFIG)
 
-  // Device B receives the channel
+  // Set up the datachannel listener BEFORE setRemoteDescription so we don't miss the event.
   const channelPromise = new Promise<RTCDataChannel>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Data channel timeout')), 15_000)
+    const timeout = setTimeout(
+      () => reject(new Error('Data channel timeout — did Device A scan the answer QR?')),
+      60_000,
+    )
     pc.addEventListener('datachannel', (e) => {
       clearTimeout(timeout)
       resolve(e.channel)
@@ -96,9 +114,9 @@ export async function createAnswer(encodedOffer: string): Promise<WebRTCSession>
 
   if (!pc.localDescription) throw new Error('ICE gathering completed but localDescription is null')
   const encodedSDP = encodeSDP(pc.localDescription)
-  const channel = await channelPromise
 
-  return { connection: pc, channel, encodedSDP }
+  // Return WITHOUT awaiting channelPromise — caller shows QR first, then awaits it.
+  return { connection: pc, channelPromise, encodedSDP }
 }
 
 // ─── Message protocol helpers ─────────────────────────────────────────────────

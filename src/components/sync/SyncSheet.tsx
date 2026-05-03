@@ -35,7 +35,7 @@ import { chunkPayload, decodeChunk, encodeChunk, isChunk, isSDP, reassembleChunk
 import { decryptPayload, deriveTransportKey, encryptPayload } from '@/sync/transport'
 import type { SyncDelta } from '@/sync/vector-clock'
 import { computeDelta } from '@/sync/vector-clock'
-import type { WebRTCSession } from '@/sync/webrtc'
+import type { WebRTCOfferSession } from '@/sync/webrtc'
 import { applyAnswer, createAnswer, createOffer, sendMessage, waitForMessage } from '@/sync/webrtc'
 import ConflictResolver from './ConflictResolver'
 import QRDisplay from './QRDisplay'
@@ -46,8 +46,8 @@ type Tab = 'wifi' | 'qr' | 'history'
 // WiFi sub-states
 type WiFiState =
   | { step: 'idle' }
-  | { step: 'offering'; session: WebRTCSession }
-  | { step: 'scan-answer'; session: WebRTCSession }
+  | { step: 'offering'; session: WebRTCOfferSession }
+  | { step: 'scan-answer'; session: WebRTCOfferSession }
   | { step: 'scanning-offer' }
   | { step: 'answering'; encodedAnswer: string }
   | { step: 'syncing' }
@@ -186,16 +186,9 @@ export default function SyncSheet({ open, onClose }: Props) {
 
       try {
         const session = await createAnswer(scanned)
+        // Show answer QR BEFORE awaiting the channel — Device A must scan it first.
         setWifi({ step: 'answering', encodedAnswer: session.encodedSDP })
-
-        const channel = await new Promise<RTCDataChannel>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 30_000)
-          session.channel.addEventListener('open', () => {
-            clearTimeout(timeout)
-            resolve(session.channel)
-          })
-        })
-
+        const channel = await session.channelPromise
         setWifi({ step: 'syncing' })
         await runSyncProtocol(channel, 'webrtc')
       } catch (e) {

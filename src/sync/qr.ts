@@ -40,17 +40,20 @@ const LOCAL_IP_RE = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/
  * and take up ~60% of the raw SDP bytes.
  */
 function stripSDP(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
-  if (!sdp.sdp) return sdp
-  const lines = sdp.sdp.split('\r\n')
+  // RTCSessionDescription has type/sdp as prototype getters — spread drops them.
+  // Always extract explicitly so JSON.stringify captures both fields.
+  const type = sdp.type
+  const raw = sdp.sdp
+  if (!raw) return { type, sdp: raw }
+  const lines = raw.split('\r\n')
   const filtered = lines.filter((line) => {
     if (!line.startsWith('a=candidate:')) return true
-    // Keep only host candidates with local IPs
     if (!line.includes('typ host')) return false
     const parts = line.split(' ')
     const ip = parts[4] ?? ''
     return LOCAL_IP_RE.test(ip)
   })
-  return { ...sdp, sdp: filtered.join('\r\n') }
+  return { type, sdp: filtered.join('\r\n') }
 }
 
 // ─── Compress helpers ─────────────────────────────────────────────────────────

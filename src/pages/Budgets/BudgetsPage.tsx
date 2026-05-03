@@ -273,12 +273,13 @@ export default function BudgetsPage() {
             Monthly budgets
           </p>
           <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setEditBudget(undefined)
               setBudgetSheetOpen(true)
             }}
-            className="h-7 px-3 rounded-full text-xs bg-surface-2 text-text-secondary
-                       hover:bg-surface-3 gap-1"
+            className="h-7 rounded-full"
           >
             <Plus size={12} />
             Add
@@ -378,12 +379,13 @@ export default function BudgetsPage() {
             Savings goals
           </p>
           <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setEditGoal(undefined)
               setGoalSheetOpen(true)
             }}
-            className="h-7 px-3 rounded-full text-xs bg-surface-2 text-text-secondary
-                       hover:bg-surface-3 gap-1"
+            className="h-7 rounded-full"
           >
             <Plus size={12} />
             Add

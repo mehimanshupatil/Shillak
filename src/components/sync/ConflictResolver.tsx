@@ -107,16 +107,14 @@ function ConflictCard({
       </div>
       <div className="flex gap-2">
         <Button
+          variant="secondary"
+          size="sm"
           onClick={() => onResolve(conflict, 'local')}
-          className="flex-1 h-8 text-xs rounded-lg bg-surface-2 text-text-secondary
-                     hover:bg-surface-3"
+          className="flex-1"
         >
           Keep mine
         </Button>
-        <Button
-          onClick={() => onResolve(conflict, 'remote')}
-          className="flex-1 h-8 text-xs rounded-lg bg-accent text-black hover:bg-accent-hover"
-        >
+        <Button size="sm" onClick={() => onResolve(conflict, 'remote')} className="flex-1">
           Keep theirs
         </Button>
       </div>

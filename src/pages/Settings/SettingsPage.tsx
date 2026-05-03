@@ -122,12 +122,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Group</p>
           {group && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setGroupSheetOpen(true)}
-              className="text-accent hover:text-accent hover:bg-accent-subtle gap-1"
-            >
+            <Button variant="link" onClick={() => setGroupSheetOpen(true)}>
               <Pencil size={11} />
               Edit
             </Button>
@@ -179,13 +174,11 @@ export default function SettingsPage() {
             Categories
           </p>
           <Button
-            variant="ghost"
-            size="xs"
+            variant="link"
             onClick={() => {
               setEditCategory(undefined)
               setCatSheetOpen(true)
             }}
-            className="text-accent hover:text-accent hover:bg-accent-subtle gap-1"
           >
             <Plus size={12} />
             Add
@@ -294,12 +287,7 @@ export default function SettingsPage() {
             Profile
           </p>
           {user && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setProfileSheetOpen(true)}
-              className="text-accent hover:text-accent hover:bg-accent-subtle gap-1"
-            >
+            <Button variant="link" onClick={() => setProfileSheetOpen(true)}>
               <Pencil size={11} />
               Edit
             </Button>
@@ -430,11 +418,7 @@ export default function SettingsPage() {
       </section>
 
       {/* ── Lock ── */}
-      <Button
-        onClick={handleLock}
-        className="w-full h-12 rounded-2xl bg-surface border border-border
-                   text-sm font-medium text-danger hover:bg-surface-2"
-      >
+      <Button variant="destructive" size="lg" onClick={handleLock} className="w-full rounded-2xl">
         Lock app
       </Button>
 

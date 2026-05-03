@@ -194,10 +194,10 @@ export default function CategorySheet({
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <Button
+            size="lg"
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-12 rounded-2xl bg-accent text-black font-semibold
-                       hover:bg-accent-hover disabled:opacity-50"
+            className="w-full rounded-2xl font-semibold"
           >
             {loading ? 'Saving…' : isEdit ? 'Save changes' : 'Add category'}
           </Button>

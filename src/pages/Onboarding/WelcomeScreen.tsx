@@ -32,11 +32,7 @@ export default function WelcomeScreen({ onNext }: Props) {
         ))}
       </div>
 
-      <Button
-        onClick={onNext}
-        className="w-full h-14 rounded-2xl bg-accent text-black font-semibold text-base
-                   hover:bg-accent-hover"
-      >
+      <Button size="xl" onClick={onNext} className="w-full rounded-2xl font-semibold text-base">
         Get started
       </Button>
     </div>

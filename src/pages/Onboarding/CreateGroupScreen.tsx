@@ -186,9 +186,9 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
       <div className="mt-auto">
         <Button
           type="submit"
+          size="xl"
           disabled={loading}
-          className="w-full h-14 rounded-2xl bg-accent text-black font-semibold
-                     hover:bg-accent-hover disabled:opacity-50"
+          className="w-full rounded-2xl font-semibold"
         >
           {loading ? 'Creating…' : 'Create group'}
         </Button>

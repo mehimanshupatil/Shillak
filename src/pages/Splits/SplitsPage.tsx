@@ -171,10 +171,10 @@ export default function SplitsPage() {
                   </span>
                   {youInvolved && (
                     <Button
-                      variant="ghost"
-                      size="xs"
+                      variant="link"
+                      size="sm"
                       onClick={() => handleSettleAll(s.from, s.to)}
-                      className="text-accent hover:bg-accent-subtle gap-1 shrink-0"
+                      className="gap-1 shrink-0"
                     >
                       <Check size={11} />
                       Settle

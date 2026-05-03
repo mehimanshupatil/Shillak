@@ -23,7 +23,7 @@
  *   1. Tap "Scan QR chunks" → scanner → collect all chunks → reassemble → apply
  */
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronLeft, ChevronRight, Loader2, QrCode, Wifi } from 'lucide-react'
+import { Check, Loader2, QrCode, Wifi } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -360,17 +360,11 @@ function WiFiTab({
         <p className="text-sm text-text-secondary">
           Both devices must be on the same WiFi. No internet required.
         </p>
-        <Button
-          onClick={onStartOffer}
-          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
-        >
+        <Button size="lg" onClick={onStartOffer} className="w-full font-medium">
           <Wifi size={16} className="mr-2" />
           Start sync (show QR)
         </Button>
-        <Button
-          onClick={onStartScanOffer}
-          className="w-full h-12 rounded-xl bg-surface-2 text-text-primary"
-        >
+        <Button variant="secondary" size="lg" onClick={onStartScanOffer} className="w-full">
           <QrCode size={16} className="mr-2" />
           Scan peer&apos;s QR
         </Button>
@@ -380,21 +374,12 @@ function WiFiTab({
 
   if (state.step === 'offering') {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-text-secondary text-center">
-          Step 1: Show this QR to the other device
-        </p>
-        <QRDisplay value={state.session.encodedSDP} label="Offer QR — scan on other device" />
-        <Button
-          onClick={onReadyToScanAnswer}
-          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
-        >
-          Other device shows answer QR →
-        </Button>
-        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
-          Cancel
-        </button>
-      </div>
+      <QRDisplay
+        value={state.session.encodedSDP}
+        label="Step 1: Show this QR to the other device"
+        onClose={onReset}
+        action={{ label: 'Other device shows answer QR →', onClick: onReadyToScanAnswer }}
+      />
     )
   }
 
@@ -408,16 +393,11 @@ function WiFiTab({
 
   if (state.step === 'answering') {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-text-secondary text-center">
-          Show this answer QR to the other device, then wait
-        </p>
-        <QRDisplay value={state.encodedAnswer} label="Answer QR — scan on other device" />
-        <div className="flex items-center gap-2 text-xs text-text-tertiary">
-          <Loader2 size={12} className="animate-spin" />
-          Waiting for connection…
-        </div>
-      </div>
+      <QRDisplay
+        value={state.encodedAnswer}
+        label="Show this QR to the other device, then wait…"
+        onClose={onReset}
+      />
     )
   }
 
@@ -441,7 +421,7 @@ function WiFiTab({
           {state.applied} records applied
           {state.conflicts > 0 && ` · ${state.conflicts} conflict(s) below`}
         </p>
-        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
+        <Button variant="secondary" onClick={onReset}>
           Done
         </Button>
       </div>
@@ -452,7 +432,7 @@ function WiFiTab({
     return (
       <div className="flex flex-col items-center gap-3 py-6">
         <p className="text-sm text-danger text-center">{state.message}</p>
-        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
+        <Button variant="secondary" onClick={onReset}>
           Try again
         </Button>
       </div>
@@ -487,16 +467,10 @@ function QRBatchTab({
         <p className="text-sm text-text-secondary">
           Unidirectional — export on one device, scan all chunks on the other.
         </p>
-        <Button
-          onClick={onExport}
-          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
-        >
+        <Button size="lg" onClick={onExport} className="w-full font-medium">
           Export QR chunks
         </Button>
-        <Button
-          onClick={onScanStart}
-          className="w-full h-12 rounded-xl bg-surface-2 text-text-primary"
-        >
+        <Button variant="secondary" size="lg" onClick={onScanStart} className="w-full">
           <QrCode size={16} className="mr-2" />
           Scan QR chunks
         </Button>
@@ -508,34 +482,12 @@ function QRBatchTab({
     const { chunks, chunkIndex } = state
     const total = chunks.length
     return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-text-secondary">
-          Chunk {chunkIndex + 1} of {total} — scan each on the other device
-        </p>
-        <QRDisplay value={chunks[chunkIndex] ?? ''} label={`QR ${chunkIndex + 1}/${total}`} />
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={onPrevChunk}
-            disabled={chunkIndex === 0}
-            className="h-10 w-10 rounded-xl bg-surface-2 text-text-primary disabled:opacity-40"
-          >
-            <ChevronLeft size={18} />
-          </Button>
-          <span className="text-sm text-text-secondary">
-            {chunkIndex + 1} / {total}
-          </span>
-          <Button
-            onClick={onNextChunk}
-            disabled={chunkIndex === total - 1}
-            className="h-10 w-10 rounded-xl bg-surface-2 text-text-primary disabled:opacity-40"
-          >
-            <ChevronRight size={18} />
-          </Button>
-        </div>
-        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
-          Cancel
-        </button>
-      </div>
+      <QRDisplay
+        value={chunks[chunkIndex] ?? ''}
+        label={`Chunk ${chunkIndex + 1} of ${total} — scan each on the other device`}
+        onClose={onReset}
+        chunkNav={{ index: chunkIndex, total, onPrev: onPrevChunk, onNext: onNextChunk }}
+      />
     )
   }
 
@@ -579,7 +531,7 @@ function QRBatchTab({
         </div>
         <p className="text-base font-semibold text-text-primary">Import complete</p>
         <p className="text-sm text-text-secondary">{state.applied} records applied</p>
-        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
+        <Button variant="secondary" onClick={onReset}>
           Done
         </Button>
       </div>
@@ -590,7 +542,7 @@ function QRBatchTab({
     return (
       <div className="flex flex-col items-center gap-3 py-6">
         <p className="text-sm text-danger text-center">{state.message}</p>
-        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
+        <Button variant="secondary" onClick={onReset}>
           Try again
         </Button>
       </div>

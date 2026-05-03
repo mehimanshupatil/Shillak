@@ -220,10 +220,10 @@ export default function ChangePinSheet({ open, onClose }: Props) {
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <Button
+            size="lg"
             onClick={handleChange}
             disabled={loading || !currentPin || !newPin || !confirmPin}
-            className="w-full h-12 rounded-2xl bg-accent text-black font-semibold
-                       hover:bg-accent-hover disabled:opacity-50"
+            className="w-full rounded-2xl font-semibold"
           >
             {loading ? progress || 'Working…' : 'Change PIN'}
           </Button>

@@ -35,10 +35,10 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
 
       <div className="flex flex-col gap-4 mt-4">
         <Button
+          variant="secondary"
           onClick={onCreateGroup}
-          className="w-full p-5 h-auto rounded-2xl bg-surface border border-border
-                     flex items-start gap-4 text-left active:bg-surface-2 transition-colors
-                     hover:bg-surface-2"
+          className="w-full p-5 h-auto rounded-2xl border border-border
+                     flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-accent-subtle flex items-center justify-center shrink-0">
             <Users size={20} className="text-accent" />
@@ -52,8 +52,9 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
         </Button>
 
         <Button
+          variant="secondary"
           disabled
-          className="w-full p-5 h-auto rounded-2xl bg-surface border border-border
+          className="w-full p-5 h-auto rounded-2xl border border-border
                      flex items-start gap-4 text-left opacity-40 cursor-not-allowed"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
@@ -68,10 +69,10 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
         </Button>
 
         <Button
+          variant="secondary"
           onClick={() => fileRef.current?.click()}
-          className="w-full p-5 h-auto rounded-2xl bg-surface border border-border
-                     flex items-start gap-4 text-left active:bg-surface-2 transition-colors
-                     hover:bg-surface-2"
+          className="w-full p-5 h-auto rounded-2xl border border-border
+                     flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
             <RotateCcw size={20} className="text-text-secondary" />

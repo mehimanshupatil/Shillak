@@ -10,9 +10,9 @@
  *
  * SDP envelope (for WebRTC):
  *   { v: 1, type: 'sdp', sdp: RTCSessionDescriptionInit }
- *   Compressed with lz-string, base64 encoded — single QR.
+ *   DEFLATE-compressed (fflate), base64 encoded — single QR.
  */
-import LZString from 'lz-string'
+import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate'
 
 export const QR_CHUNK_BYTES = 600
 
@@ -30,17 +30,57 @@ interface SDPEnvelope {
   sdp: RTCSessionDescriptionInit
 }
 
-// ─── SDP encode / decode ──────────────────────────────────────────────────────
+// ─── SDP strip — local WiFi only ─────────────────────────────────────────────
 
-/** Compress an SDP for QR display. Returns a short base64-like string. */
-export function encodeSDP(sdp: RTCSessionDescriptionInit): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify({ v: 1, type: 'sdp', sdp }))
+const LOCAL_IP_RE = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/
+
+/**
+ * Strip SDP down to only local-network ICE candidates.
+ * Removes srflx (STUN) and relay (TURN) candidates — useless on local WiFi
+ * and take up ~60% of the raw SDP bytes.
+ */
+function stripSDP(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
+  if (!sdp.sdp) return sdp
+  const lines = sdp.sdp.split('\r\n')
+  const filtered = lines.filter((line) => {
+    if (!line.startsWith('a=candidate:')) return true
+    // Keep only host candidates with local IPs
+    if (!line.includes('typ host')) return false
+    const parts = line.split(' ')
+    const ip = parts[4] ?? ''
+    return LOCAL_IP_RE.test(ip)
+  })
+  return { ...sdp, sdp: filtered.join('\r\n') }
 }
 
-/** Decompress and parse SDP from QR scan result. */
+// ─── Compress helpers ─────────────────────────────────────────────────────────
+
+function compress(text: string): string {
+  const bytes = deflateSync(strToU8(text), { level: 9 })
+  // Avoid spread (...bytes) — crashes on large arrays (call stack limit).
+  // Build the binary string with a loop instead.
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] as number)
+  return btoa(bin)
+}
+
+function decompress(b64: string): string {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+  return strFromU8(inflateSync(bytes))
+}
+
+// ─── SDP encode / decode ──────────────────────────────────────────────────────
+
+/**
+ * Strips non-local ICE candidates, then DEFLATE-compresses and base64-encodes.
+ * Typical stripped SDP (~350 bytes) compresses to ~150 bytes → ~200 base64 chars.
+ */
+export function encodeSDP(sdp: RTCSessionDescriptionInit): string {
+  return compress(JSON.stringify({ v: 1, type: 'sdp', sdp: stripSDP(sdp) }))
+}
+
 export function decodeSDP(encoded: string): RTCSessionDescriptionInit {
-  const raw = LZString.decompressFromEncodedURIComponent(encoded)
-  if (!raw) throw new Error('Failed to decompress SDP — invalid QR data')
+  const raw = decompress(encoded)
   const envelope = JSON.parse(raw) as SDPEnvelope
   if (envelope.v !== 1 || envelope.type !== 'sdp') throw new Error('Not an SDP QR code')
   return envelope.sdp
@@ -48,8 +88,7 @@ export function decodeSDP(encoded: string): RTCSessionDescriptionInit {
 
 export function isSDP(encoded: string): boolean {
   try {
-    const raw = LZString.decompressFromEncodedURIComponent(encoded)
-    if (!raw) return false
+    const raw = decompress(encoded)
     const env = JSON.parse(raw) as Partial<SDPEnvelope>
     return env.v === 1 && env.type === 'sdp'
   } catch {
@@ -77,14 +116,14 @@ export function chunkPayload(encryptedPayload: string): QRChunkEnvelope[] {
 
 /** Encode a QRChunkEnvelope to a string for QR display. */
 export function encodeChunk(envelope: QRChunkEnvelope): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(envelope))
+  // Encrypted data is already random bytes — compression gives no benefit.
+  // Plain JSON is simpler and avoids wasting CPU.
+  return JSON.stringify(envelope)
 }
 
 /** Decode a scanned string back to a QRChunkEnvelope. */
 export function decodeChunk(scanned: string): QRChunkEnvelope {
-  const raw = LZString.decompressFromEncodedURIComponent(scanned)
-  if (!raw) throw new Error('Failed to decompress chunk')
-  const env = JSON.parse(raw) as QRChunkEnvelope
+  const env = JSON.parse(scanned) as QRChunkEnvelope
   if (env.v !== 1) throw new Error('Unsupported chunk version')
   return env
 }

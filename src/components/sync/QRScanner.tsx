@@ -34,7 +34,7 @@ export default function QRScanner({ onScan, onError, active = true }: Props) {
       scanner
         .start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 240, height: 240 } },
+          { fps: 15, qrbox: { width: 192, height: 192 } },
           (text) => {
             if (text === lastScanRef.current) return
             lastScanRef.current = text
@@ -60,12 +60,35 @@ export default function QRScanner({ onScan, onError, active = true }: Props) {
   }, [active, scannerId, onScan, onError])
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        id={scannerId}
-        className="rounded-xl overflow-hidden bg-black"
-        style={{ width: 280, height: 280 }}
+    <div className="flex flex-col items-center gap-3 w-full">
+      {/* Container forces html5-qrcode to fill a square we control.
+          html5-qrcode injects video/canvas with inline width/height — override them. */}
+      <style
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: scoped CSS override for html5-qrcode video fill
+        dangerouslySetInnerHTML={{
+          __html: `
+            #${scannerId} video,
+            #${scannerId} canvas { width: 100% !important; height: 100% !important; object-fit: cover; }
+            #${scannerId} > div { width: 100% !important; height: 100% !important; }
+          `,
+        }}
       />
+      <div className="relative w-full max-w-[320px] aspect-square rounded-2xl overflow-hidden bg-black">
+        <div id={scannerId} className="absolute inset-0" />
+        {/* Scan-area overlay: corner brackets */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="relative w-48 h-48">
+            {/* TL */}
+            <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-accent rounded-tl-sm" />
+            {/* TR */}
+            <span className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-accent rounded-tr-sm" />
+            {/* BL */}
+            <span className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-accent rounded-bl-sm" />
+            {/* BR */}
+            <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-accent rounded-br-sm" />
+          </div>
+        </div>
+      </div>
       <p className="text-xs text-text-tertiary">Point camera at the QR code</p>
     </div>
   )

@@ -1,95 +1,152 @@
 /**
- * Camera QR scanner using html5-qrcode.
- * Calls onScan(result) once per unique decoded value.
- * Calls onError if camera permission denied.
+ * Camera QR scanner — getUserMedia + jsQR.
+ * Full control over video element; no library injecting DOM or fighting CSS.
+ * Calls onScan(result) once per unique decoded value (2 s debounce).
+ * Calls onError if camera permission denied or getUserMedia unavailable.
  */
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
-import { useEffect, useId, useRef } from 'react'
+import jsQR from 'jsqr'
+import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Props {
   onScan: (result: string) => void
   onError?: (err: string) => void
+  onClose?: () => void
   active?: boolean
 }
 
-export default function QRScanner({ onScan, onError, active = true }: Props) {
-  // useId gives a unique, stable ID per component instance — avoids DOM conflicts
-  // on re-mount (tab switching, strict mode double-invoke, etc.)
-  const rawId = useId()
-  const scannerId = `qr-${rawId.replace(/:/g, '')}`
-  const scannerRef = useRef<Html5Qrcode | null>(null)
+export default function QRScanner({ onScan, onError, onClose, active = true }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef = useRef<number>(0)
   const lastScanRef = useRef<string>('')
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     if (!active) return
 
-    // Small delay — lets React finish painting the div into the DOM
-    const tid = setTimeout(() => {
-      const scanner = new Html5Qrcode(scannerId, {
-        verbose: false,
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      })
-      scannerRef.current = scanner
+    let stream: MediaStream | null = null
+    let stopped = false
 
-      scanner
-        .start(
-          { facingMode: 'environment' },
-          { fps: 15, qrbox: { width: 192, height: 192 } },
-          (text) => {
-            if (text === lastScanRef.current) return
-            lastScanRef.current = text
-            onScan(text)
+    function tick() {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      if (!video || !canvas || stopped) return
+
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        const w = video.videoWidth
+        const h = video.videoHeight
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, w, h)
+          const imageData = ctx.getImageData(0, 0, w, h)
+          const result = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' })
+          if (result?.data && result.data !== lastScanRef.current) {
+            lastScanRef.current = result.data
+            onScan(result.data)
             setTimeout(() => {
               lastScanRef.current = ''
             }, 2000)
+          }
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(tick)
+    }
+
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
-          () => {
-            // per-frame decode errors are noise — ignore
-          },
-        )
-        .catch((err: unknown) => {
-          onError?.(String(err))
+          audio: false,
         })
-    }, 100)
+        if (stopped) {
+          for (const t of stream.getTracks()) t.stop()
+          return
+        }
+        const video = videoRef.current
+        if (!video) return
+        video.srcObject = stream
+        await video.play()
+        setReady(true)
+        rafRef.current = requestAnimationFrame(tick)
+      } catch (err) {
+        onError?.(String(err))
+      }
+    }
+
+    start()
 
     return () => {
-      clearTimeout(tid)
-      scannerRef.current?.stop().catch(() => {})
-      scannerRef.current = null
+      stopped = true
+      cancelAnimationFrame(rafRef.current)
+      if (stream) for (const t of stream.getTracks()) t.stop()
+      setReady(false)
     }
-  }, [active, scannerId, onScan, onError])
+  }, [active, onScan, onError])
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full">
-      {/* Container forces html5-qrcode to fill a square we control.
-          html5-qrcode injects video/canvas with inline width/height — override them. */}
-      <style
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: scoped CSS override for html5-qrcode video fill
-        dangerouslySetInnerHTML={{
-          __html: `
-            #${scannerId} video,
-            #${scannerId} canvas { width: 100% !important; height: 100% !important; object-fit: cover; }
-            #${scannerId} > div { width: 100% !important; height: 100% !important; }
-          `,
-        }}
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Full-screen camera feed */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        autoPlay
+        playsInline
+        muted
       />
-      <div className="relative w-full max-w-[320px] aspect-square rounded-2xl overflow-hidden bg-black">
-        <div id={scannerId} className="absolute inset-0" />
-        {/* Scan-area overlay: corner brackets */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="relative w-48 h-48">
-            {/* TL */}
-            <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-accent rounded-tl-sm" />
-            {/* TR */}
-            <span className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-accent rounded-tr-sm" />
-            {/* BL */}
-            <span className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-accent rounded-bl-sm" />
-            {/* BR */}
-            <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-accent rounded-br-sm" />
-          </div>
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Dim overlay outside scan zone */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* top */}
+        <div className="absolute inset-x-0 top-0 h-[calc(50%-104px)] bg-black/60" />
+        {/* bottom */}
+        <div className="absolute inset-x-0 bottom-0 h-[calc(50%-104px)] bg-black/60" />
+        {/* left */}
+        <div className="absolute left-0 top-[calc(50%-104px)] h-52 w-[calc(50%-104px)] bg-black/60" />
+        {/* right */}
+        <div className="absolute right-0 top-[calc(50%-104px)] h-52 w-[calc(50%-104px)] bg-black/60" />
+      </div>
+
+      {/* Loading spinner */}
+      {!ready && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+        </div>
+      )}
+
+      {/* Scan zone — corner brackets */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative w-52 h-52">
+          <span className="absolute top-0 left-0 w-10 h-10 border-t-[3px] border-l-[3px] border-accent rounded-tl" />
+          <span className="absolute top-0 right-0 w-10 h-10 border-t-[3px] border-r-[3px] border-accent rounded-tr" />
+          <span className="absolute bottom-0 left-0 w-10 h-10 border-b-[3px] border-l-[3px] border-accent rounded-bl" />
+          <span className="absolute bottom-0 right-0 w-10 h-10 border-b-[3px] border-r-[3px] border-accent rounded-br" />
         </div>
       </div>
-      <p className="text-xs text-text-tertiary">Point camera at the QR code</p>
+
+      {/* Label */}
+      <div className="absolute bottom-20 inset-x-0 flex flex-col items-center gap-2">
+        <p className="text-sm text-white/80">Point camera at the QR code</p>
+      </div>
+
+      {/* Close button */}
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-12 right-4 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white"
+        >
+          <X size={20} />
+        </button>
+      )}
     </div>
   )
 }

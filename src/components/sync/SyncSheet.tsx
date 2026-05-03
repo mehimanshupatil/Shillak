@@ -399,31 +399,11 @@ function WiFiTab({
   }
 
   if (state.step === 'scan-answer') {
-    return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-text-secondary text-center">
-          Step 2: Scan the answer QR from the other device
-        </p>
-        <QRScanner onScan={onScanAnswer} />
-        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
-          Cancel
-        </button>
-      </div>
-    )
+    return <QRScanner onScan={onScanAnswer} onClose={onReset} />
   }
 
   if (state.step === 'scanning-offer') {
-    return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-text-secondary text-center">
-          Scan the other device&apos;s offer QR
-        </p>
-        <QRScanner onScan={onScanOffer} />
-        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
-          Cancel
-        </button>
-      </div>
-    )
+    return <QRScanner onScan={onScanOffer} onClose={onReset} />
   }
 
   if (state.step === 'answering') {
@@ -586,10 +566,7 @@ function QRBatchTab({
             {missing} chunk{missing > 1 ? 's' : ''} remaining
           </p>
         )}
-        <QRScanner onScan={onChunkScan} />
-        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
-          Cancel
-        </button>
+        <QRScanner onScan={onChunkScan} onClose={onReset} />
       </div>
     )
   }

@@ -1,4 +1,4 @@
-# Shillak — Group Budget Tracker
+# Shillak — Shared Budget Tracker
 > Privacy-first, offline-only PWA for shared household and group finances.
 > No server. No login. No cloud. Data never leaves the device.
 
@@ -12,13 +12,15 @@
 
 ## What this app is
 
-Shillak is a **group finance app** — not a personal budget tracker, not a Splitwise clone.
+Shillak is a **shared finance app** — not a personal budget tracker, not a Splitwise clone.
 
 - A family uses it as a **household budget tracker**: track income, spending vs budget, savings goals, recurring expenses (rent, EMIs, SIPs).
 - A group of flatmates uses it to **split shared expenses** and see who owes whom.
 - A trip group uses it to **track shared costs** for a holiday.
 
-Each "group" is an independent, private pocket. One app install can belong to multiple groups. All data lives in the browser's IndexedDB, encrypted with a local PIN.
+Each **space** is an independent, private pocket. One app install can belong to multiple spaces (family, flatmates, trip — each isolated). All data lives in the browser's IndexedDB, encrypted with a local PIN.
+
+> **UI terminology:** The user-visible word for a group is **"space"** (Settings → Space, "Add space", "New space", etc.). Internal code variables remain `groupId`, `group_secret`, `db.groups`, etc. — do not rename code symbols.
 
 ---
 
@@ -27,8 +29,8 @@ Each "group" is an independent, private pocket. One app install can belong to mu
 1. **Offline first** — the app works 100% without internet. Always. No feature degrades silently when offline.
 2. **Privacy first** — no server, no account, no analytics, no telemetry. Data stays on device.
 3. **Local sync only** — data syncs between devices via local WiFi (WebRTC, no server), QR code batching, or JSON file export. User chooses.
-4. **Multi-group** — one install, N groups. Family, flatmates, trip — each isolated.
-5. **Transparent** — full visibility into group data for all members (no hidden transactions).
+4. **Multi-space** — one install, N spaces. Family, flatmates, trip — each isolated.
+5. **Transparent** — full visibility into space data for all members (no hidden transactions).
 
 ---
 
@@ -191,14 +193,15 @@ Shillak/
 │   │   └── useSync.ts
 │   ├── components/
 │   │   ├── ui/             # shadcn base components
-│   │   ├── layout/         # BottomNav, PageHeader, GroupSwitcher
+│   │   ├── layout/         # BottomNav, PageHeader, SpaceSwitcher
 │   │   ├── transaction/    # TransactionCard, TransactionForm, TransactionList
 │   │   ├── budget/         # BudgetBar, BudgetCard, BudgetForm
-│   │   ├── group/          # GroupCard, GroupForm, MemberList, InviteSheet
+│   │   ├── space/          # EditSpaceSheet, EditProfileSheet, InviteSheet
 │   │   ├── sync/           # SyncSheet, QRDisplay, QRScanner, ConflictResolver
 │   │   └── charts/         # SpendingDonut, MonthlyBar, GoalProgress
 │   ├── pages/
-│   │   ├── Onboarding/
+│   │   ├── Onboarding/     # WelcomeScreen, CreateProfileScreen, SpaceChoiceScreen,
+│   │   │                   # CreateSpaceScreen, JoinSpacePreviewScreen
 │   │   ├── Dashboard/
 │   │   ├── Transactions/
 │   │   ├── Budgets/
@@ -792,16 +795,16 @@ The Splits tab shows the output of `minimizeTransfers` — minimum number of pay
 ## Sync — adding a new member (join flow)
 
 ### Via QR code
-1. Admin: Settings → Members → Add Member → Show QR
+1. Admin: Settings → Members → Invite → Show QR
 2. QR payload: `{ invite_id, group_id, group_name, group_color, split_enabled, income_tracking, created_by_name, expires_at, member_count, group_secret, signature }`
 3. `signature = HMAC-SHA256(payload_without_signature, group_secret)`
-4. New member scans → verifies signature → sees group preview → taps "Join"
+4. New member: Dashboard "+" → "Join existing space" → scans QR → sees space preview → taps "Join"
 5. App creates GroupMember, stores `group_secret` encrypted
-6. Immediately initiates Local WiFi sync with admin to get full history
+6. Then sync via Settings → Sync (WebRTC or JSON) to get full transaction history
 7. If not on same WiFi: admin exports JSON snapshot, shares manually
 
 ### Via JSON invite file
-1. Admin exports invite file (group snapshot + invite payload including `group_secret`)
+1. Admin exports invite file (space snapshot + invite payload including `group_secret`)
 2. New member imports → joins with snapshot
 3. Next sync uses normal delta flow
 
@@ -865,15 +868,15 @@ Launch
   ↓
 [No User found in DB / keystore empty]
   ↓
-Screen 1: Welcome — "Your private group ledger"
+Screen 1: Welcome — "Your private shared ledger"
   ↓
 Screen 2: Create profile — Name + avatar color + PIN (required)
            → writes keystore (salt + pin_check), creates User record
   ↓
-Screen 3: Choice — "Create a new group" | "Join existing group"
+Screen 3: Choice — "Create a new space" | "Join existing space"
   ↓
 [Create path]                        [Join path]
-Screen 4: Group name + currency +    Screen 4: Scan invite QR | Import .shillak file
+Screen 4: Space name + currency +    Screen 4: Scan invite QR | Import .shillak file
           fiscal year + split? +
           income tracking?
   ↓                                   ↓
@@ -890,7 +893,7 @@ If `db.open()` throws (private browsing, storage blocked, quota exceeded), show 
 ## Screen map (5 bottom nav tabs)
 
 ### 1. Dashboard (`/`)
-- Active group switcher (top, pill carousel)
+- Active space switcher (top, pill carousel)
 - Month selector (swipeable)
 - Total spend vs budget ring chart
 - Budget bars per category
@@ -917,13 +920,13 @@ If `db.open()` throws (private browsing, storage blocked, quota exceeded), show 
 - "Settle all with [person]" shortcut
 
 ### 5. Settings (`/settings`)
-- Group: name, currency, fiscal year, toggles
+- Space: name, currency, fiscal year, toggles
 - Members: list, roles, transfer admin, remove
 - Categories: list, add, reorder, edit
 - Sync: last sync status, open sync sheet
 - Profile: name, PIN change, identity backup export
-- Data: export, import, clear, archived groups
-- Security: rotate group sync key (Phase 4)
+- Data: export, import, clear, archived spaces
+- Security: rotate space sync key (Phase 4)
 
 ---
 
@@ -941,15 +944,15 @@ Triggered by `ConflictLog.resolution === 'pending'`. Card: entity type, "Your ve
 - Tab 3: JSON — export + import buttons
 - Sync log: last N SyncEvent records
 
-### Group switcher
-Pill row at Dashboard top. Tap: switch. Long press: context menu. Archived groups shown greyed. "+" to create or join.
+### Space switcher
+Pill row at Dashboard top. Tap: switch. Long press: context menu. Archived spaces shown greyed. "+" opens sheet to create or join.
 
-### Archived groups
+### Archived spaces
 - Archived when last member leaves
 - Read-only (no new txns, no edits)
-- Accessible: Settings → Archived Groups
+- Accessible: Settings → Archived Spaces
 - Can export JSON snapshot
-- Cannot rejoin — create new group
+- Cannot rejoin — create new space
 
 ---
 
@@ -969,7 +972,7 @@ interface IdentityBackup {
 
 Exported as `.shillak-id`. Not additionally encrypted — contains no transaction data. `pin_check` is already AES-GCM ciphertext requiring the PIN to verify.
 
-**Restore:** New device → import `.shillak-id` → enter PIN → derive key from `backup.salt` → verify → restore User + keystore → show "Join a group" screen.
+**Restore:** New device → import `.shillak-id` → enter PIN → derive key from `backup.salt` → verify → restore User + keystore → show "Join a space" screen.
 
 ---
 
@@ -1215,16 +1218,16 @@ pnpm lint
 1. ShillakDB subclass (`EncryptedTable` wrapper) + keystore + encryption
 2. `AppBootstrap` boot sequence + React Router v6 skeleton
 3. `lib/utils.ts` — `toPaise`, `formatCurrency`, `advanceDate`, `applyFxRate`
-4. Onboarding (profile + first group + PIN)
+4. Onboarding (profile + first space + PIN)
 5. Dashboard (monthly summary, budget bars, spending donut, monthly bar chart)
 6. Quick-add FAB + bottom sheet
 7. Transaction list
 
-### Phase 2 — Groups ✅ COMPLETE
-6. Group settings + member management (admin invariant enforced)
+### Phase 2 — Spaces ✅ COMPLETE
+6. Space settings + member management (admin invariant enforced)
 7. Category management
 8. Recurrence setup UI
-9. Multi-group switcher (GroupSwitcher pill row on Dashboard)
+9. Multi-space switcher (SpaceSwitcher pill row on Dashboard)
 
 ### Phase 3 — Sync ✅ COMPLETE
 10. ✅ JSON export/import (`src/sync/json.ts` + Settings Data section)
@@ -1236,7 +1239,7 @@ pnpm lint
 16. ✅ Transport encryption — `src/sync/transport.ts` (HKDF from group_secret)
 17. ✅ Vector clock + delta — `src/sync/vector-clock.ts`
 18. ✅ Apply delta + admin invariant — `src/sync/conflict.ts`
-19. ⬜ Invite member via QR (GroupChoiceScreen "Join" still disabled — needs invite flow)
+19. ✅ Invite member via QR — `src/sync/invite.ts` (HMAC-signed, 24h expiry), `InviteSheet`, `SpaceChoiceScreen` join flow, `JoinSpacePreviewScreen`
 
 ### Phase 4 — Polish ✅ MOSTLY COMPLETE
 14. ✅ Splits tab + minimum-transfer algorithm
@@ -1246,15 +1249,15 @@ pnpm lint
 18. ✅ Budget overrun alerts (AlertTriangle banners on BudgetsPage, ≥80% threshold)
 19. ✅ App lock (PIN gate, Page Visibility API, BroadcastChannel multi-tab)
 20. ✅ PIN change (re-encryption with progress UI — ChangePinSheet)
-21. ✅ Identity backup export/restore (`.shillak-id` — Settings + GroupChoiceScreen)
+21. ✅ Identity backup export/restore (`.shillak-id` — Settings + SpaceChoiceScreen)
 22. ✅ Storage quota warnings (Settings → Data section, bar + warn/block messages)
 23. ✅ Full transaction search (date range, category, person filters + collapsible filter panel)
 24. ✅ Swipe gestures on transaction cards (left = delete, right = edit via SwipeCard component)
 25. ✅ Budget month-over-month sparklines (6-bar SVG per budget card, last 6 months)
 26. ✅ PWA — offline support, install prompt, update banner (`PWAManager.tsx`, `registerType: 'prompt'`, workbox navigateFallback + cleanupOutdatedCaches)
-27. ⬜ Group secret rotation (Settings → Security → "Rotate sync key")
+27. ⬜ Space sync key rotation (Settings → Security → "Rotate sync key")
 28. ⬜ Biometric unlock (WebAuthn as PIN shortcut — Phase 4 v2)
-29. ⬜ Second group creation / join from inside the app (Settings or GroupSwitcher "+")
+29. ✅ Add/join space from inside app — SpaceSwitcher "+" sheet (create or scan invite QR)
 
 ---
 
@@ -1279,8 +1282,8 @@ pnpm lint
 - **Never increment another user's vector clock.** `incrementVectorClock` asserts `userId === currentUserId`.
 - **Admin invariant enforced after every sync apply.** 0 admins → promote oldest. 2+ admins → keep newest updated_at.
 - **Conflict resolution never silent for budget/goal.** Always ConflictLog + user prompt.
-- **Vector clock per group.** Stamp `author_seq` on every write.
-- **One AES key per device.** Never per-group keys.
+- **Vector clock per space.** Stamp `author_seq` on every write.
+- **One AES key per device.** Never per-space keys.
 - **`group_secret` as HMAC key.** Never `group_id`.
 - **`useLiveQuery` for raw reads. TanStack Query for derived values only.** Never mix for same source.
 - **Never spread raw seed constants** into Dexie. Always `createDefaultCategories(groupId, userId)`.

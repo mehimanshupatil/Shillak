@@ -11,6 +11,7 @@ import type {
   SavingsGoal,
   Split,
   Transaction,
+  User,
 } from '@/db/schema'
 import useAppStore from '@/stores/app.store'
 
@@ -20,6 +21,7 @@ export interface SyncDelta {
   transactions: Transaction[]
   categories: Category[]
   members: GroupMember[]
+  users: User[]
   budgets: Budget[]
   goals: SavingsGoal[]
   splits: Split[]
@@ -95,12 +97,18 @@ export async function computeDelta(
     db.recurrences.where((r) => r.groupId === groupId),
   ])
 
+  // Users: send profiles of all members in this group so peers can display names/avatars.
+  const memberUserIds = members.map((m) => m.userId)
+  const userRecords = await db.users.bulkGet(memberUserIds)
+  const users = userRecords.filter((u): u is NonNullable<typeof u> => u !== undefined)
+
   return {
     fromUserId,
     vectorClock: group.vectorClock,
     transactions,
     categories,
     members,
+    users,
     budgets,
     goals,
     splits,

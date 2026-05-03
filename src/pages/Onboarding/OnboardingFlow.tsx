@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import CreateGroupScreen from './CreateGroupScreen'
+import type { InvitePayload } from '@/sync/invite'
+import CreateSpaceScreen from './CreateSpaceScreen'
 import CreateProfileScreen from './CreateProfileScreen'
-import GroupChoiceScreen from './GroupChoiceScreen'
+import SpaceChoiceScreen from './SpaceChoiceScreen'
+import JoinSpacePreviewScreen from './JoinSpacePreviewScreen'
 import WelcomeScreen from './WelcomeScreen'
 
-type Step = 'welcome' | 'profile' | 'choice' | 'create-group' | 'restore'
+type Step = 'welcome' | 'profile' | 'choice' | 'create-group' | 'join-preview' | 'restore'
 
 interface ProfileData {
   userId: string
@@ -20,6 +22,7 @@ interface Props {
 export default function OnboardingFlow({ onComplete, onRestoreIdentity }: Props) {
   const [step, setStep] = useState<Step>('welcome')
   const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [pendingInvite, setPendingInvite] = useState<InvitePayload | null>(null)
 
   return (
     <div className="app-shell safe-top safe-bottom">
@@ -33,15 +36,30 @@ export default function OnboardingFlow({ onComplete, onRestoreIdentity }: Props)
         />
       )}
       {step === 'choice' && profile && (
-        <GroupChoiceScreen
-          onCreateGroup={() => setStep('create-group')}
+        <SpaceChoiceScreen
+          onCreateSpace={() => setStep('create-group')}
           onRestoreIdentity={onRestoreIdentity}
+          onJoinSpace={(invite) => {
+            setPendingInvite(invite)
+            setStep('join-preview')
+          }}
         />
       )}
       {step === 'create-group' && profile && (
-        <CreateGroupScreen
+        <CreateSpaceScreen
           userId={profile.userId}
           onComplete={(groupId) => onComplete(profile.userId, groupId)}
+        />
+      )}
+      {step === 'join-preview' && profile && pendingInvite && (
+        <JoinSpacePreviewScreen
+          invite={pendingInvite}
+          userId={profile.userId}
+          onComplete={() => onComplete(profile.userId, pendingInvite.groupId)}
+          onBack={() => {
+            setPendingInvite(null)
+            setStep('choice')
+          }}
         />
       )}
     </div>

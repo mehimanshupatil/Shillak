@@ -62,6 +62,19 @@ export async function applyDelta(
     }
   }
 
+  // ── Users ─────────────────────────────────────────────────────────────────
+  // Only write if not already present — never overwrite the local user's own profile.
+  // Remote user profiles are accepted as-is (they own their own name/avatar).
+  for (const incoming of delta.users ?? []) {
+    const existing = await db.users.get(incoming.userId)
+    if (!existing) {
+      await db.users.put(incoming)
+      applied++
+    }
+    // If exists: the owner of that userId is the authoritative source — skip overwrite.
+    // They'll send their own updated profile next time they edit it (future: add updatedAt to User).
+  }
+
   // ── Categories ────────────────────────────────────────────────────────────
   for (const incoming of delta.categories) {
     const existing = await db.categories.get(incoming.categoryId)

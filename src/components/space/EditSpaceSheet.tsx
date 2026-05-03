@@ -14,7 +14,7 @@ interface Props {
   group: Group
 }
 
-export default function EditGroupSheet({ open, onClose, group }: Props) {
+export default function EditSpaceSheet({ open, onClose, group }: Props) {
   const [name, setName] = useState(group.name)
   const [currency, setCurrency] = useState(group.currency)
   const [fiscalMonth, setFiscalMonth] = useState(group.fiscalYearStart)
@@ -72,13 +72,13 @@ export default function EditGroupSheet({ open, onClose, group }: Props) {
         <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
           <SheetHeader className="p-0">
             <SheetTitle className="text-base font-semibold text-text-primary">
-              Edit group
+              Edit space
             </SheetTitle>
           </SheetHeader>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-              Group name
+              Space name
             </Label>
             <Input
               value={name}

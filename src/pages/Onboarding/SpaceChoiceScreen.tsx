@@ -1,16 +1,26 @@
 import { QrCode, RotateCcw, Users } from 'lucide-react'
 import { useRef, useState } from 'react'
+import QRScanner from '@/components/sync/QRScanner'
 import { Button } from '@/components/ui/button'
 import { importIdentityBackup } from '@/sync/identity'
+import { type InvitePayload, isInvite, parseAndVerifyInvite } from '@/sync/invite'
 
 interface Props {
-  onCreateGroup: () => void
+  onCreateSpace: () => void
   onRestoreIdentity: () => void
+  onJoinSpace: (invite: InvitePayload) => void
 }
 
-export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: Props) {
+export default function SpaceChoiceScreen({
+  onCreateSpace,
+  onRestoreIdentity,
+  onJoinSpace,
+}: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [restoreError, setRestoreError] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [verifying, setVerifying] = useState(false)
 
   async function handleRestoreFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -24,19 +34,52 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
     }
   }
 
+  async function handleScan(data: string) {
+    if (verifying) return
+    if (!isInvite(data)) {
+      setScanError(
+        "Not a valid Shillak invite QR — make sure you're scanning an invite, not a sync QR.",
+      )
+      return
+    }
+    setVerifying(true)
+    setScanError('')
+    try {
+      const invite = await parseAndVerifyInvite(data)
+      setScanning(false)
+      onJoinSpace(invite)
+    } catch (e) {
+      setScanError(String(e))
+      setVerifying(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full px-6 py-8 gap-6">
+      {scanning && (
+        <QRScanner
+          active={scanning}
+          onScan={handleScan}
+          onError={(e) => setScanError(e)}
+          onClose={() => {
+            setScanning(false)
+            setScanError('')
+            setVerifying(false)
+          }}
+        />
+      )}
+
       <div>
-        <h2 className="text-2xl font-bold text-text-primary">Your first group</h2>
+        <h2 className="text-2xl font-bold text-text-primary">Your first space</h2>
         <p className="text-sm text-text-secondary mt-1">
-          Create a new group or join an existing one.
+          Create a new space or join an existing one.
         </p>
       </div>
 
       <div className="flex flex-col gap-4 mt-4">
         <Button
           variant="secondary"
-          onClick={onCreateGroup}
+          onClick={onCreateSpace}
           className="w-full p-5 h-auto rounded-2xl border border-border
                      flex items-start gap-4 text-left"
         >
@@ -44,7 +87,7 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
             <Users size={20} className="text-accent" />
           </div>
           <div>
-            <p className="font-semibold text-text-primary">Create a new group</p>
+            <p className="font-semibold text-text-primary">Create a new space</p>
             <p className="text-sm text-text-secondary mt-0.5">
               Family budget, flatmates, trip — set up from scratch.
             </p>
@@ -53,20 +96,26 @@ export default function GroupChoiceScreen({ onCreateGroup, onRestoreIdentity }: 
 
         <Button
           variant="secondary"
-          disabled
+          onClick={() => {
+            setScanError('')
+            setVerifying(false)
+            setScanning(true)
+          }}
           className="w-full p-5 h-auto rounded-2xl border border-border
-                     flex items-start gap-4 text-left opacity-40 cursor-not-allowed"
+                     flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
             <QrCode size={20} className="text-text-secondary" />
           </div>
           <div>
-            <p className="font-semibold text-text-primary">Join existing group</p>
+            <p className="font-semibold text-text-primary">Join existing space</p>
             <p className="text-sm text-text-secondary mt-0.5">
-              Scan a QR invite or import a file. Coming in Phase 3.
+              Scan an invite QR from the space admin.
             </p>
           </div>
         </Button>
+
+        {scanError && <p className="text-xs text-danger px-1 -mt-2">{scanError}</p>}
 
         <Button
           variant="secondary"

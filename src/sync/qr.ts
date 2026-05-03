@@ -2,19 +2,21 @@
  * QR chunk generation and reassembly.
  * Also handles SDP encoding/decoding for WebRTC signaling.
  *
- * Chunk target: ≤600 bytes raw data. After base64 + JSON wrapper the QR payload
- * stays within version-40 QR capacity (~1850 alphanumeric chars).
+ * SDP compact format — pipe-separated, ~120 chars total:
+ *   t|ufrag|pwd|fp_hex|setup|ip:port[|ip:port...]
+ *   t       = 'o' (offer) | 'a' (answer)
+ *   fp_hex  = sha-256 fingerprint as 64 lowercase hex chars, no colons
+ *   ip:port = local-network host candidates only
  *
- * Chunk envelope:
+ *   ~120 chars → version-3 QR at level M — small, fast to scan.
+ *
+ * Chunk envelope (JSON, no compression — payload is already encrypted):
  *   { v: 1, session: string, total: number, index: number, data: string }
- *
- * SDP envelope (for WebRTC):
- *   { v: 1, type: 'sdp', sdp: RTCSessionDescriptionInit }
- *   DEFLATE-compressed (fflate), base64 encoded — single QR.
+ *   300 bytes per chunk → ~460 chars QR → version-5 QR at level M.
  */
-import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate'
 
-export const QR_CHUNK_BYTES = 600
+// 300 bytes of data per chunk → ~460 chars QR → version-5 QR at level M.
+export const QR_CHUNK_BYTES = 300
 
 export interface QRChunkEnvelope {
   v: 1
@@ -24,79 +26,157 @@ export interface QRChunkEnvelope {
   data: string // base64 chunk of the full encrypted payload
 }
 
-interface SDPEnvelope {
-  v: 1
-  type: 'sdp'
-  sdp: RTCSessionDescriptionInit
-}
+// ─── Minimal SDP codec ────────────────────────────────────────────────────────
+// Full SDP is ~800+ bytes. We only need 5 fields — ufrag, pwd, fingerprint,
+// setup, and local ICE candidates. This brings the QR down to ~120 chars.
 
-// ─── SDP strip — local WiFi only ─────────────────────────────────────────────
-
+const SEP = '|'
 const LOCAL_IP_RE = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/
 
-/**
- * Strip SDP down to only local-network ICE candidates.
- * Removes srflx (STUN) and relay (TURN) candidates — useless on local WiFi
- * and take up ~60% of the raw SDP bytes.
- */
-function stripSDP(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
-  // RTCSessionDescription has type/sdp as prototype getters — spread drops them.
-  // Always extract explicitly so JSON.stringify captures both fields.
-  const type = sdp.type
-  const raw = sdp.sdp
-  if (!raw) return { type, sdp: raw }
-  const lines = raw.split('\r\n')
-  const filtered = lines.filter((line) => {
-    if (!line.startsWith('a=candidate:')) return true
-    if (!line.includes('typ host')) return false
-    const parts = line.split(' ')
-    const ip = parts[4] ?? ''
-    return LOCAL_IP_RE.test(ip)
+interface MinimalSDP {
+  type: 'offer' | 'answer'
+  ufrag: string
+  pwd: string
+  fp: string // 64 hex chars, no colons
+  setup: string
+  candidates: string[] // "ip:port"
+}
+
+function parseSDP(sdp: RTCSessionDescriptionInit): MinimalSDP {
+  const lines = (sdp.sdp ?? '').split(/\r?\n/)
+  let ufrag = ''
+  let pwd = ''
+  let fp = ''
+  let setup = ''
+  const candidates: string[] = []
+
+  for (const line of lines) {
+    if (line.startsWith('a=ice-ufrag:')) {
+      ufrag = line.slice(12).trim()
+    } else if (line.startsWith('a=ice-pwd:')) {
+      pwd = line.slice(10).trim()
+    } else if (line.startsWith('a=fingerprint:sha-256 ')) {
+      fp = line.slice(22).trim().replace(/:/g, '').toLowerCase()
+    } else if (line.startsWith('a=setup:')) {
+      setup = line.slice(8).trim()
+    } else if (line.startsWith('a=candidate:')) {
+      // a=candidate:1 1 UDP 2122252543 <ip> <port> typ host ...
+      const parts = line.split(' ')
+      const ip = parts[4] ?? ''
+      const port = parts[5] ?? ''
+      if (parts[7] === 'host' && LOCAL_IP_RE.test(ip)) {
+        candidates.push(`${ip}:${port}`)
+      }
+    }
+  }
+
+  console.log(
+    '[QR:parseSDP] ufrag:',
+    ufrag,
+    'pwd len:',
+    pwd.length,
+    'fp len:',
+    fp.length,
+    'candidates:',
+    candidates,
+  )
+
+  if (!ufrag || !pwd || !fp || !setup || candidates.length === 0) {
+    throw new Error(
+      `SDP missing required fields — ufrag:${!!ufrag} pwd:${!!pwd} fp:${!!fp} setup:${!!setup} candidates:${candidates.length}`,
+    )
+  }
+
+  return { type: sdp.type as 'offer' | 'answer', ufrag, pwd, fp, setup, candidates }
+}
+
+function reconstructSDP(m: MinimalSDP): RTCSessionDescriptionInit {
+  const fpWithColons = (m.fp.match(/.{2}/g) ?? []).join(':')
+  const candidateLines = m.candidates.map((c, i) => {
+    const colonIdx = c.lastIndexOf(':')
+    const ip = c.slice(0, colonIdx)
+    const port = c.slice(colonIdx + 1)
+    return `a=candidate:${i + 1} 1 UDP 2122252543 ${ip} ${port} typ host`
   })
-  return { type, sdp: filtered.join('\r\n') }
-}
 
-// ─── Compress helpers ─────────────────────────────────────────────────────────
+  const sdpStr = [
+    'v=0',
+    'o=- 1 1 IN IP4 0.0.0.0',
+    's=-',
+    't=0 0',
+    'a=group:BUNDLE 0',
+    'a=extmap-allow-mixed',
+    'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+    'c=IN IP4 0.0.0.0',
+    'a=bundle-only',
+    'a=mid:0',
+    'a=sctp-port:5000',
+    'a=max-message-size:262144',
+    `a=ice-ufrag:${m.ufrag}`,
+    `a=ice-pwd:${m.pwd}`,
+    'a=ice-options:trickle',
+    `a=fingerprint:sha-256 ${fpWithColons}`,
+    `a=setup:${m.setup}`,
+    ...candidateLines,
+    '',
+  ].join('\r\n')
 
-function compress(text: string): string {
-  const bytes = deflateSync(strToU8(text), { level: 9 })
-  // Avoid spread (...bytes) — crashes on large arrays (call stack limit).
-  // Build the binary string with a loop instead.
-  let bin = ''
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] as number)
-  return btoa(bin)
-}
-
-function decompress(b64: string): string {
-  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-  return strFromU8(inflateSync(bytes))
+  return { type: m.type, sdp: sdpStr }
 }
 
 // ─── SDP encode / decode ──────────────────────────────────────────────────────
 
 /**
- * Strips non-local ICE candidates, then DEFLATE-compresses and base64-encodes.
- * Typical stripped SDP (~350 bytes) compresses to ~150 bytes → ~200 base64 chars.
+ * Encode SDP to ~120 char pipe-delimited string.
+ * Format: t|ufrag|pwd|fp_hex|setup|ip:port[|ip:port...]
  */
 export function encodeSDP(sdp: RTCSessionDescriptionInit): string {
-  return compress(JSON.stringify({ v: 1, type: 'sdp', sdp: stripSDP(sdp) }))
+  const m = parseSDP(sdp)
+  const encoded = [
+    m.type === 'offer' ? 'o' : 'a',
+    m.ufrag,
+    m.pwd,
+    m.fp,
+    m.setup,
+    ...m.candidates,
+  ].join(SEP)
+  console.log(
+    '[QR:encodeSDP] encoded length:',
+    encoded.length,
+    'value:',
+    `${encoded.slice(0, 40)}…`,
+  )
+  return encoded
 }
 
 export function decodeSDP(encoded: string): RTCSessionDescriptionInit {
-  const raw = decompress(encoded)
-  const envelope = JSON.parse(raw) as SDPEnvelope
-  if (envelope.v !== 1 || envelope.type !== 'sdp') throw new Error('Not an SDP QR code')
-  return envelope.sdp
+  console.log('[QR:decodeSDP] encoded length:', encoded.length)
+  const parts = encoded.split(SEP)
+  if (parts.length < 6) throw new Error(`Invalid compact SDP — got ${parts.length} fields, need ≥6`)
+  const [t, ufrag, pwd, fp, setup, ...candidates] = parts
+  if (!t || !ufrag || !pwd || !fp || !setup || candidates.length === 0) {
+    throw new Error('Invalid compact SDP — missing required fields')
+  }
+  const result = reconstructSDP({
+    type: t === 'o' ? 'offer' : 'answer',
+    ufrag,
+    pwd,
+    fp,
+    setup,
+    candidates,
+  })
+  console.log(
+    '[QR:decodeSDP] reconstructed type:',
+    result.type,
+    'sdp lines:',
+    result.sdp?.split('\r\n').length,
+  )
+  return result
 }
 
 export function isSDP(encoded: string): boolean {
-  try {
-    const raw = decompress(encoded)
-    const env = JSON.parse(raw) as Partial<SDPEnvelope>
-    return env.v === 1 && env.type === 'sdp'
-  } catch {
-    return false
-  }
+  const parts = encoded.split(SEP)
+  return (parts[0] === 'o' || parts[0] === 'a') && parts.length >= 6
 }
 
 // ─── Chunk encode / decode ────────────────────────────────────────────────────
@@ -119,8 +199,7 @@ export function chunkPayload(encryptedPayload: string): QRChunkEnvelope[] {
 
 /** Encode a QRChunkEnvelope to a string for QR display. */
 export function encodeChunk(envelope: QRChunkEnvelope): string {
-  // Encrypted data is already random bytes — compression gives no benefit.
-  // Plain JSON is simpler and avoids wasting CPU.
+  // Payload is already encrypted — no compression benefit.
   return JSON.stringify(envelope)
 }
 

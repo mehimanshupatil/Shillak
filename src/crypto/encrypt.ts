@@ -1,7 +1,10 @@
 /** AES-GCM encrypt/decrypt helpers. IV is 12 random bytes prepended to ciphertext. */
 
 export function toBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
+  // Never use spread (...bytes) — crashes on large arrays (call stack limit).
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] as number)
+  return btoa(bin)
 }
 
 export function fromBase64(b64: string): Uint8Array {

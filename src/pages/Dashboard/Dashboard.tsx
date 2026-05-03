@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import MonthlyBar from '@/components/charts/MonthlyBar'
 import SpendingDonut from '@/components/charts/SpendingDonut'
-import GroupSwitcher from '@/components/layout/GroupSwitcher'
+import SpaceSwitcher from '@/components/layout/SpaceSwitcher'
 import Logo from '@/components/layout/Logo'
 import QuickAddFAB from '@/components/transaction/QuickAddFAB'
 import { Button } from '@/components/ui/button'
@@ -159,7 +159,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <Logo variant="full" size={28} />
         </div>
-        <GroupSwitcher />
+        <SpaceSwitcher />
         {/* Month selector */}
         <div className="flex items-center gap-2">
           <Button

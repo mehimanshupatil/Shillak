@@ -13,7 +13,7 @@ interface Props {
   onComplete: (groupId: string) => void
 }
 
-export default function CreateGroupScreen({ userId, onComplete }: Props) {
+export default function CreateSpaceScreen({ userId, onComplete }: Props) {
   const [name, setName] = useState('')
   const [currency, setCurrency] = useState('INR')
   const [fiscalMonth, setFiscalMonth] = useState(4) // April
@@ -25,7 +25,7 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
-      setError('Group name is required')
+      setError('Space name is required')
       return
     }
     setLoading(true)
@@ -85,20 +85,20 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full px-6 py-8 gap-6 overflow-y-auto">
       <div>
-        <h2 className="text-2xl font-bold text-text-primary">New group</h2>
+        <h2 className="text-2xl font-bold text-text-primary">New space</h2>
         <p className="text-sm text-text-secondary mt-1">Set up your shared budget.</p>
       </div>
 
-      {/* Group name */}
+      {/* Space name */}
       <div className="space-y-2">
         <Label
-          htmlFor="group-name"
+          htmlFor="space-name"
           className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
-          Group name
+          Space name
         </Label>
         <Input
-          id="group-name"
+          id="space-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -112,13 +112,13 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
       {/* Currency */}
       <div className="space-y-2">
         <Label
-          htmlFor="group-currency"
+          htmlFor="space-currency"
           className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
           Currency
         </Label>
         <select
-          id="group-currency"
+          id="space-currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="w-full h-12 rounded-xl px-4 bg-surface border border-border
@@ -135,13 +135,13 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
       {/* Fiscal year start */}
       <div className="space-y-2">
         <Label
-          htmlFor="group-fiscal"
+          htmlFor="space-fiscal"
           className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
           Fiscal year starts in
         </Label>
         <select
-          id="group-fiscal"
+          id="space-fiscal"
           value={fiscalMonth}
           onChange={(e) => setFiscalMonth(Number(e.target.value))}
           className="w-full h-12 rounded-xl px-4 bg-surface border border-border
@@ -190,7 +190,7 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
           disabled={loading}
           className="w-full rounded-2xl font-semibold"
         >
-          {loading ? 'Creating…' : 'Create group'}
+          {loading ? 'Creating…' : 'Create space'}
         </Button>
       </div>
     </form>

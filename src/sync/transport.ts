@@ -50,7 +50,16 @@ export async function decryptPayload<T>(b64: string, key: CryptoKey): Promise<T>
   const combined = fromBase64(b64)
   const iv = combined.slice(0, 12)
   const ciphertext = combined.slice(12)
-  const compressed = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  let compressed: ArrayBuffer
+  try {
+    compressed = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  } catch {
+    throw new Error(
+      'Sync failed — the two devices are not in the same space. ' +
+      'Make sure you joined via an invite QR from the space admin (Settings → Members → Invite), ' +
+      'not by creating a separate space.',
+    )
+  }
   const json = inflateSync(new Uint8Array(compressed))
   return JSON.parse(new TextDecoder().decode(json)) as T
 }

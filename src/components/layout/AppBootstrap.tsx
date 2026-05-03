@@ -3,6 +3,7 @@ import { broadcastLock, initLockChannel } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
 import { processRecurrences } from '@/lib/recurrences'
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import OnboardingFlow from '@/pages/Onboarding/OnboardingFlow'
 import PinScreen from '@/pages/Onboarding/PinScreen'
 import useAppStore from '@/stores/app.store'
@@ -20,6 +21,7 @@ type BootState =
 export default function AppBootstrap({ children }: { children: ReactNode }) {
   const [boot, setBoot] = useState<BootState>({ status: 'loading' })
   const { key, clearKey } = useKeyStore()
+  useKeyboardHeight()
   const setCurrentUserId = useAppStore((s) => s.setCurrentUserId)
   const setActiveGroupId = useAppStore((s) => s.setActiveGroupId)
 

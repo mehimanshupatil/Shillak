@@ -36,7 +36,13 @@ import { decryptPayload, deriveTransportKey, encryptPayload } from '@/sync/trans
 import type { SyncDelta } from '@/sync/vector-clock'
 import { computeDelta } from '@/sync/vector-clock'
 import type { WebRTCOfferSession } from '@/sync/webrtc'
-import { applyAnswer, createAnswer, createOffer, sendMessage, waitForMessage } from '@/sync/webrtc'
+import {
+  applyAnswer,
+  createAnswer,
+  createMessageQueue,
+  createOffer,
+  sendMessage,
+} from '@/sync/webrtc'
 import ConflictResolver from './ConflictResolver'
 import QRDisplay from './QRDisplay'
 import QRScanner from './QRScanner'
@@ -95,48 +101,153 @@ export default function SyncSheet({ open, onClose }: Props) {
     async (channel: RTCDataChannel, method: 'webrtc' | 'qr') => {
       if (!activeGroupId || !currentUserId || !group) return
 
+      const slog = (...a: unknown[]) => console.log('[SyncProtocol]', ...a)
+
       try {
+        slog('start, method:', method, 'channel readyState:', channel.readyState)
+
+        // Create buffered queue FIRST — before sending anything.
+        // Prevents the race where Device A sends clock+delta so fast that
+        // Device B's second waitForMessage call misses the clock event.
+        const msgQueue = createMessageQueue(channel)
+
+        // ── Key diagnostic ──────────────────────────────────────────────────
+        // Log full groupSecret + a derived fingerprint so we can confirm
+        // both devices share the exact same secret. OperationError = mismatch.
+        slog('groupSecret full:', group.groupSecret)
+        slog('groupSecret length:', group.groupSecret.length, '(expected 44)')
+
         const transportKey = await deriveTransportKey(group.groupSecret)
+
+        // Derive a second extractable key for fingerprinting only.
+        // Both devices must print the same hex fingerprint.
+        const { fromBase64: fb64 } = await import('@/crypto/encrypt')
+        const fingerprintKey = await crypto.subtle.importKey(
+          'raw',
+          fb64(group.groupSecret) as unknown as ArrayBuffer,
+          { name: 'HMAC', hash: 'SHA-256' },
+          true,
+          ['sign'],
+        )
+        const exported = await crypto.subtle.exportKey('raw', fingerprintKey)
+        const fpBytes = new Uint8Array(exported).slice(0, 8)
+        const fpHex = Array.from(fpBytes)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
+        slog(
+          'transport key fingerprint (first 8 bytes of raw secret, hex):',
+          fpHex,
+          '— MUST match on both devices',
+        )
+
         const myDelta = await computeDelta(activeGroupId, {}, currentUserId)
+        slog('my vector clock:', myDelta.vectorClock)
 
         // 1. Send my clock
         sendMessage(channel, { type: 'clock', clock: myDelta.vectorClock })
+        slog('1. sent clock')
 
         // 2. Receive their clock
-        const clockMsg = await waitForMessage(channel)
-        if (clockMsg.type !== 'clock') throw new Error('Expected clock message')
+        const clockMsg = await msgQueue.waitForMessage()
+        if (clockMsg.type !== 'clock')
+          throw new Error(`Expected clock message, got: ${clockMsg.type}`)
         const theirClock = clockMsg.clock
+        slog('2. received their clock:', theirClock)
 
         // 3. Re-compute delta based on what they already know
         const delta = await computeDelta(activeGroupId, theirClock, currentUserId)
+        slog(
+          '3. delta to send — txns:',
+          delta.transactions.length,
+          'cats:',
+          delta.categories.length,
+          'members:',
+          delta.members.length,
+        )
+
+        // ── Delta debug ────────────────────────────────────────────────────────
+        // Log ALL local transactions so we can see authorSeq values.
+        // If txns=0 above but we have transactions here, the filter is dropping them.
+        const allLocalTxns = await db.transactions.where(
+          (t) => t.groupId === activeGroupId && t.deletedAt === null,
+        )
+        slog(
+          'DEBUG: total local txns (non-deleted):',
+          allLocalTxns.length,
+          '| their clock:',
+          JSON.stringify(theirClock),
+          '| my userId:',
+          currentUserId,
+        )
+        if (allLocalTxns.length > 0 && delta.transactions.length === 0) {
+          // Something filtered them all out — log each one
+          for (const t of allLocalTxns.slice(0, 5)) {
+            slog(
+              'DEBUG txn filtered out:',
+              t.txnId.slice(0, 8),
+              'ownerId:',
+              t.ownerId.slice(0, 8),
+              'authorSeq:',
+              t.authorSeq,
+              'theirKnown:',
+              theirClock[t.ownerId] ?? 0,
+            )
+          }
+        }
 
         // 4. Send encrypted delta
         const encrypted = await encryptPayload(delta, transportKey)
+        slog('4. encrypted delta, base64 length:', encrypted.length)
         sendMessage(channel, { type: 'delta', payload: encrypted })
 
         // 5. Receive their delta
-        const deltaMsg = await waitForMessage(channel)
-        if (deltaMsg.type !== 'delta') throw new Error('Expected delta message')
+        const deltaMsg = await msgQueue.waitForMessage()
+        if (deltaMsg.type !== 'delta')
+          throw new Error(`Expected delta message, got: ${deltaMsg.type}`)
+        slog('5. received their delta, payload length:', deltaMsg.payload.length)
         const theirDelta = await decryptPayload<SyncDelta>(deltaMsg.payload, transportKey)
+        slog(
+          '5. decrypted — txns:',
+          theirDelta.transactions.length,
+          'cats:',
+          theirDelta.categories.length,
+        )
 
         // 6. Apply their delta
         const syncId = crypto.randomUUID()
         const result = await applyDelta(theirDelta, activeGroupId, syncId, method, currentUserId)
+        slog(
+          '6. applied delta — records:',
+          result.recordsApplied,
+          'conflicts:',
+          result.conflictsFound,
+        )
 
-        // 7. Ack + done
-        sendMessage(channel, { type: 'ack' })
+        // 7. Send done, then WAIT for peer's done before closing.
+        // Both sides must signal done before either closes the channel.
+        // Without this wait, the faster side calls channel.close() while the
+        // slower side is still trying to send — causing InvalidStateError.
         sendMessage(channel, { type: 'done' })
+        slog('7. sent done, waiting for peer done…')
 
-        // Update sent count on sync event
+        const doneMsg = await msgQueue.waitForMessage()
+        slog('7. received peer done (type:', doneMsg.type, ')')
+
         await db.syncEvents.update(syncId, {
           recordsSent: delta.transactions.length + delta.categories.length,
         })
 
         setWifi({ step: 'done', applied: result.recordsApplied, conflicts: result.conflictsFound })
         channel.close()
+        slog('sync complete ✓')
       } catch (e) {
+        console.error('[SyncProtocol] ERROR:', e)
         setWifi({ step: 'error', message: String(e) })
-        channel.close()
+        try {
+          channel.close()
+        } catch {
+          /* already closed */
+        }
       }
     },
     [activeGroupId, currentUserId, group],

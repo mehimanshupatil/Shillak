@@ -34,7 +34,7 @@ interface EncryptedRow {
 // ─── EncryptedTable ───────────────────────────────────────────────────────────
 // Wraps a Dexie.Table<EncryptedRow> and transparently encrypts/decrypts.
 // keyField: the primary key field name on the plaintext record (e.g. 'txnId')
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: generic table wrapper requires any for flexible record types
 export class EncryptedTable<T extends Record<string, any>> {
   constructor(
     private table: Dexie.Table<EncryptedRow, string>,
@@ -112,6 +112,10 @@ export class EncryptedTable<T extends Record<string, any>> {
   // Count
   async count(): Promise<number> {
     return this.table.count()
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.table.delete(id)
   }
 }
 

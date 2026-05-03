@@ -2,10 +2,12 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { broadcastLock, initLockChannel } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
+import { processRecurrences } from '@/lib/recurrences'
 import OnboardingFlow from '@/pages/Onboarding/OnboardingFlow'
 import PinScreen from '@/pages/Onboarding/PinScreen'
 import useAppStore from '@/stores/app.store'
 import useKeyStore from '@/stores/key.store'
+import PWAManager from './PWAManager'
 import StorageErrorScreen from './StorageErrorScreen'
 
 type BootState =
@@ -108,7 +110,10 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
 
     const groups = await db.groups.where((g) => g.status === 'active')
     const group = groups[0]
-    if (group) setActiveGroupId(group.groupId)
+    if (group) {
+      setActiveGroupId(group.groupId)
+      void processRecurrences(group.groupId, user.userId)
+    }
 
     setBoot({ status: 'ready' })
   }
@@ -127,12 +132,22 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
   }
 
   if (boot.status === 'onboarding') {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />
+    return (
+      <OnboardingFlow
+        onComplete={handleOnboardingComplete}
+        onRestoreIdentity={() => setBoot({ status: 'locked' })}
+      />
+    )
   }
 
   if (boot.status === 'locked' || !key) {
     return <PinScreen onUnlocked={handleUnlocked} />
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <PWAManager />
+      {children}
+    </>
+  )
 }

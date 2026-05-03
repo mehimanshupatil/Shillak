@@ -1,25 +1,28 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Button } from '@/components/ui/button'
+import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
-import { generateId, today, toPaise } from '@/lib/utils'
+import type { RecurrenceFrequency } from '@/db/schema'
+import { advanceDate, generateId, today, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+
+const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+}
 
 export default function QuickAddFAB() {
   const [open, setOpen] = useState(false)
 
   return (
     <>
-      {/* FAB */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -32,9 +35,11 @@ export default function QuickAddFAB() {
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" showCloseButton={false}
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
           className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                     border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0"
+                     border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
         >
           <div className="flex justify-center pt-3 pb-2">
             <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
@@ -50,18 +55,22 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
 
+  const [txnType, setTxnType] = useState<'expense' | 'income'>('expense')
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
+  const [repeat, setRepeat] = useState(false)
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
+  const [interval, setInterval] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const categories = useLiveQuery(
     () =>
       activeGroupId
-        ? db.categories.where((c) => c.groupId === activeGroupId && c.type === 'expense')
+        ? db.categories.where((c) => c.groupId === activeGroupId && c.type === txnType)
         : [],
-    [activeGroupId],
+    [activeGroupId, txnType],
   )
 
   const group = useLiveQuery(
@@ -92,23 +101,57 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         updatedAt: Date.now(),
       })
 
+      const txnDate = today()
+      const txnId = generateId()
+
+      let recurrenceId: string | null = null
+
+      if (repeat) {
+        recurrenceId = generateId()
+        await db.recurrences.put({
+          recurrenceId,
+          groupId: activeGroupId,
+          ownerId: currentUserId,
+          template: {
+            groupId: activeGroupId,
+            ownerId: currentUserId,
+            categoryId: selectedCatId,
+            type: txnType,
+            amount: toPaise(amount),
+            currency: grp.currency,
+            fxRate: null,
+            originalAmount: null,
+            note: note.trim(),
+            tags: [],
+            attachmentIds: [],
+          },
+          frequency,
+          interval,
+          nextDue: advanceDate(txnDate, frequency, interval),
+          lastGeneratedAt: txnDate,
+          endDate: null,
+          active: true,
+          createdAt: Date.now(),
+        })
+      }
+
       await db.transactions.put({
-        txnId: generateId(),
+        txnId,
         groupId: activeGroupId,
         ownerId: currentUserId,
         authorSeq: newSeq,
         categoryId: selectedCatId,
-        type: 'expense',
+        type: txnType,
         amount: toPaise(amount),
         currency: grp.currency,
         fxRate: null,
         originalAmount: null,
         note: note.trim(),
         tags: [],
-        date: today(),
+        date: txnDate,
         attachmentIds: [],
         splitId: null,
-        recurrenceId: null,
+        recurrenceId,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         deletedAt: null,
@@ -122,18 +165,41 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
     }
   }
 
+  const currencySymbol = group?.currency === 'INR' ? '₹' : (group?.currency ?? '₹')
+
   return (
-    <div className="px-5 pb-6 flex flex-col gap-5">
-      <SheetHeader className="p-0">
+    <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
+      <SheetHeader className="p-0 flex-row items-center justify-between">
         <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
-          Add expense
+          Add transaction
         </SheetTitle>
+        <div className="flex gap-1">
+          {(['expense', 'income'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTxnType(t)
+                setSelectedCatId(null)
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
+                txnType === t
+                  ? t === 'income'
+                    ? 'bg-[var(--color-income)] text-black'
+                    : 'bg-[var(--color-expense)] text-white'
+                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </SheetHeader>
 
       {/* Amount input */}
       <div className="relative">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-[var(--color-text-secondary)] z-10">
-          {group?.currency === 'INR' ? '₹' : (group?.currency ?? '₹')}
+          {currencySymbol}
         </span>
         <Input
           type="number"
@@ -197,15 +263,80 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                    focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
       />
 
+      {/* Repeat toggle */}
+      <div className="flex items-center justify-between py-1">
+        <div className="flex items-center gap-2">
+          <RefreshCw size={14} className="text-[var(--color-text-secondary)]" />
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">Repeat</span>
+        </div>
+        <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
+      </div>
+
+      {/* Repeat options */}
+      {repeat && (
+        <div className="flex flex-col gap-3 p-3 rounded-xl bg-[var(--color-surface-2)]">
+          <div className="flex gap-1.5">
+            {(Object.keys(FREQ_LABELS) as RecurrenceFrequency[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFrequency(f)}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  frequency === f
+                    ? 'bg-[var(--color-accent)] text-black'
+                    : 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {FREQ_LABELS[f]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[var(--color-text-secondary)]">Every</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setInterval((i) => Math.max(1, i - 1))}
+                className="w-7 h-7 rounded-lg bg-[var(--color-surface-3)] text-[var(--color-text-primary)] text-sm font-bold"
+              >
+                −
+              </button>
+              <span className="text-sm font-mono font-medium text-[var(--color-text-primary)] w-4 text-center">
+                {interval}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInterval((i) => Math.min(99, i + 1))}
+                className="w-7 h-7 rounded-lg bg-[var(--color-surface-3)] text-[var(--color-text-primary)] text-sm font-bold"
+              >
+                +
+              </button>
+            </div>
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              {frequency === 'daily'
+                ? 'day(s)'
+                : frequency === 'weekly'
+                  ? 'week(s)'
+                  : frequency === 'monthly'
+                    ? 'month(s)'
+                    : 'year(s)'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-sm text-[var(--color-danger)] -mt-2">{error}</p>}
 
       <Button
         onClick={handleSubmit}
         disabled={loading}
-        className="w-full h-14 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                   hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+        className={`w-full h-14 rounded-2xl font-semibold disabled:opacity-50 ${
+          txnType === 'income'
+            ? 'bg-[var(--color-income)] text-black hover:opacity-90'
+            : 'bg-[var(--color-accent)] text-black hover:bg-[var(--color-accent-hover)]'
+        }`}
       >
-        {loading ? 'Saving…' : 'Add'}
+        {loading ? 'Saving…' : repeat ? `Add & repeat` : `Add ${txnType}`}
       </Button>
     </div>
   )

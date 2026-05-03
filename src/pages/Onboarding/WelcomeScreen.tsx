@@ -1,4 +1,4 @@
-import { Wallet } from 'lucide-react'
+import Logo from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
 
 interface Props {
@@ -8,9 +8,7 @@ interface Props {
 export default function WelcomeScreen({ onNext }: Props) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 gap-8 text-center">
-      <div className="w-20 h-20 rounded-3xl bg-[var(--color-accent-subtle)] flex items-center justify-center">
-        <Wallet size={40} className="text-[var(--color-accent)]" />
-      </div>
+      <Logo variant="mark" size={72} />
 
       <div className="space-y-3">
         <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Shillak</h1>

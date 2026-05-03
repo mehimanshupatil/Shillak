@@ -1,16 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeftRight, LayoutDashboard, PiggyBank, Settings } from 'lucide-react'
+import { ArrowLeftRight, LayoutDashboard, PiggyBank, Settings, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { db } from '@/db/db'
 import { cn } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
-const NAV = [
+const BASE_NAV = [
   { to: '/', label: 'Home', Icon: LayoutDashboard },
   { to: '/transactions', label: 'Txns', Icon: ArrowLeftRight },
   { to: '/budgets', label: 'Budgets', Icon: PiggyBank },
-  { to: '/settings', label: 'Settings', Icon: Settings },
 ]
+
+const SPLITS_NAV = { to: '/splits', label: 'Splits', Icon: Users }
+const SETTINGS_NAV = { to: '/settings', label: 'Settings', Icon: Settings }
 
 export default function BottomNav() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
@@ -19,7 +21,9 @@ export default function BottomNav() {
     [activeGroupId],
   )
 
-  const tabs = group?.splitEnabled ? NAV : NAV
+  const tabs = group?.splitEnabled
+    ? [...BASE_NAV, SPLITS_NAV, SETTINGS_NAV]
+    : [...BASE_NAV, SETTINGS_NAV]
 
   return (
     <nav

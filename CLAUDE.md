@@ -1211,37 +1211,50 @@ pnpm lint
 
 ## Development priorities (build order)
 
-### Phase 1 — Core (MVP)
+### Phase 1 — Core (MVP) ✅ COMPLETE
 1. ShillakDB subclass (`EncryptedTable` wrapper) + keystore + encryption
 2. `AppBootstrap` boot sequence + React Router v6 skeleton
 3. `lib/utils.ts` — `toPaise`, `formatCurrency`, `advanceDate`, `applyFxRate`
 4. Onboarding (profile + first group + PIN)
-5. Dashboard (monthly summary, budget bars)
+5. Dashboard (monthly summary, budget bars, spending donut, monthly bar chart)
 6. Quick-add FAB + bottom sheet
 7. Transaction list
 
-### Phase 2 — Groups
+### Phase 2 — Groups ✅ COMPLETE
 6. Group settings + member management (admin invariant enforced)
 7. Category management
 8. Recurrence setup UI
-9. Multi-group switcher
+9. Multi-group switcher (GroupSwitcher pill row on Dashboard)
 
-### Phase 3 — Sync
-10. Local WiFi sync (WebRTC, manual SDP via QR)
-11. QR batch sync
-12. JSON export/import
-13. Conflict resolver UI
+### Phase 3 — Sync ✅ COMPLETE
+10. ✅ JSON export/import (`src/sync/json.ts` + Settings Data section)
+11. ✅ Local WiFi sync (WebRTC, manual SDP via QR) — `src/sync/webrtc.ts`
+12. ✅ QR batch sync — `src/sync/qr.ts`
+13. ✅ Sync sheet UI (3 tabs: WiFi / QR Batch / History) — `src/components/sync/SyncSheet.tsx`
+14. ✅ QR display + scanner — `src/components/sync/QRDisplay.tsx`, `QRScanner.tsx`
+15. ✅ Conflict resolver UI — `src/components/sync/ConflictResolver.tsx`
+16. ✅ Transport encryption — `src/sync/transport.ts` (HKDF from group_secret)
+17. ✅ Vector clock + delta — `src/sync/vector-clock.ts`
+18. ✅ Apply delta + admin invariant — `src/sync/conflict.ts`
+19. ⬜ Invite member via QR (GroupChoiceScreen "Join" still disabled — needs invite flow)
 
-### Phase 4 — Polish
-14. Splits tab + minimum-transfer algorithm
-15. Charts (spending donut, monthly bar, goal progress)
-16. Search + filter on transactions
-17. Notifications (budget overrun, upcoming recurrences)
-18. App lock + biometric (WebAuthn)
-19. PIN change (re-encryption with progress UI)
-20. Identity backup export/restore
-21. group_secret rotation ("Rotate sync key" in Settings → Security)
-22. Storage quota warnings
+### Phase 4 — Polish ✅ MOSTLY COMPLETE
+14. ✅ Splits tab + minimum-transfer algorithm
+15. ✅ Charts (SpendingDonut, MonthlyBar, GoalProgress with recharts + shadcn ChartContainer)
+16. ✅ Type filter on transactions (All/Expense/Income chips)
+17. ✅ Transaction edit sheet (TransactionEditSheet)
+18. ✅ Budget overrun alerts (AlertTriangle banners on BudgetsPage, ≥80% threshold)
+19. ✅ App lock (PIN gate, Page Visibility API, BroadcastChannel multi-tab)
+20. ✅ PIN change (re-encryption with progress UI — ChangePinSheet)
+21. ✅ Identity backup export/restore (`.shillak-id` — Settings + GroupChoiceScreen)
+22. ✅ Storage quota warnings (Settings → Data section, bar + warn/block messages)
+23. ✅ Full transaction search (date range, category, person filters + collapsible filter panel)
+24. ✅ Swipe gestures on transaction cards (left = delete, right = edit via SwipeCard component)
+25. ✅ Budget month-over-month sparklines (6-bar SVG per budget card, last 6 months)
+26. ✅ PWA — offline support, install prompt, update banner (`PWAManager.tsx`, `registerType: 'prompt'`, workbox navigateFallback + cleanupOutdatedCaches)
+27. ⬜ Group secret rotation (Settings → Security → "Rotate sync key")
+28. ⬜ Biometric unlock (WebAuthn as PIN shortcut — Phase 4 v2)
+29. ⬜ Second group creation / join from inside the app (Settings or GroupSwitcher "+")
 
 ---
 

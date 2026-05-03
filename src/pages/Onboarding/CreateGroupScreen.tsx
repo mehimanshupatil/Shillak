@@ -86,12 +86,17 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
     <form onSubmit={handleSubmit} className="flex flex-col h-full px-6 py-8 gap-6 overflow-y-auto">
       <div>
         <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">New group</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mt-1">Set up your shared budget.</p>
+        <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+          Set up your shared budget.
+        </p>
       </div>
 
       {/* Group name */}
       <div className="space-y-2">
-        <Label htmlFor="group-name" className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+        <Label
+          htmlFor="group-name"
+          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+        >
           Group name
         </Label>
         <Input
@@ -108,7 +113,10 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
 
       {/* Currency */}
       <div className="space-y-2">
-        <Label htmlFor="group-currency" className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+        <Label
+          htmlFor="group-currency"
+          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+        >
           Currency
         </Label>
         <select
@@ -128,7 +136,10 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
 
       {/* Fiscal year start */}
       <div className="space-y-2">
-        <Label htmlFor="group-fiscal" className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+        <Label
+          htmlFor="group-fiscal"
+          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+        >
           Fiscal year starts in
         </Label>
         <select
@@ -162,7 +173,9 @@ export default function CreateGroupScreen({ userId, onComplete }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--color-text-primary)]">Income tracking</p>
-            <p className="text-xs text-[var(--color-text-tertiary)]">Log income alongside expenses</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              Log income alongside expenses
+            </p>
           </div>
           <Switch
             checked={incomeTracking}

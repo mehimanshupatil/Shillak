@@ -4,7 +4,7 @@ import CreateProfileScreen from './CreateProfileScreen'
 import GroupChoiceScreen from './GroupChoiceScreen'
 import WelcomeScreen from './WelcomeScreen'
 
-type Step = 'welcome' | 'profile' | 'choice' | 'create-group'
+type Step = 'welcome' | 'profile' | 'choice' | 'create-group' | 'restore'
 
 interface ProfileData {
   userId: string
@@ -14,9 +14,10 @@ interface ProfileData {
 
 interface Props {
   onComplete: (userId: string, groupId: string) => void
+  onRestoreIdentity: () => void
 }
 
-export default function OnboardingFlow({ onComplete }: Props) {
+export default function OnboardingFlow({ onComplete, onRestoreIdentity }: Props) {
   const [step, setStep] = useState<Step>('welcome')
   const [profile, setProfile] = useState<ProfileData | null>(null)
 
@@ -32,7 +33,10 @@ export default function OnboardingFlow({ onComplete }: Props) {
         />
       )}
       {step === 'choice' && profile && (
-        <GroupChoiceScreen onCreateGroup={() => setStep('create-group')} />
+        <GroupChoiceScreen
+          onCreateGroup={() => setStep('create-group')}
+          onRestoreIdentity={onRestoreIdentity}
+        />
       )}
       {step === 'create-group' && profile && (
         <CreateGroupScreen

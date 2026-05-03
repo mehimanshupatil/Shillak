@@ -23,9 +23,18 @@ export default function CreateProfileScreen({ onNext }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!name.trim()) { setError('Name is required'); return }
-    if (pin.length < 4) { setError('PIN must be at least 4 digits'); return }
-    if (pin !== confirmPin) { setError('PINs do not match'); return }
+    if (!name.trim()) {
+      setError('Name is required')
+      return
+    }
+    if (pin.length < 4) {
+      setError('PIN must be at least 4 digits')
+      return
+    }
+    if (pin !== confirmPin) {
+      setError('PINs do not match')
+      return
+    }
 
     setLoading(true)
     try {

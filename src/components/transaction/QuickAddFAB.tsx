@@ -26,7 +26,7 @@ export default function QuickAddFAB() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-[var(--color-accent)]
+        className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-accent
                    flex items-center justify-center shadow-lg z-30
                    active:scale-95 transition-transform"
         aria-label="Add transaction"
@@ -38,11 +38,11 @@ export default function QuickAddFAB() {
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                     border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+          className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                     border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
         >
           <div className="flex justify-center pt-3 pb-2">
-            <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+            <div className="w-10 h-1 rounded-full bg-border" />
           </div>
           <QuickAddForm onClose={() => setOpen(false)} />
         </SheetContent>
@@ -170,7 +170,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
       <SheetHeader className="p-0 flex-row items-center justify-between">
-        <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+        <SheetTitle className="text-base font-semibold text-text-primary">
           Add transaction
         </SheetTitle>
         <div className="flex gap-1">
@@ -185,9 +185,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
               className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
                 txnType === t
                   ? t === 'income'
-                    ? 'bg-[var(--color-income)] text-black'
-                    : 'bg-[var(--color-expense)] text-white'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                    ? 'bg-income text-black'
+                    : 'bg-expense text-white'
+                  : 'bg-surface-2 text-text-secondary'
               }`}
             >
               {t}
@@ -198,7 +198,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
 
       {/* Amount input */}
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-[var(--color-text-secondary)] z-10">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-text-secondary z-10">
           {currencySymbol}
         </span>
         <Input
@@ -210,17 +210,17 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           onChange={(e) => setAmountStr(e.target.value)}
           placeholder="0.00"
           autoFocus
-          className="h-16 rounded-2xl pl-10 pr-4 bg-[var(--color-surface-2)]
-                     text-3xl font-mono font-bold text-[var(--color-text-primary)]
-                     placeholder:text-[var(--color-text-tertiary)]
-                     border-[var(--color-border)] focus-visible:border-[var(--color-accent)]
-                     focus-visible:ring-[var(--color-accent)]/20"
+          className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
+                     text-3xl font-mono font-bold text-text-primary
+                     placeholder:text-text-tertiary
+                     border-border focus-visible:border-accent
+                     focus-visible:ring-accent/20"
         />
       </div>
 
       {/* Category pills */}
       <div>
-        <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
           Category
         </p>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -231,10 +231,8 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                 key={cat.categoryId}
                 type="button"
                 onClick={() => setSelectedCatId(cat.categoryId)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  active
-                    ? 'text-black'
-                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                 }`}
                 style={active ? { backgroundColor: cat.color } : {}}
               >
@@ -257,24 +255,24 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="Note (optional)"
-        className="h-11 rounded-xl bg-[var(--color-surface-2)]
-                   border-[var(--color-border)] text-sm
-                   text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                   focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+        className="h-11 rounded-xl bg-surface-2
+                   border-border text-sm
+                   text-text-primary placeholder:text-text-tertiary
+                   focus-visible:border-accent focus-visible:ring-accent/20"
       />
 
       {/* Repeat toggle */}
       <div className="flex items-center justify-between py-1">
         <div className="flex items-center gap-2">
-          <RefreshCw size={14} className="text-[var(--color-text-secondary)]" />
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">Repeat</span>
+          <RefreshCw size={14} className="text-text-secondary" />
+          <span className="text-sm font-medium text-text-primary">Repeat</span>
         </div>
         <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
       </div>
 
       {/* Repeat options */}
       {repeat && (
-        <div className="flex flex-col gap-3 p-3 rounded-xl bg-[var(--color-surface-2)]">
+        <div className="flex flex-col gap-3 p-3 rounded-xl bg-surface-2">
           <div className="flex gap-1.5">
             {(Object.keys(FREQ_LABELS) as RecurrenceFrequency[]).map((f) => (
               <button
@@ -282,9 +280,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={() => setFrequency(f)}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  frequency === f
-                    ? 'bg-[var(--color-accent)] text-black'
-                    : 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]'
+                  frequency === f ? 'bg-accent text-black' : 'bg-surface-3 text-text-secondary'
                 }`}
               >
                 {FREQ_LABELS[f]}
@@ -292,27 +288,27 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-[var(--color-text-secondary)]">Every</span>
+            <span className="text-xs text-text-secondary">Every</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setInterval((i) => Math.max(1, i - 1))}
-                className="w-7 h-7 rounded-lg bg-[var(--color-surface-3)] text-[var(--color-text-primary)] text-sm font-bold"
+                className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
               >
                 −
               </button>
-              <span className="text-sm font-mono font-medium text-[var(--color-text-primary)] w-4 text-center">
+              <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
                 {interval}
               </span>
               <button
                 type="button"
                 onClick={() => setInterval((i) => Math.min(99, i + 1))}
-                className="w-7 h-7 rounded-lg bg-[var(--color-surface-3)] text-[var(--color-text-primary)] text-sm font-bold"
+                className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
               >
                 +
               </button>
             </div>
-            <span className="text-xs text-[var(--color-text-secondary)]">
+            <span className="text-xs text-text-secondary">
               {frequency === 'daily'
                 ? 'day(s)'
                 : frequency === 'weekly'
@@ -325,15 +321,15 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {error && <p className="text-sm text-[var(--color-danger)] -mt-2">{error}</p>}
+      {error && <p className="text-sm text-danger -mt-2">{error}</p>}
 
       <Button
         onClick={handleSubmit}
         disabled={loading}
         className={`w-full h-14 rounded-2xl font-semibold disabled:opacity-50 ${
           txnType === 'income'
-            ? 'bg-[var(--color-income)] text-black hover:opacity-90'
-            : 'bg-[var(--color-accent)] text-black hover:bg-[var(--color-accent-hover)]'
+            ? 'bg-income text-black hover:opacity-90'
+            : 'bg-accent text-black hover:bg-accent-hover'
         }`}
       >
         {loading ? 'Saving…' : repeat ? `Add & repeat` : `Add ${txnType}`}

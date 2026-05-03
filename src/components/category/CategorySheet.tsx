@@ -105,15 +105,15 @@ export default function CategorySheet({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                   border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+            <SheetTitle className="text-base font-semibold text-text-primary">
               {isEdit ? 'Edit category' : 'New category'}
             </SheetTitle>
           </SheetHeader>
@@ -126,9 +126,7 @@ export default function CategorySheet({
                 type="button"
                 onClick={() => setType(t)}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors ${
-                  type === t
-                    ? 'bg-[var(--color-accent)] text-black'
-                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                  type === t ? 'bg-accent text-black' : 'bg-surface-2 text-text-secondary'
                 }`}
               >
                 {TYPE_LABELS[t]}
@@ -138,22 +136,22 @@ export default function CategorySheet({
 
           {/* Name */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Name
             </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Groceries"
-              className="h-11 rounded-xl bg-[var(--color-surface-2)] border-[var(--color-border)]
-                         text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                         focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+              className="h-11 rounded-xl bg-surface-2 border-border
+                         text-text-primary placeholder:text-text-tertiary
+                         focus-visible:border-accent focus-visible:ring-accent/20"
             />
           </div>
 
           {/* Color */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Colour
             </p>
             <div className="flex gap-2 flex-wrap">
@@ -176,9 +174,7 @@ export default function CategorySheet({
 
           {/* Icon */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
-              Icon
-            </p>
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Icon</p>
             <div className="grid grid-cols-6 gap-2">
               {ICON_OPTIONS.map((ic) => (
                 <button
@@ -186,9 +182,7 @@ export default function CategorySheet({
                   type="button"
                   onClick={() => setIcon(ic)}
                   className={`flex items-center justify-center h-10 rounded-xl transition-colors ${
-                    icon === ic
-                      ? 'bg-[var(--color-accent-subtle)] ring-1 ring-[var(--color-accent)]'
-                      : 'bg-[var(--color-surface-2)]'
+                    icon === ic ? 'bg-accent-subtle ring-1 ring-accent' : 'bg-surface-2'
                   }`}
                 >
                   <CategoryIcon icon={ic} color={color} size={16} containerSize={0} />
@@ -197,13 +191,13 @@ export default function CategorySheet({
             </div>
           </div>
 
-          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-12 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                       hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            className="w-full h-12 rounded-2xl bg-accent text-black font-semibold
+                       hover:bg-accent-hover disabled:opacity-50"
           >
             {loading ? 'Saving…' : isEdit ? 'Save changes' : 'Add category'}
           </Button>

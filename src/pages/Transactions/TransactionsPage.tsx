@@ -127,14 +127,12 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="px-4 pt-6 pb-3">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">Transactions</h1>
+          <h1 className="text-xl font-bold text-text-primary">Transactions</h1>
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-              hasActiveFilters
-                ? 'bg-[var(--color-accent)] text-black'
-                : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+              hasActiveFilters ? 'bg-accent text-black' : 'bg-surface text-text-secondary'
             }`}
           >
             <SlidersHorizontal size={12} />
@@ -152,17 +150,17 @@ export default function TransactionsPage() {
         <div className="relative">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary z-10"
           />
           <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search transactions…"
-            className="h-10 pl-9 pr-4 rounded-xl bg-[var(--color-surface)]
-                       border-[var(--color-border)] text-sm
-                       text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                       focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+            className="h-10 pl-9 pr-4 rounded-xl bg-surface
+                       border-border text-sm
+                       text-text-primary placeholder:text-text-tertiary
+                       focus-visible:border-accent focus-visible:ring-accent/20"
           />
         </div>
 
@@ -176,11 +174,11 @@ export default function TransactionsPage() {
               className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
                 typeFilter === f
                   ? f === 'income'
-                    ? 'bg-[var(--color-income)] text-black'
+                    ? 'bg-income text-black'
                     : f === 'expense'
-                      ? 'bg-[var(--color-expense)] text-white'
-                      : 'bg-[var(--color-accent)] text-black'
-                  : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+                      ? 'bg-expense text-white'
+                      : 'bg-accent text-black'
+                  : 'bg-surface text-text-secondary'
               }`}
             >
               {f}
@@ -190,7 +188,7 @@ export default function TransactionsPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10"
+              className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-danger bg-danger/10"
             >
               <X size={10} />
               Clear
@@ -200,17 +198,17 @@ export default function TransactionsPage() {
 
         {/* Expanded filters */}
         {filtersOpen && (
-          <div className="mt-3 p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] flex flex-col gap-3">
+          <div className="mt-3 p-3 rounded-xl bg-surface border border-border flex flex-col gap-3">
             {/* Category */}
             <div>
-              <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                 Category
               </p>
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)]
-                           text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]"
+                className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
+                           text-sm text-text-primary focus:outline-none focus:border-accent"
               >
                 <option value="">All categories</option>
                 {(categories ?? [])
@@ -227,14 +225,14 @@ export default function TransactionsPage() {
             {/* Member */}
             {(members ?? []).length > 1 && (
               <div>
-                <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1">
+                <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                   Person
                 </p>
                 <select
                   value={memberFilter}
                   onChange={(e) => setMemberFilter(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)]
-                             text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]"
+                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
+                             text-sm text-text-primary focus:outline-none focus:border-accent"
                 >
                   <option value="">All members</option>
                   {(members ?? []).map((m) => (
@@ -249,29 +247,25 @@ export default function TransactionsPage() {
             {/* Date range */}
             <div className="flex gap-2">
               <div className="flex-1">
-                <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1">
-                  From
-                </p>
+                <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">From</p>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)]
-                             text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]
-                             [color-scheme:dark]"
+                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
+                             text-sm text-text-primary focus:outline-none focus:border-accent
+                             scheme-dark"
                 />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1">
-                  To
-                </p>
+                <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">To</p>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)]
-                             text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]
-                             [color-scheme:dark]"
+                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
+                             text-sm text-text-primary focus:outline-none focus:border-accent
+                             scheme-dark"
                 />
               </div>
             </div>
@@ -281,21 +275,21 @@ export default function TransactionsPage() {
 
       {/* Count */}
       {filtered.length > 0 && (
-        <p className="text-xs text-[var(--color-text-tertiary)] px-4 mb-2">
+        <p className="text-xs text-text-tertiary px-4 mb-2">
           {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
         </p>
       )}
 
       {/* List */}
       {grouped.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-tertiary)] text-center py-16">
+        <p className="text-sm text-text-tertiary text-center py-16">
           {search || hasActiveFilters ? 'No matching transactions.' : 'No transactions yet.'}
         </p>
       ) : (
         <div className="flex flex-col px-4 gap-4">
           {grouped.map(([label, txns]) => (
             <div key={label}>
-              <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2">
+              <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-2">
                 {label}
               </p>
               <div className="flex flex-col gap-1.5">
@@ -307,7 +301,7 @@ export default function TransactionsPage() {
                       onSwipeLeft={() => handleSoftDelete(txn.txnId)}
                       onSwipeRight={() => openEdit(txn)}
                     >
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface)]">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-surface">
                         <CategoryIcon
                           icon={cat?.icon ?? 'CircleDot'}
                           color={cat?.color ?? '#888'}
@@ -315,20 +309,16 @@ export default function TransactionsPage() {
                           containerSize={36}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                          <p className="text-sm font-medium text-text-primary truncate">
                             {cat?.name ?? 'Unknown'}
                           </p>
                           {txn.note && (
-                            <p className="text-xs text-[var(--color-text-tertiary)] truncate">
-                              {txn.note}
-                            </p>
+                            <p className="text-xs text-text-tertiary truncate">{txn.note}</p>
                           )}
                         </div>
                         <span
-                          className={`text-sm font-mono font-semibold flex-shrink-0 ${
-                            txn.type === 'income'
-                              ? 'text-[var(--color-income)]'
-                              : 'text-[var(--color-text-primary)]'
+                          className={`text-sm font-mono font-semibold shrink-0 ${
+                            txn.type === 'income' ? 'text-income' : 'text-text-primary'
                           }`}
                         >
                           {txn.type === 'income' ? '+' : '-'}
@@ -338,7 +328,7 @@ export default function TransactionsPage() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => openEdit(txn)}
-                          className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex-shrink-0"
+                          className="text-text-tertiary hover:text-text-primary shrink-0"
                         >
                           <Pencil size={13} />
                         </Button>
@@ -346,7 +336,7 @@ export default function TransactionsPage() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => handleSoftDelete(txn.txnId)}
-                          className="text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 flex-shrink-0"
+                          className="text-text-tertiary hover:text-danger hover:bg-danger/10 shrink-0"
                         >
                           <Trash2 size={13} />
                         </Button>
@@ -421,18 +411,18 @@ function SwipeCard({
     <div className="relative overflow-hidden rounded-xl">
       {/* Delete hint (left swipe reveals right side) */}
       <div
-        className="absolute inset-y-0 right-0 flex items-center justify-end px-4 rounded-xl bg-[var(--color-danger)]/15"
+        className="absolute inset-y-0 right-0 flex items-center justify-end px-4 rounded-xl bg-danger/15"
         style={{ width: Math.abs(Math.min(dx, 0)) || (showDelete ? 1 : 0) }}
       >
-        <Trash2 size={16} className="text-[var(--color-danger)]" />
+        <Trash2 size={16} className="text-danger" />
       </div>
 
       {/* Edit hint (right swipe reveals left side) */}
       <div
-        className="absolute inset-y-0 left-0 flex items-center justify-start px-4 rounded-xl bg-[var(--color-accent)]/15"
+        className="absolute inset-y-0 left-0 flex items-center justify-start px-4 rounded-xl bg-accent/15"
         style={{ width: Math.max(dx, 0) || (showEdit ? 1 : 0) }}
       >
-        <Pencil size={16} className="text-[var(--color-accent)]" />
+        <Pencil size={16} className="text-accent" />
       </div>
 
       {/* Card content */}

@@ -19,8 +19,8 @@ export default function QRDisplay({ value, size = 220, label }: Props) {
     if (!value) return
     QRCode.toDataURL(value, {
       width: size,
-      margin: 1,
-      color: { dark: '#f0f0f0', light: '#1a1a1a' },
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     })
       .then(setDataUrl)
@@ -30,7 +30,7 @@ export default function QRDisplay({ value, size = 220, label }: Props) {
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl bg-[var(--color-surface-2)] text-xs text-[var(--color-danger)]"
+        className="flex items-center justify-center rounded-xl bg-surface-2 text-xs text-danger"
         style={{ width: size, height: size }}
       >
         QR error
@@ -41,7 +41,7 @@ export default function QRDisplay({ value, size = 220, label }: Props) {
   if (!dataUrl) {
     return (
       <div
-        className="rounded-xl bg-[var(--color-surface-2)] animate-pulse"
+        className="rounded-xl bg-surface-2 animate-pulse"
         style={{ width: size, height: size }}
       />
     )
@@ -49,12 +49,10 @@ export default function QRDisplay({ value, size = 220, label }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <img src={dataUrl} alt="QR code" width={size} height={size} className="rounded-xl" />
-      {label && (
-        <p className="text-xs text-[var(--color-text-tertiary)] text-center max-w-[200px]">
-          {label}
-        </p>
-      )}
+      <div className="rounded-xl bg-white p-3">
+        <img src={dataUrl} alt="QR code" width={size} height={size} />
+      </div>
+      {label && <p className="text-xs text-text-tertiary text-center max-w-50">{label}</p>}
     </div>
   )
 }

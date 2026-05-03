@@ -1,6 +1,6 @@
 import { db } from '@/db/db'
 
-export interface GroupSnapshot {
+interface GroupSnapshot {
   version: 1
   exportedAt: number
   groupId: string

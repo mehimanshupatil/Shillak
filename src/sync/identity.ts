@@ -1,7 +1,7 @@
 import { db } from '@/db/db'
 import type { User } from '@/db/schema'
 
-export interface IdentityBackup {
+interface IdentityBackup {
   version: 1
   userId: string
   displayName: string

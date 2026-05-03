@@ -48,8 +48,8 @@ export default function ConflictResolver({ groupId }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <AlertTriangle size={14} className="text-[var(--color-warning)]" />
-        <p className="text-xs font-medium text-[var(--color-warning)] uppercase tracking-wider">
+        <AlertTriangle size={14} className="text-warning" />
+        <p className="text-xs font-medium text-warning uppercase tracking-wider">
           {pending.length} conflict{pending.length > 1 ? 's' : ''} need your review
         </p>
       </div>
@@ -91,31 +91,31 @@ function ConflictCard({
   }
 
   return (
-    <div className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]">
-      <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2 capitalize">
+    <div className="p-3 rounded-xl bg-surface border border-border">
+      <p className="text-xs font-medium text-text-secondary mb-2 capitalize">
         {conflict.entityType} conflict
       </p>
       <div className="flex gap-2 mb-3">
-        <div className="flex-1 p-2 rounded-lg bg-[var(--color-surface-2)]">
-          <p className="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">Your version</p>
-          <p className="text-xs text-[var(--color-text-primary)]">{label(local)}</p>
+        <div className="flex-1 p-2 rounded-lg bg-surface-2">
+          <p className="text-[10px] text-text-tertiary mb-0.5">Your version</p>
+          <p className="text-xs text-text-primary">{label(local)}</p>
         </div>
-        <div className="flex-1 p-2 rounded-lg bg-[var(--color-surface-2)]">
-          <p className="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">Their version</p>
-          <p className="text-xs text-[var(--color-text-primary)]">{label(remote)}</p>
+        <div className="flex-1 p-2 rounded-lg bg-surface-2">
+          <p className="text-[10px] text-text-tertiary mb-0.5">Their version</p>
+          <p className="text-xs text-text-primary">{label(remote)}</p>
         </div>
       </div>
       <div className="flex gap-2">
         <Button
           onClick={() => onResolve(conflict, 'local')}
-          className="flex-1 h-8 text-xs rounded-lg bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]
-                     hover:bg-[var(--color-surface-3)]"
+          className="flex-1 h-8 text-xs rounded-lg bg-surface-2 text-text-secondary
+                     hover:bg-surface-3"
         >
           Keep mine
         </Button>
         <Button
           onClick={() => onResolve(conflict, 'remote')}
-          className="flex-1 h-8 text-xs rounded-lg bg-[var(--color-accent)] text-black hover:bg-[var(--color-accent-hover)]"
+          className="flex-1 h-8 text-xs rounded-lg bg-accent text-black hover:bg-accent-hover"
         >
           Keep theirs
         </Button>

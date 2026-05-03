@@ -1,5 +1,6 @@
 import { db } from '@/db/db'
 import { advanceDate, generateId, today } from '@/lib/utils'
+import { incrementVectorClock } from '@/sync/vector-clock'
 
 export async function processRecurrences(groupId: string, userId: string): Promise<void> {
   const now = today()
@@ -16,14 +17,7 @@ export async function processRecurrences(groupId: string, userId: string): Promi
       )
 
       if (existing.length === 0) {
-        // Increment vector clock
-        const grp = await db.groups.get(groupId)
-        if (!grp) break
-        const newSeq = (grp.vectorClock[userId] ?? 0) + 1
-        await db.groups.update(groupId, {
-          vectorClock: { ...grp.vectorClock, [userId]: newSeq },
-          updatedAt: Date.now(),
-        })
+        const newSeq = await incrementVectorClock(groupId, userId)
 
         await db.transactions.put({
           ...rec.template,

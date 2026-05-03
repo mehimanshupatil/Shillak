@@ -97,7 +97,7 @@ export default function CategoryIcon({ icon, color, size = 16, containerSize = 3
 
   return (
     <div
-      className="flex items-center justify-center rounded-xl flex-shrink-0"
+      className="flex items-center justify-center rounded-xl shrink-0"
       style={{
         width: containerSize,
         height: containerSize,

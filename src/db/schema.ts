@@ -16,7 +16,7 @@ export interface User {
 }
 
 // ─── Group ────────────────────────────────────────────────────────────────────
-export type GroupStatus = 'active' | 'archived'
+type GroupStatus = 'active' | 'archived'
 
 export interface Group {
   groupId: string
@@ -106,7 +106,7 @@ export interface Transaction {
 // ─── Recurrence ───────────────────────────────────────────────────────────────
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
-export type RecurrenceTemplate = Omit<
+type RecurrenceTemplate = Omit<
   Transaction,
   | 'txnId'
   | 'date'
@@ -144,7 +144,7 @@ export interface Attachment {
 }
 
 // ─── Split ────────────────────────────────────────────────────────────────────
-export interface SplitShare {
+interface SplitShare {
   userId: string
   amount: number // paise
   settled: boolean

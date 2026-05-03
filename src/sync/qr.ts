@@ -24,7 +24,7 @@ export interface QRChunkEnvelope {
   data: string // base64 chunk of the full encrypted payload
 }
 
-export interface SDPEnvelope {
+interface SDPEnvelope {
   v: 1
   type: 'sdp'
   sdp: RTCSessionDescriptionInit

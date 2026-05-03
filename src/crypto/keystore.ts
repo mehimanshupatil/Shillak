@@ -4,7 +4,7 @@ import { deriveKey } from './pin'
 const PIN_CHECK_PLAINTEXT = 'SHILLAK_V1'
 const LOCK_CHANNEL = new BroadcastChannel('shillak-lock')
 
-export type LockMessage = { type: 'lock' } | { type: 'unlock' }
+type LockMessage = { type: 'lock' } | { type: 'unlock' }
 
 /** Set up cross-tab lock/unlock listener. Call once at app boot. */
 export function initLockChannel(onLock: () => void, onUnlock?: () => void): () => void {

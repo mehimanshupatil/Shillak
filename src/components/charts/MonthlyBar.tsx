@@ -69,8 +69,8 @@ export default function MonthlyBar({ groupId, currency }: Props) {
   if (data.filter((b) => b.amount > 0).length < 2) return null
 
   return (
-    <div className="mt-4 mx-4 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]">
-      <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+    <div className="mt-4 mx-4 p-4 rounded-2xl bg-surface border border-border">
+      <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
         6-month trend
       </p>
       <ChartContainer config={chartConfig} className="h-[100px] w-full">
@@ -88,11 +88,9 @@ export default function MonthlyBar({ groupId, currency }: Props) {
               const item = payload[0]
               if (!item) return null
               return (
-                <div className="px-2.5 py-1.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs">
-                  <p className="font-medium text-[var(--color-text-primary)]">
-                    {item.payload.month}
-                  </p>
-                  <p className="font-mono text-[var(--color-text-secondary)]">
+                <div className="px-2.5 py-1.5 rounded-lg bg-surface-2 border border-border text-xs">
+                  <p className="font-medium text-text-primary">{item.payload.month}</p>
+                  <p className="font-mono text-text-secondary">
                     {formatCurrency(item.value as number, currency)}
                   </p>
                 </div>

@@ -55,8 +55,8 @@ export default function PWAManager() {
         <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none">
           <div
             className="mx-auto max-w-[430px] w-full px-4 py-2 flex items-center gap-2
-                       bg-[var(--color-surface-2)] border-b border-[var(--color-border)]
-                       text-[var(--color-text-secondary)] text-xs"
+                       bg-surface-2 border-b border-border
+                       text-text-secondary text-xs"
           >
             <WifiOff size={12} />
             <span>You're offline — data still available</span>
@@ -69,22 +69,22 @@ export default function PWAManager() {
         <div className="fixed bottom-20 inset-x-0 z-50 flex justify-center px-4">
           <div
             className="w-full max-w-[430px] flex items-center gap-3 px-4 py-3
-                       bg-[var(--color-surface-2)] border border-[var(--color-accent)]
+                       bg-surface-2 border border-accent
                        rounded-2xl shadow-lg text-sm"
           >
-            <RefreshCw size={16} className="text-[var(--color-accent)] flex-shrink-0" />
-            <span className="flex-1 text-[var(--color-text-primary)]">New version available</span>
+            <RefreshCw size={16} className="text-accent shrink-0" />
+            <span className="flex-1 text-text-primary">New version available</span>
             <button
               type="button"
               onClick={() => updateServiceWorker(true)}
-              className="px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-black text-xs font-semibold"
+              className="px-3 py-1.5 rounded-xl bg-accent text-black text-xs font-semibold"
             >
               Update
             </button>
             <button
               type="button"
               onClick={() => setUpdateDismissed(true)}
-              className="text-[var(--color-text-tertiary)]"
+              className="text-text-tertiary"
               aria-label="Dismiss update"
             >
               <X size={14} />
@@ -98,24 +98,22 @@ export default function PWAManager() {
         <div className="fixed bottom-20 inset-x-0 z-50 flex justify-center px-4">
           <div
             className="w-full max-w-[430px] flex items-center gap-3 px-4 py-3
-                       bg-[var(--color-surface-2)] border border-[var(--color-border)]
+                       bg-surface-2 border border-border
                        rounded-2xl shadow-lg text-sm"
           >
-            <Download size={16} className="text-[var(--color-accent)] flex-shrink-0" />
-            <span className="flex-1 text-[var(--color-text-primary)]">
-              Add Shillak to home screen
-            </span>
+            <Download size={16} className="text-accent shrink-0" />
+            <span className="flex-1 text-text-primary">Add Shillak to home screen</span>
             <button
               type="button"
               onClick={handleInstall}
-              className="px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-black text-xs font-semibold"
+              className="px-3 py-1.5 rounded-xl bg-accent text-black text-xs font-semibold"
             >
               Install
             </button>
             <button
               type="button"
               onClick={() => setInstallDismissed(true)}
-              className="text-[var(--color-text-tertiary)]"
+              className="text-text-tertiary"
               aria-label="Dismiss install prompt"
             >
               <X size={14} />

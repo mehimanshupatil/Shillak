@@ -23,24 +23,10 @@ export function formatCurrency(paise: number, currency = 'INR', locale = 'en-IN'
   }).format(paise / 100)
 }
 
-/** Short format: ₹1.2K, ₹3.4L, ₹1.2Cr */
-export function formatCurrencyCompact(paise: number, currency = 'INR'): string {
-  const amount = paise / 100
-  if (amount >= 1_00_00_000) return `₹${(amount / 1_00_00_000).toFixed(2)}Cr`
-  if (amount >= 1_00_000) return `₹${(amount / 1_00_000).toFixed(1)}L`
-  if (amount >= 1_000) return `₹${(amount / 1_000).toFixed(1)}K`
-  return formatCurrency(paise, currency)
-}
-
-/** FX rate stored as integer basis points. 1 USD = 83.50 INR → 835000. */
-export function applyFxRate(amountPaise: number, fxRateBasisPoints: number): number {
-  return Math.round((amountPaise * fxRateBasisPoints) / 10_000)
-}
-
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 /** Strip time — returns midnight UTC unix ms for a given date. */
-export function toDateOnly(date: Date | number): number {
+function toDateOnly(date: Date | number): number {
   const d = typeof date === 'number' ? new Date(date) : date
   return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
 }
@@ -87,15 +73,7 @@ export function advanceDate(
 
 // ─── Date display ─────────────────────────────────────────────────────────────
 
-export function formatDate(unixMs: number): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(unixMs))
-}
-
-export function formatDateShort(unixMs: number): string {
+function formatDateShort(unixMs: number): string {
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',

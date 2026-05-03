@@ -166,22 +166,22 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                   border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+            <SheetTitle className="text-base font-semibold text-text-primary">
               Add shared expense
             </SheetTitle>
           </SheetHeader>
 
           {/* Amount */}
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-[var(--color-text-secondary)] z-10">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-text-secondary z-10">
               {currencySymbol}
             </span>
             <Input
@@ -193,17 +193,17 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
               onChange={(e) => setAmountStr(e.target.value)}
               placeholder="0.00"
               autoFocus
-              className="h-16 rounded-2xl pl-10 pr-4 bg-[var(--color-surface-2)]
-                         text-3xl font-mono font-bold text-[var(--color-text-primary)]
-                         placeholder:text-[var(--color-text-tertiary)]
-                         border-[var(--color-border)] focus-visible:border-[var(--color-accent)]
-                         focus-visible:ring-[var(--color-accent)]/20"
+              className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
+                         text-3xl font-mono font-bold text-text-primary
+                         placeholder:text-text-tertiary
+                         border-border focus-visible:border-accent
+                         focus-visible:ring-accent/20"
             />
           </div>
 
           {/* Category */}
           <div>
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
               Category
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -214,10 +214,8 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
                     key={cat.categoryId}
                     type="button"
                     onClick={() => setSelectedCatId(cat.categoryId)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      active
-                        ? 'text-black'
-                        : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                     }`}
                     style={active ? { backgroundColor: cat.color } : {}}
                   >
@@ -240,14 +238,14 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="What's this for? (optional)"
-            className="h-11 rounded-xl bg-[var(--color-surface-2)] border-[var(--color-border)] text-sm
-                       text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                       focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+            className="h-11 rounded-xl bg-surface-2 border-border text-sm
+                       text-text-primary placeholder:text-text-tertiary
+                       focus-visible:border-accent focus-visible:ring-accent/20"
           />
 
           {/* Paid by */}
           <div>
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
               Paid by
             </p>
             <div className="flex gap-2 flex-wrap">
@@ -258,8 +256,8 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
                   onClick={() => setPaidBy(m.userId)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     paidBy === m.userId
-                      ? 'bg-[var(--color-accent)] text-black'
-                      : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                      ? 'bg-accent text-black'
+                      : 'bg-surface-2 text-text-secondary'
                   }`}
                 >
                   {memberName(m.userId)}
@@ -271,17 +269,15 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
           {/* Split between */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Split between
               </p>
-              <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
+              <div className="flex rounded-lg overflow-hidden border border-border">
                 <button
                   type="button"
                   onClick={() => setEqualSplit(true)}
                   className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                    equalSplit
-                      ? 'bg-[var(--color-accent)] text-black'
-                      : 'text-[var(--color-text-tertiary)]'
+                    equalSplit ? 'bg-accent text-black' : 'text-text-tertiary'
                   }`}
                 >
                   Equal
@@ -290,9 +286,7 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
                   type="button"
                   onClick={() => setEqualSplit(false)}
                   className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                    !equalSplit
-                      ? 'bg-[var(--color-accent)] text-black'
-                      : 'text-[var(--color-text-tertiary)]'
+                    !equalSplit ? 'bg-accent text-black' : 'text-text-tertiary'
                   }`}
                 >
                   Custom
@@ -306,30 +300,26 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
                 return (
                   <div
                     key={m.userId}
-                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--color-surface-2)]"
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-surface-2"
                   >
                     <button
                       type="button"
                       onClick={() => toggleMember(m.userId)}
-                      className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
-                        included
-                          ? 'bg-[var(--color-accent)]'
-                          : 'bg-[var(--color-surface-3)] border border-[var(--color-border)]'
+                      className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${
+                        included ? 'bg-accent' : 'bg-surface-3 border border-border'
                       }`}
                     >
                       {included && <Check size={11} className="text-black" />}
                     </button>
-                    <span className="flex-1 text-sm text-[var(--color-text-primary)]">
+                    <span className="flex-1 text-sm text-text-primary">
                       {memberName(m.userId)}
                       {m.userId === paidBy && (
-                        <span className="text-xs text-[var(--color-text-tertiary)] ml-1">
-                          (paid)
-                        </span>
+                        <span className="text-xs text-text-tertiary ml-1">(paid)</span>
                       )}
                     </span>
                     {included && !equalSplit && m.userId !== paidBy ? (
                       <div className="relative w-24">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-tertiary)]">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-text-tertiary">
                           {currencySymbol}
                         </span>
                         <Input
@@ -342,14 +332,14 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
                             setCustomAmounts((prev) => ({ ...prev, [m.userId]: e.target.value }))
                           }
                           placeholder="0"
-                          className="h-8 pl-6 pr-2 text-xs rounded-lg bg-[var(--color-surface)] border-[var(--color-border)]
-                                     text-[var(--color-text-primary)] focus-visible:border-[var(--color-accent)]"
+                          className="h-8 pl-6 pr-2 text-xs rounded-lg bg-surface border-border
+                                     text-text-primary focus-visible:border-accent"
                         />
                       </div>
                     ) : (
                       included &&
                       share !== null && (
-                        <span className="text-xs font-mono text-[var(--color-text-secondary)]">
+                        <span className="text-xs font-mono text-text-secondary">
                           {currencySymbol}
                           {(share / 100).toFixed(2)}
                         </span>
@@ -361,13 +351,13 @@ export default function AddSplitSheet({ open, onClose, groupId, currency, member
             </div>
           </div>
 
-          {error && <p className="text-sm text-[var(--color-danger)] -mt-2">{error}</p>}
+          {error && <p className="text-sm text-danger -mt-2">{error}</p>}
 
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-14 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                       hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            className="w-full h-14 rounded-2xl bg-accent text-black font-semibold
+                       hover:bg-accent-hover disabled:opacity-50"
           >
             {loading ? 'Saving…' : 'Add shared expense'}
           </Button>

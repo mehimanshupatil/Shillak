@@ -77,23 +77,23 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                   border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
           <SheetHeader className="p-0 flex-row items-center justify-between">
-            <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+            <SheetTitle className="text-base font-semibold text-text-primary">
               Edit transaction
             </SheetTitle>
             {transaction && (
               <span
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                   transaction.type === 'income'
-                    ? 'bg-[var(--color-income)]/20 text-[var(--color-income)]'
-                    : 'bg-[var(--color-expense)]/20 text-[var(--color-expense)]'
+                    ? 'bg-income/20 text-income'
+                    : 'bg-expense/20 text-expense'
                 }`}
               >
                 {transaction.type}
@@ -103,7 +103,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
 
           {/* Amount */}
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-[var(--color-text-secondary)] z-10">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-mono text-text-secondary z-10">
               {currencySymbol}
             </span>
             <Input
@@ -115,17 +115,17 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
               onChange={(e) => setAmountStr(e.target.value)}
               placeholder="0.00"
               autoFocus
-              className="h-16 rounded-2xl pl-10 pr-4 bg-[var(--color-surface-2)]
-                         text-3xl font-mono font-bold text-[var(--color-text-primary)]
-                         placeholder:text-[var(--color-text-tertiary)]
-                         border-[var(--color-border)] focus-visible:border-[var(--color-accent)]
-                         focus-visible:ring-[var(--color-accent)]/20"
+              className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
+                         text-3xl font-mono font-bold text-text-primary
+                         placeholder:text-text-tertiary
+                         border-border focus-visible:border-accent
+                         focus-visible:ring-accent/20"
             />
           </div>
 
           {/* Category */}
           <div>
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
               Category
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -136,10 +136,8 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     key={cat.categoryId}
                     type="button"
                     onClick={() => setSelectedCatId(cat.categoryId)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      active
-                        ? 'text-black'
-                        : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                     }`}
                     style={active ? { backgroundColor: cat.color } : {}}
                   >
@@ -162,20 +160,20 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Note (optional)"
-            className="h-11 rounded-xl bg-[var(--color-surface-2)] border-[var(--color-border)] text-sm
-                       text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                       focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+            className="h-11 rounded-xl bg-surface-2 border-border text-sm
+                       text-text-primary placeholder:text-text-tertiary
+                       focus-visible:border-accent focus-visible:ring-accent/20"
           />
 
-          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <Button
             onClick={handleSave}
             disabled={loading}
             className={`w-full h-12 rounded-2xl font-semibold disabled:opacity-50 ${
               transaction?.type === 'income'
-                ? 'bg-[var(--color-income)] text-black hover:opacity-90'
-                : 'bg-[var(--color-accent)] text-black hover:bg-[var(--color-accent-hover)]'
+                ? 'bg-income text-black hover:opacity-90'
+                : 'bg-accent text-black hover:bg-accent-hover'
             }`}
           >
             {loading ? 'Saving…' : 'Save changes'}

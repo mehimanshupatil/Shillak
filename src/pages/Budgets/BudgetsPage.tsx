@@ -186,18 +186,18 @@ export default function BudgetsPage() {
     <div className="flex flex-col pb-24">
       {/* Header */}
       <div className="px-4 pt-6 pb-3">
-        <h1 className="text-xl font-bold text-[var(--color-text-primary)]">Budgets</h1>
+        <h1 className="text-xl font-bold text-text-primary">Budgets</h1>
         {/* Month selector */}
         <div className="flex items-center gap-2 mt-3">
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={prevMonth}
-            className="text-[var(--color-text-secondary)]"
+            className="text-text-secondary"
           >
             <ChevronLeft size={18} />
           </Button>
-          <span className="flex-1 text-center text-sm font-medium text-[var(--color-text-primary)]">
+          <span className="flex-1 text-center text-sm font-medium text-text-primary">
             {MONTHS_SHORT[month]} {year}
           </span>
           <Button
@@ -205,7 +205,7 @@ export default function BudgetsPage() {
             size="icon-sm"
             onClick={nextMonth}
             disabled={isCurrent}
-            className="text-[var(--color-text-secondary)]"
+            className="text-text-secondary"
           >
             <ChevronRight size={18} />
           </Button>
@@ -214,16 +214,16 @@ export default function BudgetsPage() {
 
       {/* Overall summary */}
       {totalBudget > 0 && (
-        <div className="mx-4 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]">
+        <div className="mx-4 p-4 rounded-2xl bg-surface border border-border">
           <div className="flex justify-between items-baseline mb-2">
-            <span className="text-sm text-[var(--color-text-secondary)]">Overall</span>
+            <span className="text-sm text-text-secondary">Overall</span>
             <span
-              className={`text-sm font-mono ${totalSpend > totalBudget ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]'}`}
+              className={`text-sm font-mono ${totalSpend > totalBudget ? 'text-danger' : 'text-text-primary'}`}
             >
               {formatCurrency(totalSpend, currency)} / {formatCurrency(totalBudget, currency)}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-[var(--color-surface-2)]">
+          <div className="h-2 rounded-full bg-surface-2">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -250,16 +250,11 @@ export default function BudgetsPage() {
               <div
                 key={budget.budgetId}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl ${
-                  over ? 'bg-[var(--color-danger)]/10' : 'bg-[var(--color-warning)]/10'
+                  over ? 'bg-danger/10' : 'bg-warning/10'
                 }`}
               >
-                <AlertTriangle
-                  size={13}
-                  className={over ? 'text-[var(--color-danger)]' : 'text-[var(--color-warning)]'}
-                />
-                <span
-                  className={`text-xs flex-1 ${over ? 'text-[var(--color-danger)]' : 'text-[var(--color-warning)]'}`}
-                >
+                <AlertTriangle size={13} className={over ? 'text-danger' : 'text-warning'} />
+                <span className={`text-xs flex-1 ${over ? 'text-danger' : 'text-warning'}`}>
                   {cat?.name ?? 'Unknown'} —{' '}
                   {over
                     ? `over by ${formatCurrency(spent - budget.limit, currency)}`
@@ -274,7 +269,7 @@ export default function BudgetsPage() {
       {/* Budget list */}
       <div className="mt-4 px-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
             Monthly budgets
           </p>
           <Button
@@ -282,8 +277,8 @@ export default function BudgetsPage() {
               setEditBudget(undefined)
               setBudgetSheetOpen(true)
             }}
-            className="h-7 px-3 rounded-full text-xs bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]
-                       hover:bg-[var(--color-surface-3)] gap-1"
+            className="h-7 px-3 rounded-full text-xs bg-surface-2 text-text-secondary
+                       hover:bg-surface-3 gap-1"
           >
             <Plus size={12} />
             Add
@@ -292,10 +287,8 @@ export default function BudgetsPage() {
 
         {(budgets ?? []).filter((b) => b.period === 'monthly').length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-sm text-[var(--color-text-tertiary)]">No budgets set.</p>
-            <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-              Tap + to add a budget for a category.
-            </p>
+            <p className="text-sm text-text-tertiary">No budgets set.</p>
+            <p className="text-xs text-text-tertiary mt-1">Tap + to add a budget for a category.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -309,7 +302,7 @@ export default function BudgetsPage() {
                 return (
                   <div
                     key={budget.budgetId}
-                    className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]"
+                    className="p-3 rounded-xl bg-surface border border-border"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <CategoryIcon
@@ -318,11 +311,11 @@ export default function BudgetsPage() {
                         size={14}
                         containerSize={28}
                       />
-                      <span className="flex-1 text-sm font-medium text-[var(--color-text-primary)]">
+                      <span className="flex-1 text-sm font-medium text-text-primary">
                         {cat?.name ?? 'Unknown'}
                       </span>
                       <span
-                        className={`text-xs font-mono ${over ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)]'}`}
+                        className={`text-xs font-mono ${over ? 'text-danger' : 'text-text-secondary'}`}
                       >
                         {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
                       </span>
@@ -333,7 +326,7 @@ export default function BudgetsPage() {
                           setEditBudget(budget)
                           setBudgetSheetOpen(true)
                         }}
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                        className="text-text-tertiary hover:text-text-primary"
                       >
                         <Pencil size={13} />
                       </Button>
@@ -341,12 +334,12 @@ export default function BudgetsPage() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => handleDeleteBudget(budget.budgetId)}
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                        className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={13} />
                       </Button>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[var(--color-surface-2)]">
+                    <div className="h-1.5 rounded-full bg-surface-2">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
@@ -360,7 +353,7 @@ export default function BudgetsPage() {
                       />
                     </div>
                     {over && (
-                      <p className="text-[10px] text-[var(--color-danger)] mt-1">
+                      <p className="text-[10px] text-danger mt-1">
                         Over by {formatCurrency(spent - budget.limit, currency)}
                       </p>
                     )}
@@ -381,7 +374,7 @@ export default function BudgetsPage() {
       {/* Savings goals */}
       <div className="mt-6 px-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
             Savings goals
           </p>
           <Button
@@ -389,8 +382,8 @@ export default function BudgetsPage() {
               setEditGoal(undefined)
               setGoalSheetOpen(true)
             }}
-            className="h-7 px-3 rounded-full text-xs bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]
-                       hover:bg-[var(--color-surface-3)] gap-1"
+            className="h-7 px-3 rounded-full text-xs bg-surface-2 text-text-secondary
+                       hover:bg-surface-3 gap-1"
           >
             <Plus size={12} />
             Add
@@ -405,11 +398,9 @@ export default function BudgetsPage() {
 
         {(goals ?? []).length === 0 ? (
           <div className="py-8 text-center">
-            <Target size={32} className="mx-auto text-[var(--color-text-tertiary)] mb-2" />
-            <p className="text-sm text-[var(--color-text-tertiary)]">No savings goals yet.</p>
-            <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-              Set a target and track your progress.
-            </p>
+            <Target size={32} className="mx-auto text-text-tertiary mb-2" />
+            <p className="text-sm text-text-tertiary">No savings goals yet.</p>
+            <p className="text-xs text-text-tertiary mt-1">Set a target and track your progress.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -417,17 +408,12 @@ export default function BudgetsPage() {
               const gpct = goal.target > 0 ? Math.min((goal.saved / goal.target) * 100, 100) : 0
               const done = goal.saved >= goal.target
               return (
-                <div
-                  key={goal.goalId}
-                  className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]"
-                >
+                <div key={goal.goalId} className="p-4 rounded-xl bg-surface border border-border">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                        {goal.name}
-                      </p>
+                      <p className="text-sm font-semibold text-text-primary">{goal.name}</p>
                       {goal.deadline && (
-                        <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                        <p className="text-xs text-text-tertiary mt-0.5">
                           by{' '}
                           {new Date(goal.deadline).toLocaleDateString('en-IN', {
                             day: '2-digit',
@@ -445,7 +431,7 @@ export default function BudgetsPage() {
                           setEditGoal(goal)
                           setGoalSheetOpen(true)
                         }}
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                        className="text-text-tertiary hover:text-text-primary"
                       >
                         <Pencil size={13} />
                       </Button>
@@ -453,13 +439,13 @@ export default function BudgetsPage() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => handleDeleteGoal(goal.goalId)}
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                        className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={13} />
                       </Button>
                     </div>
                   </div>
-                  <div className="h-2 rounded-full bg-[var(--color-surface-2)] mb-2">
+                  <div className="h-2 rounded-full bg-surface-2 mb-2">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -469,14 +455,10 @@ export default function BudgetsPage() {
                     />
                   </div>
                   <div className="flex justify-between text-xs font-mono">
-                    <span
-                      className={
-                        done ? 'text-[var(--color-success)]' : 'text-[var(--color-text-secondary)]'
-                      }
-                    >
+                    <span className={done ? 'text-success' : 'text-text-secondary'}>
                       {formatCurrency(goal.saved, currency)}
                     </span>
-                    <span className="text-[var(--color-text-tertiary)]">
+                    <span className="text-text-tertiary">
                       {formatCurrency(goal.target, currency)} · {Math.round(gpct)}%
                     </span>
                   </div>
@@ -530,7 +512,7 @@ function BudgetSparkline({
 
   return (
     <div className="mt-2 flex items-end gap-1">
-      <svg width={W} height={H} className="flex-shrink-0" aria-label="6-month spend sparkline">
+      <svg width={W} height={H} className="shrink-0" aria-label="6-month spend sparkline">
         {/* Budget limit line */}
         {limit > 0 && (
           <line
@@ -561,7 +543,7 @@ function BudgetSparkline({
           )
         })}
       </svg>
-      <span className="text-[9px] text-[var(--color-text-tertiary)] leading-none pb-0.5">6mo</span>
+      <span className="text-[9px] text-text-tertiary leading-none pb-0.5">6mo</span>
     </div>
   )
 }

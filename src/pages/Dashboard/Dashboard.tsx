@@ -166,11 +166,11 @@ export default function Dashboard() {
             variant="ghost"
             size="icon-sm"
             onClick={prevMonth}
-            className="text-[var(--color-text-secondary)]"
+            className="text-text-secondary"
           >
             <ChevronLeft size={18} />
           </Button>
-          <span className="flex-1 text-center text-sm font-medium text-[var(--color-text-primary)]">
+          <span className="flex-1 text-center text-sm font-medium text-text-primary">
             {monthLabel}
           </span>
           <Button
@@ -178,7 +178,7 @@ export default function Dashboard() {
             size="icon-sm"
             onClick={nextMonth}
             disabled={isCurrent}
-            className="text-[var(--color-text-secondary)]"
+            className="text-text-secondary"
           >
             <ChevronRight size={18} />
           </Button>
@@ -186,23 +186,23 @@ export default function Dashboard() {
       </div>
 
       {/* Summary card */}
-      <div className="mx-4 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]">
+      <div className="mx-4 p-4 rounded-2xl bg-surface border border-border">
         <div className="flex items-baseline justify-between">
           <div>
-            <p className="text-xs text-[var(--color-text-secondary)] mb-0.5">Total spent</p>
-            <p className="text-3xl font-bold font-mono text-[var(--color-text-primary)]">
+            <p className="text-xs text-text-secondary mb-0.5">Total spent</p>
+            <p className="text-3xl font-bold font-mono text-text-primary">
               {formatCurrency(totalExpense, currency)}
             </p>
             {totalBudget > 0 && (
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+              <p className="text-xs text-text-tertiary mt-0.5">
                 of {formatCurrency(totalBudget, currency)} budget
               </p>
             )}
           </div>
           {group?.incomeTracking && totalIncome > 0 && (
             <div className="text-right">
-              <p className="text-xs text-[var(--color-text-secondary)] mb-0.5">Income</p>
-              <p className="text-lg font-mono font-semibold text-[var(--color-income)]">
+              <p className="text-xs text-text-secondary mb-0.5">Income</p>
+              <p className="text-lg font-mono font-semibold text-income">
                 +{formatCurrency(totalIncome, currency)}
               </p>
             </div>
@@ -210,7 +210,7 @@ export default function Dashboard() {
         </div>
 
         {totalBudget > 0 && (
-          <div className="mt-3 h-1.5 rounded-full bg-[var(--color-surface-2)]">
+          <div className="mt-3 h-1.5 rounded-full bg-surface-2">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -229,8 +229,8 @@ export default function Dashboard() {
 
       {/* Spending donut */}
       {totalExpense > 0 && donutSlices.length > 0 && (
-        <div className="mt-4 mx-4 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-4">
+        <div className="mt-4 mx-4 p-4 rounded-2xl bg-surface border border-border">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-4">
             By category
           </p>
           <SpendingDonut slices={donutSlices} total={totalExpense} currency={currency} />
@@ -243,7 +243,7 @@ export default function Dashboard() {
       {/* Budget bars per category */}
       {(budgets ?? []).length > 0 && (
         <div className="mt-4 px-4">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
             Budgets
           </p>
           <div className="flex flex-col gap-3">
@@ -257,16 +257,14 @@ export default function Dashboard() {
                 return (
                   <div key={budget.budgetId}>
                     <div className="flex justify-between items-baseline mb-1">
-                      <span className="text-sm text-[var(--color-text-primary)]">
-                        {cat?.name ?? 'Unknown'}
-                      </span>
+                      <span className="text-sm text-text-primary">{cat?.name ?? 'Unknown'}</span>
                       <span
-                        className={`text-xs font-mono ${over ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-secondary)]'}`}
+                        className={`text-xs font-mono ${over ? 'text-danger' : 'text-text-secondary'}`}
                       >
                         {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[var(--color-surface-2)]">
+                    <div className="h-1.5 rounded-full bg-surface-2">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
@@ -289,7 +287,7 @@ export default function Dashboard() {
       {/* Upcoming recurrences */}
       {(upcomingRecurrences ?? []).length > 0 && (
         <div className="mt-6 px-4">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
             Upcoming
           </p>
           <div className="flex flex-col gap-2">
@@ -301,7 +299,7 @@ export default function Dashboard() {
                 return (
                   <div
                     key={rec.recurrenceId}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface)]"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface"
                   >
                     <CategoryIcon
                       icon={cat?.icon ?? 'CircleDot'}
@@ -310,16 +308,16 @@ export default function Dashboard() {
                       containerSize={36}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      <p className="text-sm font-medium text-text-primary truncate">
                         {cat?.name ?? 'Unknown'}
                       </p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                      <p className="text-xs text-text-tertiary">
                         {rec.frequency} · {daysUntil === 0 ? 'today' : `in ${daysUntil}d`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <RefreshCw size={10} className="text-[var(--color-text-tertiary)]" />
-                      <span className="text-sm font-mono font-medium text-[var(--color-text-primary)]">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <RefreshCw size={10} className="text-text-tertiary" />
+                      <span className="text-sm font-mono font-medium text-text-primary">
                         {formatCurrency(rec.template.amount, currency)}
                       </span>
                     </div>
@@ -332,11 +330,11 @@ export default function Dashboard() {
 
       {/* Recent transactions */}
       <div className="mt-6 px-4">
-        <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
           Recent
         </p>
         {(recentTransactions ?? []).length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)] text-center py-8">
+          <p className="text-sm text-text-tertiary text-center py-8">
             No transactions yet. Tap + to add one.
           </p>
         ) : (
@@ -344,10 +342,7 @@ export default function Dashboard() {
             {(recentTransactions ?? []).map((txn) => {
               const cat = catMap[txn.categoryId]
               return (
-                <div
-                  key={txn.txnId}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface)]"
-                >
+                <div key={txn.txnId} className="flex items-center gap-3 p-3 rounded-xl bg-surface">
                   <CategoryIcon
                     icon={cat?.icon ?? 'CircleDot'}
                     color={cat?.color ?? '#888'}
@@ -355,19 +350,15 @@ export default function Dashboard() {
                     containerSize={36}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                    <p className="text-sm font-medium text-text-primary truncate">
                       {cat?.name ?? 'Unknown'}
                       {txn.note ? ` · ${txn.note}` : ''}
                     </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      {relativeDate(txn.date)}
-                    </p>
+                    <p className="text-xs text-text-tertiary">{relativeDate(txn.date)}</p>
                   </div>
                   <span
-                    className={`text-sm font-mono font-medium flex-shrink-0 ${
-                      txn.type === 'income'
-                        ? 'text-[var(--color-income)]'
-                        : 'text-[var(--color-text-primary)]'
+                    className={`text-sm font-mono font-medium shrink-0 ${
+                      txn.type === 'income' ? 'text-income' : 'text-text-primary'
                     }`}
                   >
                     {txn.type === 'income' ? '+' : '-'}

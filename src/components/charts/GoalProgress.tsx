@@ -59,16 +59,14 @@ export default function GoalProgress({ goals, currency }: Props) {
           // biome-ignore lint/suspicious/noArrayIndexKey: stable goal order
           <div key={i} className="flex items-center gap-2">
             <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: g.done ? 'var(--color-success)' : 'var(--color-accent)' }}
             />
-            <span className="flex-1 text-xs text-[var(--color-text-secondary)] truncate">
-              {g.name}
-            </span>
-            <span className="text-xs font-mono text-[var(--color-text-primary)]">
+            <span className="flex-1 text-xs text-text-secondary truncate">{g.name}</span>
+            <span className="text-xs font-mono text-text-primary">
               {formatCurrency(g.saved, currency)}
             </span>
-            <span className="text-[10px] text-[var(--color-text-tertiary)] w-8 text-right">
+            <span className="text-[10px] text-text-tertiary w-8 text-right">
               {Math.round(g.progress)}%
             </span>
           </div>

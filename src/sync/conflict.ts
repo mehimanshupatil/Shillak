@@ -12,7 +12,7 @@ import type { ConflictLog, SyncEvent } from '@/db/schema'
 import type { SyncDelta } from './vector-clock'
 import { mergeClock } from './vector-clock'
 
-export interface ApplyResult {
+interface ApplyResult {
   recordsApplied: number
   conflictsFound: number
   syncEvent: SyncEvent
@@ -202,7 +202,7 @@ async function logConflict(
  * 0 admins → promote member with oldest joinedAt
  * 2+ admins → keep the one with newest updatedAt, demote rest
  */
-export async function enforceAdminInvariant(groupId: string): Promise<void> {
+async function enforceAdminInvariant(groupId: string): Promise<void> {
   const members = await db.members.where((m) => m.groupId === groupId && m.status === 'active')
   const admins = members.filter((m) => m.role === 'admin')
 

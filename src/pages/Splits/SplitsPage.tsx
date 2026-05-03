@@ -121,23 +121,23 @@ export default function SplitsPage() {
   return (
     <div className="flex flex-col pb-24">
       <div className="px-4 pt-6 pb-4">
-        <h1 className="text-xl font-bold text-[var(--color-text-primary)]">Splits</h1>
+        <h1 className="text-xl font-bold text-text-primary">Splits</h1>
       </div>
 
       {/* All settled banner */}
       {allSplits.length > 0 && unsettledSplits.length === 0 && (
-        <div className="mx-4 mb-4 p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center flex-shrink-0">
-            <Check size={16} className="text-[var(--color-success)]" />
+        <div className="mx-4 mb-4 p-4 rounded-xl bg-surface border border-border flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center shrink-0">
+            <Check size={16} className="text-success" />
           </div>
-          <p className="text-sm font-medium text-[var(--color-success)]">All settled up!</p>
+          <p className="text-sm font-medium text-success">All settled up!</p>
         </div>
       )}
 
       {/* Settlements needed */}
       {settlements.length > 0 && (
         <div className="px-4 mb-4">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
             Settlements needed
           </p>
           <div className="flex flex-col gap-2">
@@ -147,33 +147,26 @@ export default function SplitsPage() {
                 <div
                   // biome-ignore lint/suspicious/noArrayIndexKey: stable order from algorithm
                   key={i}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-surface border border-border"
                 >
                   <div className="flex-1 flex items-center gap-2 min-w-0">
                     <span
                       className={`text-sm font-medium truncate ${
-                        s.from === currentUserId
-                          ? 'text-[var(--color-danger)]'
-                          : 'text-[var(--color-text-primary)]'
+                        s.from === currentUserId ? 'text-danger' : 'text-text-primary'
                       }`}
                     >
                       {userName(s.from)}
                     </span>
-                    <ArrowRight
-                      size={13}
-                      className="text-[var(--color-text-tertiary)] flex-shrink-0"
-                    />
+                    <ArrowRight size={13} className="text-text-tertiary shrink-0" />
                     <span
                       className={`text-sm font-medium truncate ${
-                        s.to === currentUserId
-                          ? 'text-[var(--color-success)]'
-                          : 'text-[var(--color-text-primary)]'
+                        s.to === currentUserId ? 'text-success' : 'text-text-primary'
                       }`}
                     >
                       {userName(s.to)}
                     </span>
                   </div>
-                  <span className="text-sm font-mono font-semibold text-[var(--color-text-primary)] flex-shrink-0">
+                  <span className="text-sm font-mono font-semibold text-text-primary shrink-0">
                     {formatCurrency(s.amount, currency)}
                   </span>
                   {youInvolved && (
@@ -181,7 +174,7 @@ export default function SplitsPage() {
                       variant="ghost"
                       size="xs"
                       onClick={() => handleSettleAll(s.from, s.to)}
-                      className="text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] gap-1 flex-shrink-0"
+                      className="text-accent hover:bg-accent-subtle gap-1 shrink-0"
                     >
                       <Check size={11} />
                       Settle
@@ -197,20 +190,17 @@ export default function SplitsPage() {
       {/* Unsettled splits */}
       {unsettledSplits.length > 0 && (
         <div className="px-4 mb-4">
-          <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
             Unsettled expenses
           </p>
           <div className="flex flex-col gap-2">
             {unsettledSplits.map((split) => (
-              <div
-                key={split.splitId}
-                className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]"
-              >
+              <div key={split.splitId} className="p-3 rounded-xl bg-surface border border-border">
                 <div className="mb-2">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  <p className="text-sm font-medium text-text-primary">
                     {split.note || 'Shared expense'}
                   </p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                  <p className="text-xs text-text-tertiary">
                     Paid by {userName(split.paidBy)} · {formatCurrency(split.total, currency)}
                   </p>
                 </div>
@@ -219,9 +209,9 @@ export default function SplitsPage() {
                     .filter((sh) => !sh.settled && sh.userId !== split.paidBy)
                     .map((sh) => (
                       <div key={sh.userId} className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--color-text-secondary)]">
+                        <span className="text-xs text-text-secondary">
                           {userName(sh.userId)} owes{' '}
-                          <span className="font-mono font-medium text-[var(--color-text-primary)]">
+                          <span className="font-mono font-medium text-text-primary">
                             {formatCurrency(sh.amount, currency)}
                           </span>
                         </span>
@@ -230,7 +220,7 @@ export default function SplitsPage() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => handleMarkShareSettled(split.splitId, sh.userId)}
-                            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-success)] hover:bg-[var(--color-success)]/10"
+                            className="text-text-tertiary hover:text-success hover:bg-success/10"
                           >
                             <Check size={12} />
                           </Button>
@@ -247,11 +237,9 @@ export default function SplitsPage() {
       {/* Empty state */}
       {allSplits.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
-          <Users2 size={40} className="text-[var(--color-text-tertiary)] mb-3" />
-          <p className="text-sm text-[var(--color-text-tertiary)]">No shared expenses yet.</p>
-          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-            Tap + to add a shared expense.
-          </p>
+          <Users2 size={40} className="text-text-tertiary mb-3" />
+          <p className="text-sm text-text-tertiary">No shared expenses yet.</p>
+          <p className="text-xs text-text-tertiary mt-1">Tap + to add a shared expense.</p>
         </div>
       )}
 
@@ -259,7 +247,7 @@ export default function SplitsPage() {
       <button
         type="button"
         onClick={() => setAddSheetOpen(true)}
-        className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-[var(--color-accent)]
+        className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-accent
                    flex items-center justify-center shadow-lg z-30
                    active:scale-95 transition-transform"
         aria-label="Add shared expense"

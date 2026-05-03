@@ -103,7 +103,7 @@ export async function createAnswer(encodedOffer: string): Promise<WebRTCSession>
 
 // ─── Message protocol helpers ─────────────────────────────────────────────────
 
-export type SyncMessage =
+type SyncMessage =
   | { type: 'clock'; clock: Record<string, number> }
   | { type: 'delta'; payload: string }
   | { type: 'ack' }
@@ -121,26 +121,6 @@ export function waitForMessage(channel: RTCDataChannel): Promise<SyncMessage> {
       clearTimeout(timeout)
       channel.removeEventListener('message', handler)
       resolve(JSON.parse(e.data as string) as SyncMessage)
-    }
-
-    channel.addEventListener('message', handler)
-  })
-}
-
-/** Wait for all messages until 'done' — collects them in order. */
-export function collectMessages(channel: RTCDataChannel): Promise<SyncMessage[]> {
-  return new Promise((resolve, reject) => {
-    const messages: SyncMessage[] = []
-    const timeout = setTimeout(() => reject(new Error('Sync session timeout')), 60_000)
-
-    function handler(e: MessageEvent) {
-      const msg = JSON.parse(e.data as string) as SyncMessage
-      messages.push(msg)
-      if (msg.type === 'done') {
-        clearTimeout(timeout)
-        channel.removeEventListener('message', handler)
-        resolve(messages)
-      }
     }
 
     channel.addEventListener('message', handler)

@@ -29,10 +29,8 @@ export default function GroupSwitcher() {
               key={g.groupId}
               type="button"
               onClick={() => setActiveGroupId(g.groupId)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                active
-                  ? 'text-black scale-105'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                active ? 'text-black scale-105' : 'bg-surface-2 text-text-secondary'
               }`}
               style={active ? { backgroundColor: g.avatarColor } : {}}
             >
@@ -44,8 +42,8 @@ export default function GroupSwitcher() {
           type="button"
           onClick={() => setCreateOpen(true)}
           aria-label="Create new group"
-          className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full
-                     bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]"
+          className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full
+                     bg-surface-2 text-text-secondary"
         >
           <Plus size={14} />
         </button>
@@ -55,11 +53,11 @@ export default function GroupSwitcher() {
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-bg)]
-                     border-0 border-t border-[var(--color-border)] h-[90vh] px-0 pb-0 gap-0"
+          className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-bg
+                     border-0 border-t border-border h-[90vh] px-0 pb-0 gap-0"
         >
           <div className="flex justify-center pt-3 pb-2">
-            <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+            <div className="w-10 h-1 rounded-full bg-border" />
           </div>
           <div className="overflow-y-auto h-full">
             {currentUserId && (

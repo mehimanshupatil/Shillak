@@ -269,33 +269,29 @@ export default function SyncSheet({ open, onClose }: Props) {
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-2xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] px-0 pb-0 gap-0 max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-[430px] mx-auto rounded-t-2xl bg-surface
+                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92vh] overflow-y-auto"
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-surface-3)]" />
+          <div className="w-10 h-1 rounded-full bg-surface-3" />
         </div>
 
         {/* Header */}
         <SheetHeader className="px-4 pb-3 text-left">
-          <SheetTitle className="text-lg font-bold text-[var(--color-text-primary)]">
-            Sync
-          </SheetTitle>
-          {group && <p className="text-xs text-[var(--color-text-tertiary)]">{group.name}</p>}
+          <SheetTitle className="text-lg font-bold text-text-primary">Sync</SheetTitle>
+          {group && <p className="text-xs text-text-tertiary">{group.name}</p>}
         </SheetHeader>
 
         {/* Tabs */}
-        <div className="flex gap-1 mx-4 mb-4 p-1 rounded-xl bg-[var(--color-surface-2)]">
+        <div className="flex gap-1 mx-4 mb-4 p-1 rounded-xl bg-surface-2">
           {(['wifi', 'qr', 'history'] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                tab === t
-                  ? 'bg-[var(--color-accent)] text-black'
-                  : 'text-[var(--color-text-secondary)]'
+                tab === t ? 'bg-accent text-black' : 'text-text-secondary'
               }`}
             >
               {t === 'wifi' ? 'Local WiFi' : t === 'qr' ? 'QR Batch' : 'History'}
@@ -361,19 +357,19 @@ function WiFiTab({
   if (state.step === 'idle') {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-text-secondary">
           Both devices must be on the same WiFi. No internet required.
         </p>
         <Button
           onClick={onStartOffer}
-          className="w-full h-12 rounded-xl bg-[var(--color-accent)] text-black font-medium"
+          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
         >
           <Wifi size={16} className="mr-2" />
           Start sync (show QR)
         </Button>
         <Button
           onClick={onStartScanOffer}
-          className="w-full h-12 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
+          className="w-full h-12 rounded-xl bg-surface-2 text-text-primary"
         >
           <QrCode size={16} className="mr-2" />
           Scan peer&apos;s QR
@@ -385,21 +381,17 @@ function WiFiTab({
   if (state.step === 'offering') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)] text-center">
+        <p className="text-sm text-text-secondary text-center">
           Step 1: Show this QR to the other device
         </p>
         <QRDisplay value={state.session.encodedSDP} label="Offer QR — scan on other device" />
         <Button
           onClick={onReadyToScanAnswer}
-          className="w-full h-12 rounded-xl bg-[var(--color-accent)] text-black font-medium"
+          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
         >
           Other device shows answer QR →
         </Button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-[var(--color-text-tertiary)]"
-        >
+        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
           Cancel
         </button>
       </div>
@@ -409,15 +401,11 @@ function WiFiTab({
   if (state.step === 'scan-answer') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)] text-center">
+        <p className="text-sm text-text-secondary text-center">
           Step 2: Scan the answer QR from the other device
         </p>
         <QRScanner onScan={onScanAnswer} />
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-[var(--color-text-tertiary)]"
-        >
+        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
           Cancel
         </button>
       </div>
@@ -427,15 +415,11 @@ function WiFiTab({
   if (state.step === 'scanning-offer') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)] text-center">
+        <p className="text-sm text-text-secondary text-center">
           Scan the other device&apos;s offer QR
         </p>
         <QRScanner onScan={onScanOffer} />
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-[var(--color-text-tertiary)]"
-        >
+        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
           Cancel
         </button>
       </div>
@@ -445,11 +429,11 @@ function WiFiTab({
   if (state.step === 'answering') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)] text-center">
+        <p className="text-sm text-text-secondary text-center">
           Show this answer QR to the other device, then wait
         </p>
         <QRDisplay value={state.encodedAnswer} label="Answer QR — scan on other device" />
-        <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+        <div className="flex items-center gap-2 text-xs text-text-tertiary">
           <Loader2 size={12} className="animate-spin" />
           Waiting for connection…
         </div>
@@ -460,8 +444,8 @@ function WiFiTab({
   if (state.step === 'syncing') {
     return (
       <div className="flex flex-col items-center gap-4 py-8">
-        <Loader2 size={32} className="animate-spin text-[var(--color-accent)]" />
-        <p className="text-sm text-[var(--color-text-secondary)]">Syncing…</p>
+        <Loader2 size={32} className="animate-spin text-accent" />
+        <p className="text-sm text-text-secondary">Syncing…</p>
       </div>
     )
   }
@@ -469,18 +453,15 @@ function WiFiTab({
   if (state.step === 'done') {
     return (
       <div className="flex flex-col items-center gap-4 py-8">
-        <div className="w-14 h-14 rounded-full bg-[var(--color-success)]/10 flex items-center justify-center">
-          <Check size={28} className="text-[var(--color-success)]" />
+        <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
+          <Check size={28} className="text-success" />
         </div>
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">Sync complete</p>
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-base font-semibold text-text-primary">Sync complete</p>
+        <p className="text-sm text-text-secondary">
           {state.applied} records applied
           {state.conflicts > 0 && ` · ${state.conflicts} conflict(s) below`}
         </p>
-        <Button
-          onClick={onReset}
-          className="h-10 px-6 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
-        >
+        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
           Done
         </Button>
       </div>
@@ -490,11 +471,8 @@ function WiFiTab({
   if (state.step === 'error') {
     return (
       <div className="flex flex-col items-center gap-3 py-6">
-        <p className="text-sm text-[var(--color-danger)] text-center">{state.message}</p>
-        <Button
-          onClick={onReset}
-          className="h-10 px-6 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
-        >
+        <p className="text-sm text-danger text-center">{state.message}</p>
+        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
           Try again
         </Button>
       </div>
@@ -526,18 +504,18 @@ function QRBatchTab({
   if (state.step === 'idle') {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-text-secondary">
           Unidirectional — export on one device, scan all chunks on the other.
         </p>
         <Button
           onClick={onExport}
-          className="w-full h-12 rounded-xl bg-[var(--color-accent)] text-black font-medium"
+          className="w-full h-12 rounded-xl bg-accent text-black font-medium"
         >
           Export QR chunks
         </Button>
         <Button
           onClick={onScanStart}
-          className="w-full h-12 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
+          className="w-full h-12 rounded-xl bg-surface-2 text-text-primary"
         >
           <QrCode size={16} className="mr-2" />
           Scan QR chunks
@@ -551,7 +529,7 @@ function QRBatchTab({
     const total = chunks.length
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)]">
+        <p className="text-sm text-text-secondary">
           Chunk {chunkIndex + 1} of {total} — scan each on the other device
         </p>
         <QRDisplay value={chunks[chunkIndex] ?? ''} label={`QR ${chunkIndex + 1}/${total}`} />
@@ -559,26 +537,22 @@ function QRBatchTab({
           <Button
             onClick={onPrevChunk}
             disabled={chunkIndex === 0}
-            className="h-10 w-10 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)] disabled:opacity-40"
+            className="h-10 w-10 rounded-xl bg-surface-2 text-text-primary disabled:opacity-40"
           >
             <ChevronLeft size={18} />
           </Button>
-          <span className="text-sm text-[var(--color-text-secondary)]">
+          <span className="text-sm text-text-secondary">
             {chunkIndex + 1} / {total}
           </span>
           <Button
             onClick={onNextChunk}
             disabled={chunkIndex === total - 1}
-            className="h-10 w-10 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)] disabled:opacity-40"
+            className="h-10 w-10 rounded-xl bg-surface-2 text-text-primary disabled:opacity-40"
           >
             <ChevronRight size={18} />
           </Button>
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-[var(--color-text-tertiary)]"
-        >
+        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
           Cancel
         </button>
       </div>
@@ -591,7 +565,7 @@ function QRBatchTab({
     const missing = total !== null ? total - scanned : null
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-[var(--color-text-secondary)] text-center">
+        <p className="text-sm text-text-secondary text-center">
           {total !== null
             ? `Scanned ${scanned} of ${total} chunks`
             : 'Scan the first chunk to begin'}
@@ -602,22 +576,18 @@ function QRBatchTab({
               <div
                 // biome-ignore lint/suspicious/noArrayIndexKey: stable chunk order
                 key={i}
-                className={`w-4 h-4 rounded-sm ${collected.has(i) ? 'bg-[var(--color-success)]' : 'bg-[var(--color-surface-2)]'}`}
+                className={`w-4 h-4 rounded-sm ${collected.has(i) ? 'bg-success' : 'bg-surface-2'}`}
               />
             ))}
           </div>
         )}
         {missing !== null && missing > 0 && (
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <p className="text-xs text-text-tertiary">
             {missing} chunk{missing > 1 ? 's' : ''} remaining
           </p>
         )}
         <QRScanner onScan={onChunkScan} />
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-[var(--color-text-tertiary)]"
-        >
+        <button type="button" onClick={onReset} className="text-xs text-text-tertiary">
           Cancel
         </button>
       </div>
@@ -627,17 +597,12 @@ function QRBatchTab({
   if (state.step === 'done') {
     return (
       <div className="flex flex-col items-center gap-4 py-8">
-        <div className="w-14 h-14 rounded-full bg-[var(--color-success)]/10 flex items-center justify-center">
-          <Check size={28} className="text-[var(--color-success)]" />
+        <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
+          <Check size={28} className="text-success" />
         </div>
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">Import complete</p>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          {state.applied} records applied
-        </p>
-        <Button
-          onClick={onReset}
-          className="h-10 px-6 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
-        >
+        <p className="text-base font-semibold text-text-primary">Import complete</p>
+        <p className="text-sm text-text-secondary">{state.applied} records applied</p>
+        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
           Done
         </Button>
       </div>
@@ -647,11 +612,8 @@ function QRBatchTab({
   if (state.step === 'error') {
     return (
       <div className="flex flex-col items-center gap-3 py-6">
-        <p className="text-sm text-[var(--color-danger)] text-center">{state.message}</p>
-        <Button
-          onClick={onReset}
-          className="h-10 px-6 rounded-xl bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
-        >
+        <p className="text-sm text-danger text-center">{state.message}</p>
+        <Button onClick={onReset} className="h-10 px-6 rounded-xl bg-surface-2 text-text-primary">
           Try again
         </Button>
       </div>
@@ -665,11 +627,7 @@ function QRBatchTab({
 
 function HistoryTab({ events }: { events: import('@/db/schema').SyncEvent[] }) {
   if (events.length === 0) {
-    return (
-      <p className="text-sm text-[var(--color-text-tertiary)] text-center py-8">
-        No sync history yet.
-      </p>
-    )
+    return <p className="text-sm text-text-tertiary text-center py-8">No sync history yet.</p>
   }
 
   return (
@@ -677,33 +635,31 @@ function HistoryTab({ events }: { events: import('@/db/schema').SyncEvent[] }) {
       {events.map((evt) => (
         <div
           key={evt.syncId}
-          className="p-3 rounded-xl bg-[var(--color-surface-2)] flex items-start justify-between gap-3"
+          className="p-3 rounded-xl bg-surface-2 flex items-start justify-between gap-3"
         >
           <div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
                   evt.status === 'ok'
-                    ? 'bg-[var(--color-success)]'
+                    ? 'bg-success'
                     : evt.status === 'partial'
-                      ? 'bg-[var(--color-warning)]'
-                      : 'bg-[var(--color-danger)]'
+                      ? 'bg-warning'
+                      : 'bg-danger'
                 }`}
               />
-              <span className="text-xs font-medium text-[var(--color-text-primary)] capitalize">
-                {evt.method}
-              </span>
+              <span className="text-xs font-medium text-text-primary capitalize">{evt.method}</span>
               {evt.conflictsFound > 0 && (
-                <span className="text-[10px] text-[var(--color-warning)]">
+                <span className="text-[10px] text-warning">
                   · {evt.conflictsFound} conflict{evt.conflictsFound > 1 ? 's' : ''}
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">
+            <p className="text-[10px] text-text-tertiary">
               ↑{evt.recordsSent} ↓{evt.recordsReceived}
             </p>
           </div>
-          <p className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0">
+          <p className="text-[10px] text-text-tertiary shrink-0">
             {new Date(evt.syncedAt).toLocaleDateString('en-IN', {
               day: '2-digit',
               month: 'short',

@@ -122,7 +122,7 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
   if (boot.status === 'loading') {
     return (
       <div className="app-shell flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }

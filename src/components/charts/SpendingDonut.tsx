@@ -49,9 +49,9 @@ export default function SpendingDonut({ slices, total, currency }: Props) {
               const item = payload[0]
               if (!item) return null
               return (
-                <div className="px-2.5 py-1.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs">
-                  <p className="font-medium text-[var(--color-text-primary)]">{item.name}</p>
-                  <p className="font-mono text-[var(--color-text-secondary)]">
+                <div className="px-2.5 py-1.5 rounded-lg bg-surface-2 border border-border text-xs">
+                  <p className="font-medium text-text-primary">{item.name}</p>
+                  <p className="font-mono text-text-secondary">
                     {formatCurrency(item.value as number, currency)}
                   </p>
                 </div>
@@ -66,16 +66,14 @@ export default function SpendingDonut({ slices, total, currency }: Props) {
         {slices.map((s) => (
           <div key={s.name} className="flex items-center gap-2">
             <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: s.color }}
             />
-            <span className="flex-1 text-xs text-[var(--color-text-secondary)] truncate">
-              {s.name}
-            </span>
-            <span className="text-xs font-mono text-[var(--color-text-primary)]">
+            <span className="flex-1 text-xs text-text-secondary truncate">{s.name}</span>
+            <span className="text-xs font-mono text-text-primary">
               {formatCurrency(s.amount, currency)}
             </span>
-            <span className="text-[10px] text-[var(--color-text-tertiary)] w-8 text-right">
+            <span className="text-[10px] text-text-tertiary w-8 text-right">
               {Math.round((s.amount / total) * 100)}%
             </span>
           </div>

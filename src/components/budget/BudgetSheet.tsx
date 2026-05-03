@@ -100,15 +100,15 @@ export default function BudgetSheet({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                   border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+            <SheetTitle className="text-base font-semibold text-text-primary">
               {isEdit ? 'Edit budget' : 'Set budget'}
             </SheetTitle>
           </SheetHeader>
@@ -121,9 +121,7 @@ export default function BudgetSheet({
                 type="button"
                 onClick={() => setPeriod(p)}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium capitalize transition-colors ${
-                  period === p
-                    ? 'bg-[var(--color-accent)] text-black'
-                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                  period === p ? 'bg-accent text-black' : 'bg-surface-2 text-text-secondary'
                 }`}
               >
                 {p}
@@ -133,7 +131,7 @@ export default function BudgetSheet({
 
           {/* Category picker */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Category
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -144,10 +142,8 @@ export default function BudgetSheet({
                     key={cat.categoryId}
                     type="button"
                     onClick={() => setCategoryId(cat.categoryId)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      active
-                        ? 'text-black'
-                        : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)]'
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                     }`}
                     style={active ? { backgroundColor: cat.color } : {}}
                   >
@@ -166,7 +162,7 @@ export default function BudgetSheet({
 
           {/* Limit */}
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-mono text-[var(--color-text-secondary)] z-10">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-mono text-text-secondary z-10">
               {currencySymbol}
             </span>
             <Input
@@ -177,21 +173,21 @@ export default function BudgetSheet({
               value={limitStr}
               onChange={(e) => setLimitStr(e.target.value)}
               placeholder="0.00"
-              className="h-14 rounded-2xl pl-9 pr-4 bg-[var(--color-surface-2)]
-                         text-2xl font-mono font-bold text-[var(--color-text-primary)]
-                         placeholder:text-[var(--color-text-tertiary)]
-                         border-[var(--color-border)] focus-visible:border-[var(--color-accent)]
-                         focus-visible:ring-[var(--color-accent)]/20"
+              className="h-14 rounded-2xl pl-9 pr-4 bg-surface-2
+                         text-2xl font-mono font-bold text-text-primary
+                         placeholder:text-text-tertiary
+                         border-border focus-visible:border-accent
+                         focus-visible:ring-accent/20"
             />
           </div>
 
-          {error && <p className="text-sm text-[var(--color-danger)] -mt-2">{error}</p>}
+          {error && <p className="text-sm text-danger -mt-2">{error}</p>}
 
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-12 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                       hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            className="w-full h-12 rounded-2xl bg-accent text-black font-semibold
+                       hover:bg-accent-hover disabled:opacity-50"
           >
             {loading ? 'Saving…' : isEdit ? 'Save changes' : 'Set budget'}
           </Button>

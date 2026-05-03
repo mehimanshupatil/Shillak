@@ -56,34 +56,34 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-[var(--color-surface)]
-                   border-0 border-t border-[var(--color-border)] safe-bottom px-0 pb-0 gap-0"
+        className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                   border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-[var(--color-text-primary)]">
+            <SheetTitle className="text-base font-semibold text-text-primary">
               Edit profile
             </SheetTitle>
           </SheetHeader>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Display name
             </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-11 rounded-xl bg-[var(--color-surface-2)] border-[var(--color-border)]
-                         text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                         focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+              className="h-11 rounded-xl bg-surface-2 border-border
+                         text-text-primary placeholder:text-text-tertiary
+                         focus-visible:border-accent focus-visible:ring-accent/20"
             />
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Avatar colour
             </p>
             <div className="flex gap-3 flex-wrap">
@@ -92,20 +92,20 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
                   key={c}
                   type="button"
                   onClick={() => setColorIdx(i)}
-                  className={`w-9 h-9 rounded-full transition-transform ${colorIdx === i ? 'scale-125 ring-2 ring-offset-2 ring-offset-[var(--color-surface)]' : ''}`}
+                  className={`w-9 h-9 rounded-full transition-transform ${colorIdx === i ? 'scale-125 ring-2 ring-offset-2 ring-offset-surface' : ''}`}
                   style={{ backgroundColor: c, ['--tw-ring-color' as string]: c }}
                 />
               ))}
             </div>
           </div>
 
-          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-12 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                       hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            className="w-full h-12 rounded-2xl bg-accent text-black font-semibold
+                       hover:bg-accent-hover disabled:opacity-50"
           >
             {loading ? 'Saving…' : 'Save changes'}
           </Button>

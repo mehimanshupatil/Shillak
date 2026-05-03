@@ -28,7 +28,7 @@ export default function BottomNav() {
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] safe-bottom
-                    border-t border-[var(--color-border)] bg-[var(--color-surface)]
+                    border-t border-border bg-surface
                     flex items-center z-40"
     >
       {tabs.map(({ to, label, Icon }) => (
@@ -39,7 +39,7 @@ export default function BottomNav() {
           className={({ isActive }) =>
             cn(
               'flex-1 flex flex-col items-center gap-1 py-3 text-[10px] font-medium transition-colors',
-              isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]',
+              isActive ? 'text-accent' : 'text-text-tertiary',
             )
           }
         >

@@ -54,7 +54,7 @@ export default function PinScreen({ onUnlocked }: Props) {
     <div className="app-shell flex flex-col items-center justify-center px-6 gap-8 safe-top safe-bottom">
       <div className="flex flex-col items-center gap-3">
         <Logo variant="mark" size={52} />
-        <p className="text-sm text-[var(--color-text-secondary)]">Enter your PIN to unlock</p>
+        <p className="text-sm text-text-secondary">Enter your PIN to unlock</p>
       </div>
 
       {/* PIN dots — reflect actual length (4–6) */}
@@ -63,13 +63,13 @@ export default function PinScreen({ onUnlocked }: Props) {
           <div
             key={id}
             className={`w-3.5 h-3.5 rounded-full transition-all ${
-              i < pin.length ? 'bg-[var(--color-accent)] scale-110' : 'bg-[var(--color-border)]'
+              i < pin.length ? 'bg-accent scale-110' : 'bg-border'
             }`}
           />
         ))}
       </div>
 
-      {error && <p className="text-sm text-[var(--color-danger)] -mt-4">{error}</p>}
+      {error && <p className="text-sm text-danger -mt-4">{error}</p>}
 
       {/* Numpad */}
       <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
@@ -87,8 +87,8 @@ export default function PinScreen({ onUnlocked }: Props) {
               ${d === '' ? 'invisible' : ''}
               ${
                 d === '⌫'
-                  ? 'bg-transparent text-[var(--color-text-secondary)] active:bg-[var(--color-surface-2)]'
-                  : 'bg-[var(--color-surface)] text-[var(--color-text-primary)] active:bg-[var(--color-surface-2)]'
+                  ? 'bg-transparent text-text-secondary active:bg-surface-2'
+                  : 'bg-surface text-text-primary active:bg-surface-2'
               }
             `}
           >
@@ -101,8 +101,8 @@ export default function PinScreen({ onUnlocked }: Props) {
         <Button
           onClick={handleSubmit}
           disabled={pin.length < 4 || loading}
-          className="w-full max-w-[280px] h-14 rounded-2xl bg-[var(--color-accent)]
-                     text-black font-semibold text-base hover:bg-[var(--color-accent-hover)]
+          className="w-full max-w-[280px] h-14 rounded-2xl bg-accent
+                     text-black font-semibold text-base hover:bg-accent-hover
                      disabled:opacity-50"
         >
           {loading ? 'Unlocking…' : 'Unlock'}

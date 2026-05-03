@@ -63,15 +63,13 @@ export default function CreateProfileScreen({ onNext }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full px-6 py-8 gap-6">
       <div>
-        <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Create profile</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-          Your identity stays on this device.
-        </p>
+        <h2 className="text-2xl font-bold text-text-primary">Create profile</h2>
+        <p className="text-sm text-text-secondary mt-1">Your identity stays on this device.</p>
       </div>
 
       {/* Avatar color */}
       <div className="space-y-2">
-        <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
           Avatar colour
         </p>
         <div className="flex gap-3 flex-wrap">
@@ -80,7 +78,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
               key={c}
               type="button"
               onClick={() => setColorIdx(i)}
-              className={`w-9 h-9 rounded-full transition-transform ${colorIdx === i ? 'scale-125 ring-2 ring-offset-2 ring-offset-[var(--color-bg)]' : ''}`}
+              className={`w-9 h-9 rounded-full transition-transform ${colorIdx === i ? 'scale-125 ring-2 ring-offset-2 ring-offset-bg' : ''}`}
               style={{ backgroundColor: c, ['--tw-ring-color' as string]: c }}
             />
           ))}
@@ -91,7 +89,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
       <div className="space-y-2">
         <Label
           htmlFor="profile-name"
-          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+          className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
           Your name
         </Label>
@@ -101,9 +99,9 @@ export default function CreateProfileScreen({ onNext }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Himanshu"
-          className="h-12 rounded-xl bg-[var(--color-surface)] border-[var(--color-border)]
-                     text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                     focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20"
+          className="h-12 rounded-xl bg-surface border-border
+                     text-text-primary placeholder:text-text-tertiary
+                     focus-visible:border-accent focus-visible:ring-accent/20"
         />
       </div>
 
@@ -111,7 +109,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
       <div className="space-y-2">
         <Label
           htmlFor="profile-pin"
-          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+          className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
           PIN (4–6 digits)
         </Label>
@@ -124,9 +122,9 @@ export default function CreateProfileScreen({ onNext }: Props) {
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           placeholder="····"
-          className="h-12 rounded-xl bg-[var(--color-surface)] border-[var(--color-border)]
-                     text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                     focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20
+          className="h-12 rounded-xl bg-surface border-border
+                     text-text-primary placeholder:text-text-tertiary
+                     focus-visible:border-accent focus-visible:ring-accent/20
                      tracking-widest"
         />
       </div>
@@ -135,7 +133,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
       <div className="space-y-2">
         <Label
           htmlFor="profile-pin-confirm"
-          className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider"
+          className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
           Confirm PIN
         </Label>
@@ -148,21 +146,21 @@ export default function CreateProfileScreen({ onNext }: Props) {
           value={confirmPin}
           onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
           placeholder="····"
-          className="h-12 rounded-xl bg-[var(--color-surface)] border-[var(--color-border)]
-                     text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]
-                     focus-visible:border-[var(--color-accent)] focus-visible:ring-[var(--color-accent)]/20
+          className="h-12 rounded-xl bg-surface border-border
+                     text-text-primary placeholder:text-text-tertiary
+                     focus-visible:border-accent focus-visible:ring-accent/20
                      tracking-widest"
         />
       </div>
 
-      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="mt-auto">
         <Button
           type="submit"
           disabled={loading}
-          className="w-full h-14 rounded-2xl bg-[var(--color-accent)] text-black font-semibold
-                     hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+          className="w-full h-14 rounded-2xl bg-accent text-black font-semibold
+                     hover:bg-accent-hover disabled:opacity-50"
         >
           {loading ? 'Setting up…' : 'Continue'}
         </Button>

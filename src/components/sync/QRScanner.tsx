@@ -3,9 +3,12 @@
  * Full control over video element; no library injecting DOM or fighting CSS.
  * Calls onScan(result) once per unique decoded value (2 s debounce).
  * Calls onError if camera permission denied or getUserMedia unavailable.
+ *
+ * Also renders a "Paste code" fallback input for when the in-app camera
+ * can't scan but the device's native camera app can.
  */
 import jsQR from 'jsqr'
-import { X } from 'lucide-react'
+import { ClipboardPaste, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 interface Props {
@@ -21,6 +24,8 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
   const rafRef = useRef<number>(0)
   const lastScanRef = useRef<string>('')
   const [ready, setReady] = useState(false)
+  const [showPaste, setShowPaste] = useState(false)
+  const [pasteValue, setPasteValue] = useState('')
 
   useEffect(() => {
     if (!active) return
@@ -59,11 +64,7 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
     async function start() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         })
         if (stopped) {
@@ -91,6 +92,14 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
     }
   }, [active, onScan, onError])
 
+  function handlePasteSubmit() {
+    const val = pasteValue.trim()
+    if (!val) return
+    onScan(val)
+    setPasteValue('')
+    setShowPaste(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Full-screen camera feed */}
@@ -105,13 +114,9 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
 
       {/* Dim overlay outside scan zone */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* top */}
         <div className="absolute inset-x-0 top-0 h-[calc(50%-104px)] bg-black/60" />
-        {/* bottom */}
         <div className="absolute inset-x-0 bottom-0 h-[calc(50%-104px)] bg-black/60" />
-        {/* left */}
         <div className="absolute left-0 top-[calc(50%-104px)] h-52 w-[calc(50%-104px)] bg-black/60" />
-        {/* right */}
         <div className="absolute right-0 top-[calc(50%-104px)] h-52 w-[calc(50%-104px)] bg-black/60" />
       </div>
 
@@ -132,9 +137,68 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
         </div>
       </div>
 
-      {/* Label */}
-      <div className="absolute bottom-20 inset-x-0 flex flex-col items-center gap-2">
-        <p className="text-sm text-white/80">Point camera at the QR code</p>
+      {/* Bottom controls */}
+      <div className="absolute bottom-0 inset-x-0 flex flex-col items-center gap-3 pb-10 px-6">
+        {!showPaste ? (
+          <>
+            <p className="text-sm text-white/70">Point camera at the QR code</p>
+            <button
+              type="button"
+              onClick={() => setShowPaste(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/80 text-xs"
+            >
+              <ClipboardPaste size={14} />
+              Paste code manually
+            </button>
+          </>
+        ) : (
+          <div className="w-full flex flex-col gap-2">
+            <p className="text-xs text-white/60 text-center">
+              Scan QR with your camera app, copy the text, paste here
+            </p>
+            <div className="flex gap-2">
+              <textarea
+                // biome-ignore lint/a11y/noAutofocus: intentional — user tapped to open this input
+                autoFocus
+                value={pasteValue}
+                onChange={(e) => setPasteValue(e.target.value)}
+                onPaste={(e) => {
+                  // Auto-submit on paste
+                  const text = e.clipboardData.getData('text').trim()
+                  if (text) {
+                    e.preventDefault()
+                    onScan(text)
+                    setPasteValue('')
+                    setShowPaste(false)
+                  }
+                }}
+                placeholder="Paste code here…"
+                rows={3}
+                className="flex-1 rounded-xl bg-white/10 text-white placeholder-white/30 text-xs px-3 py-2 resize-none outline-none border border-white/20 focus:border-accent"
+              />
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handlePasteSubmit}
+                  disabled={!pasteValue.trim()}
+                  className="px-3 py-2 rounded-xl bg-accent text-black text-xs font-semibold disabled:opacity-40"
+                >
+                  Submit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaste(false)
+                    setPasteValue('')
+                  }}
+                  className="px-3 py-2 rounded-xl bg-white/10 text-white/70 text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Close button */}

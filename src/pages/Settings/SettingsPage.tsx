@@ -49,6 +49,18 @@ export default function SettingsPage() {
     [activeGroupId],
   )
 
+  const memberUsers = useLiveQuery(
+    async () => {
+      if (!members?.length) return {}
+      const userIds = members.map((m) => m.userId)
+      const users = await db.users.bulkGet(userIds)
+      return Object.fromEntries(
+        users.filter((u): u is NonNullable<typeof u> => u !== undefined).map((u) => [u.userId, u]),
+      )
+    },
+    [members],
+  )
+
   async function handleExport() {
     if (!activeGroupId || !group) return
     setExportLoading(true)
@@ -180,13 +192,15 @@ export default function SettingsPage() {
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: user?.avatarColor ?? '#888' }}
+                style={{ backgroundColor: memberUsers?.[member.userId]?.avatarColor ?? '#888' }}
               >
                 <User size={14} className="text-black" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-text-primary">
-                  {member.userId === currentUserId ? (user?.displayName ?? 'You') : member.userId}
+                  {member.userId === currentUserId
+                    ? (user?.displayName ?? 'You')
+                    : (memberUsers?.[member.userId]?.displayName ?? member.userId)}
                   {member.userId === currentUserId && (
                     <span className="text-text-tertiary"> (you)</span>
                   )}

@@ -63,16 +63,18 @@ export async function applyDelta(
   }
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  // Only write if not already present — never overwrite the local user's own profile.
-  // Remote user profiles are accepted as-is (they own their own name/avatar).
+  // Each user is authoritative about their own profile — always accept remote
+  // updates for other users. Never overwrite this device's own profile
+  // (initiatedBy = currentUserId) since the local copy is always more current.
+  // Use keystore.userId as authoritative local identity — never let sync overwrite own profile.
+  // Falls back to initiatedBy if keystore has no userId (pre-fix installs).
+  const ks = await db.keystoreTable.get(1)
+  const localUserId = ks?.userId ?? initiatedBy
   for (const incoming of delta.users ?? []) {
-    const existing = await db.users.get(incoming.userId)
-    if (!existing) {
+    if (incoming.userId !== localUserId) {
       await db.users.put(incoming)
       applied++
     }
-    // If exists: the owner of that userId is the authoritative source — skip overwrite.
-    // They'll send their own updated profile next time they edit it (future: add updatedAt to User).
   }
 
   // ── Categories ────────────────────────────────────────────────────────────

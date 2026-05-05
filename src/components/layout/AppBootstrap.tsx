@@ -100,9 +100,13 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
 
   // ─── After PIN unlock ────────────────────────────────────────────────────────
   async function handleUnlocked() {
-    // Load user + active group from DB now that key is available
-    const users = await db.users.toArray()
-    const user = users[0]
+    // Restore the previously active user.
+    // Priority: keystore.userId (set at onboarding, never touched by sync)
+    //           > localStorage (set by store actions)
+    //           > users[0] (last resort — fails after sync adds remote user records)
+    const [users, ks] = await Promise.all([db.users.toArray(), db.keystoreTable.get(1)])
+    const resolvedUserId = ks?.userId ?? localStorage.getItem('shillak_user_id') ?? null
+    const user = (resolvedUserId ? users.find((u) => u.userId === resolvedUserId) : null) ?? users[0]
     if (!user) {
       setBoot({ status: 'onboarding' })
       return
@@ -111,7 +115,9 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
     setCurrentUserId(user.userId)
 
     const groups = await db.groups.where((g) => g.status === 'active')
-    const group = groups[0]
+    const storedGroupId = localStorage.getItem('shillak_group_id')
+    const group =
+      (storedGroupId ? groups.find((g) => g.groupId === storedGroupId) : null) ?? groups[0]
     if (group) {
       setActiveGroupId(group.groupId)
       void processRecurrences(group.groupId, user.userId)

@@ -10,8 +10,14 @@ interface AppStore {
 const useAppStore = create<AppStore>((set) => ({
   activeGroupId: null,
   currentUserId: null,
-  setActiveGroupId: (id) => set({ activeGroupId: id }),
-  setCurrentUserId: (id) => set({ currentUserId: id }),
+  setActiveGroupId: (id) => {
+    localStorage.setItem('shillak_group_id', id)
+    set({ activeGroupId: id })
+  },
+  setCurrentUserId: (id) => {
+    localStorage.setItem('shillak_user_id', id)
+    set({ currentUserId: id })
+  },
 }))
 
 export default useAppStore

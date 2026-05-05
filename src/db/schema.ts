@@ -4,6 +4,7 @@ export interface KeystoreRecord {
   salt: string // base64 PBKDF2 salt
   pinCheck: string // base64 AES-GCM ciphertext of "SHILLAK_V1"
   pinChangeInProgress: boolean
+  userId?: string // local device owner — set at profile creation, never overwritten by sync
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────

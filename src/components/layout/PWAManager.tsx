@@ -1,6 +1,7 @@
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Download, RefreshCw, WifiOff, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 
 export default function PWAManager() {
   const {
@@ -12,7 +13,7 @@ export default function PWAManager() {
     },
   })
 
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const { canInstall, install: triggerInstall } = useInstallPrompt()
   const [installDismissed, setInstallDismissed] = useState(false)
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
@@ -28,25 +29,13 @@ export default function PWAManager() {
     }
   }, [])
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setInstallPrompt(e as BeforeInstallPromptEvent)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
   async function handleInstall() {
-    if (!installPrompt) return
-    await installPrompt.prompt()
-    const { outcome } = await installPrompt.userChoice
-    if (outcome === 'accepted') setInstallPrompt(null)
-    else setInstallDismissed(true)
+    const accepted = await triggerInstall()
+    if (!accepted) setInstallDismissed(true)
   }
 
   const showUpdate = needRefresh && !updateDismissed
-  const showInstall = !!installPrompt && !installDismissed && !showUpdate
+  const showInstall = canInstall && !installDismissed && !showUpdate
 
   return (
     <>
@@ -125,8 +114,3 @@ export default function PWAManager() {
   )
 }
 
-// Extend Window for beforeinstallprompt
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}

@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, Crown, Download, Pencil, Plus, Upload, User } from 'lucide-react'
+import { ChevronRight, Crown, Download, MonitorDown, Pencil, Plus, Upload, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import EditSpaceSheet from '@/components/space/EditSpaceSheet'
 import EditProfileSheet from '@/components/space/EditProfileSheet'
 import InviteSheet from '@/components/space/InviteSheet'
@@ -17,6 +18,7 @@ import { downloadSnapshot, exportGroupSnapshot, importGroupSnapshot } from '@/sy
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const { canInstall, install } = useInstallPrompt()
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
   const clearKey = useKeyStore((s) => s.clearKey)
@@ -349,6 +351,19 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {/* ── Install ── */}
+      {canInstall && (
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={install}
+          className="w-full rounded-2xl gap-2"
+        >
+          <MonitorDown size={16} />
+          Install app
+        </Button>
+      )}
 
       {/* ── Lock ── */}
       <Button variant="destructive" size="lg" onClick={handleLock} className="w-full rounded-2xl">

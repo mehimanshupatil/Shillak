@@ -16,7 +16,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icons/*.png', 'icon.svg', 'logo.svg'],
+      includeAssets: ['icons/*.png', 'screenshots/*.png', 'icon.svg', 'logo.svg'],
       manifest: {
         name: 'Shillak',
         short_name: 'Shillak',
@@ -26,6 +26,22 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        screenshots: [
+          {
+            src: 'screenshots/mobile.png',
+            sizes: '1000x1264',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Shillak — Dashboard',
+          },
+          {
+            src: 'screenshots/wide.png',
+            sizes: '2560x1264',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'Shillak — Dashboard (desktop)',
+          },
+        ],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

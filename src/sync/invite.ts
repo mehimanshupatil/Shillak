@@ -37,7 +37,7 @@ export interface InvitePayload {
 async function importHmacKey(groupSecret: string, usage: 'sign' | 'verify'): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
-    fromBase64(groupSecret),
+    fromBase64(groupSecret) as Uint8Array<ArrayBuffer>,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     [usage],
@@ -76,7 +76,7 @@ async function verify(payload: Omit<InvitePayload, 'sig'>, sig: string): Promise
   return crypto.subtle.verify(
     'HMAC',
     key,
-    fromBase64(sig),
+    fromBase64(sig) as Uint8Array<ArrayBuffer>,
     new TextEncoder().encode(canonicalString(payload)),
   )
 }

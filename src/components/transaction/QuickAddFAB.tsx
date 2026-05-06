@@ -259,19 +259,18 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={handleClipboardPaste}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-2
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-2
                        text-text-secondary hover:text-text-primary hover:bg-surface-3
                        transition-colors"
             title="Paste transaction text"
           >
             <Clipboard size={14} />
-            <span className="text-xs">Paste</span>
           </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={ocrLoading}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-2
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-2
                        text-text-secondary hover:text-text-primary hover:bg-surface-3
                        transition-colors disabled:opacity-40"
             title="Scan receipt"
@@ -281,31 +280,34 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             ) : (
               <ScanLine size={14} />
             )}
-            <span className="text-xs">Scan</span>
           </button>
-          {(['expense', 'income'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setTxnType(t)
-                setSelectedCatId(null)
-                setSelectedAccountId(null)
-                setPaidBy(null)
-              }}
-              className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
-                txnType === t
-                  ? t === 'income'
-                    ? 'bg-income text-black'
-                    : 'bg-expense text-white'
-                  : 'bg-surface-2 text-text-secondary'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
         </div>
       </SheetHeader>
+
+      {/* Expense / Income toggle */}
+      <div className="flex gap-2">
+        {(['expense', 'income'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => {
+              setTxnType(t)
+              setSelectedCatId(null)
+              setSelectedAccountId(null)
+              setPaidBy(null)
+            }}
+            className={`flex-1 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+              txnType === t
+                ? t === 'income'
+                  ? 'bg-income text-black'
+                  : 'bg-expense text-white'
+                : 'bg-surface-2 text-text-secondary'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
       {/* OCR progress */}
       {ocrLoading && (

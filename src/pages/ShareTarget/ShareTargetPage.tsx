@@ -7,40 +7,8 @@ import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
 import { db } from '@/db/db'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { generateId, toPaise } from '@/lib/utils'
+import { generateId, parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
-
-function parseSharedText(text: string): { amount: number | null; note: string } {
-  const amountPatterns = [
-    /₹\s*([\d,]+(?:\.\d{1,2})?)/,
-    /Rs\.?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /INR\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /([\d,]+(?:\.\d{1,2})?)\s*(?:rupees?|paid|debited)/i,
-  ]
-  let amount: number | null = null
-  for (const pat of amountPatterns) {
-    const m = text.match(pat)
-    if (m?.[1]) {
-      amount = parseFloat(m[1].replace(/,/g, ''))
-      break
-    }
-  }
-  const merchantPatterns = [
-    /paid\s+to\s+([A-Za-z0-9 &.'"-]+?)(?:\s+on\b|\s+for\b|$)/i,
-    /to\s+([A-Za-z0-9 &.'"-]+?)(?:\s+on\b|\s+for\b|$)/i,
-    /at\s+([A-Za-z0-9 &.'"-]+?)(?:\s+on\b|\s+for\b|$)/i,
-    /for\s+([A-Za-z0-9 &.'"-]+?)(?:\s+on\b|$)/i,
-  ]
-  let note = ''
-  for (const pat of merchantPatterns) {
-    const m = text.match(pat)
-    if (m?.[1]) {
-      note = m[1].trim()
-      break
-    }
-  }
-  return { amount, note }
-}
 
 export default function ShareTargetPage() {
   const [searchParams] = useSearchParams()
@@ -53,6 +21,10 @@ export default function ShareTargetPage() {
 
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
+  const [dateStr, setDateStr] = useState(() => {
+    const t = new Date()
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  })
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
@@ -63,6 +35,7 @@ export default function ShareTargetPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const objectUrlRef = useRef<string | null>(null)
+  const pendingCategoryHintRef = useRef<string | null>(null)
 
   const categories = useLiveQuery(
     () =>
@@ -82,13 +55,32 @@ export default function ShareTargetPage() {
     [activeGroupId],
   )
 
+  // Apply category hint once categories are loaded from DB
+  useEffect(() => {
+    const hint = pendingCategoryHintRef.current
+    if (!hint || !categories?.length || selectedCatId) return
+    const match = categories.find((c) => c.name.toLowerCase() === hint.toLowerCase())
+    if (match) {
+      setSelectedCatId(match.categoryId)
+      pendingCategoryHintRef.current = null
+    }
+  }, [categories, selectedCatId])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once on mount — URL params are stable for the lifetime of this page
   useEffect(() => {
     if (!isImageShare) {
       if (sharedText) {
-        const parsed = parseSharedText(sharedText)
+        const parsed = parseReceiptText(sharedText)
         setAmountStr(parsed.amount != null ? String(parsed.amount) : '')
         setNote(parsed.note)
+        if (parsed.date !== null) {
+          const d = new Date(parsed.date)
+          setDateStr(
+            `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+          )
+        }
+        // category hint applied after categories load — stored in a ref
+        pendingCategoryHintRef.current = parsed.categoryHint
       }
       return
     }
@@ -113,6 +105,13 @@ export default function ShareTargetPage() {
         const parsed = parseReceiptText(text)
         setAmountStr(parsed.amount != null ? String(parsed.amount) : '')
         setNote(parsed.note)
+        if (parsed.date !== null) {
+          const d = new Date(parsed.date)
+          setDateStr(
+            `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+          )
+        }
+        pendingCategoryHintRef.current = parsed.categoryHint
         setOcrStatus('done')
       } catch (e) {
         setOcrStatus('error')
@@ -146,7 +145,6 @@ export default function ShareTargetPage() {
         vectorClock: { ...grp.vectorClock, [currentUserId]: newSeq },
         updatedAt: Date.now(),
       })
-      const today = new Date()
       await db.transactions.put({
         txnId: generateId(),
         groupId: activeGroupId,
@@ -160,7 +158,7 @@ export default function ShareTargetPage() {
         originalAmount: null,
         note: note.trim(),
         tags: [],
-        date: Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+        date: parseDateStr(dateStr),
         attachmentIds: [],
         recurrenceId: null,
         accountId: selectedAccountId,
@@ -344,6 +342,21 @@ export default function ShareTargetPage() {
           </div>
         </div>
       )}
+
+      {/* Date */}
+      <div>
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+          Date
+        </p>
+        <input
+          type="date"
+          value={dateStr}
+          onChange={(e) => setDateStr(e.target.value)}
+          className="w-full h-11 px-4 rounded-xl bg-surface-2 border border-border
+                     text-sm text-text-primary focus:outline-none focus:border-accent
+                     scheme-dark"
+        />
+      </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

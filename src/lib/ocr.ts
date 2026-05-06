@@ -78,12 +78,12 @@ export async function extractTextFromImage(
 
   // PSM 6: assume uniform block of text — better for receipt/SMS screenshots
   // than PSM 3 (auto) which may try to detect columns and misread UI chrome.
+  // No char whitelist — it overrides Tesseract's confidence scoring and mangles
+  // amounts when the engine is forced to map glyphs to a restricted set.
+  // Icon noise (profile avatars → "0") is handled by the contrast preprocessing
+  // and by the parser's score-based amount extraction.
   await worker.setParameters({
     tessedit_pageseg_mode: '6' as never,
-    // Allow printable ASCII + ₹ rupee sign. Blocks icon glyphs from producing
-    // random alphanumeric noise (profile icons, logos, decorative elements).
-    tessedit_char_whitelist:
-      ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789₹.,/:@-_()&\'"%+',
   })
 
   const {

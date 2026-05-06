@@ -1,13 +1,73 @@
 import { createWorker } from 'tesseract.js'
 
 /**
+ * Pre-process a receipt image for better OCR accuracy:
+ * - Convert to greyscale
+ * - Boost contrast (stretch histogram toward black/white)
+ * - Scale up if small (Tesseract works best at ~300 DPI equivalent)
+ *
+ * Circular icons (profile avatars, ₹ glyphs rendered as images) are high-contrast
+ * elements that confuse Tesseract into outputting "0". Greyscale + contrast stretch
+ * makes them either clearly text or clearly non-text, reducing false reads.
+ */
+async function preprocessImage(blob: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob)
+
+  // Scale up small screenshots for better recognition
+  const MIN_WIDTH = 1200
+  const scale = bitmap.width < MIN_WIDTH ? MIN_WIDTH / bitmap.width : 1
+  const w = Math.round(bitmap.width * scale)
+  const h = Math.round(bitmap.height * scale)
+
+  const canvas = new OffscreenCanvas(w, h)
+  const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D
+  ctx.drawImage(bitmap, 0, 0, w, h)
+
+  const imageData = ctx.getImageData(0, 0, w, h)
+  const data = imageData.data
+
+  // Greyscale + contrast stretch
+  // First pass: find min/max luminance
+  let minL = 255
+  let maxL = 0
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] ?? 0
+    const g = data[i + 1] ?? 0
+    const b = data[i + 2] ?? 0
+    const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+    if (l < minL) minL = l
+    if (l > maxL) maxL = l
+  }
+  const range = maxL - minL || 1
+
+  // Second pass: greyscale + stretch + write back
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] ?? 0
+    const g = data[i + 1] ?? 0
+    const b = data[i + 2] ?? 0
+    const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+    const stretched = Math.round(((l - minL) / range) * 255)
+    data[i] = stretched
+    data[i + 1] = stretched
+    data[i + 2] = stretched
+    // alpha unchanged
+  }
+
+  ctx.putImageData(imageData, 0, 0)
+  return canvas.convertToBlob({ type: 'image/png' })
+}
+
+/**
  * Run Tesseract OCR on an image.
- * Language data is cached by Tesseract in IndexedDB — works offline after first use.
+ * Pre-processes for contrast before recognition.
+ * Language data cached in IndexedDB — works offline after first use (~4 MB).
  */
 export async function extractTextFromImage(
   image: Blob | File,
   onProgress?: (pct: number) => void,
 ): Promise<string> {
+  const processed = await preprocessImage(image)
+
   const worker = await createWorker('eng', 1, {
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') {
@@ -15,9 +75,20 @@ export async function extractTextFromImage(
       }
     },
   })
+
+  // PSM 6: assume uniform block of text — better for receipt/SMS screenshots
+  // than PSM 3 (auto) which may try to detect columns and misread UI chrome.
+  await worker.setParameters({
+    tessedit_pageseg_mode: '6' as never,
+    // Allow printable ASCII + ₹ rupee sign. Blocks icon glyphs from producing
+    // random alphanumeric noise (profile icons, logos, decorative elements).
+    tessedit_char_whitelist:
+      ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789₹.,/:@-_()&\'"%+',
+  })
+
   const {
     data: { text },
-  } = await worker.recognize(image)
+  } = await worker.recognize(processed)
   await worker.terminate()
   return text
 }
@@ -111,6 +182,7 @@ function extractAmount(text: string): number | null {
 
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.score - a.score || b.value - a.value)
+  // biome-ignore lint/style/noNonNullAssertion: array is non-empty (checked above)
   return candidates[0]!.value
 }
 
@@ -127,17 +199,17 @@ const MERCHANT_PATTERNS: Array<{ re: RegExp; multiline?: boolean }> = [
   // ── BHIM: "Payment received by NAME" (rest of line only) ──────────────────
   { re: /payment\s+received\s+by\s+([^\n]{2,60})/i },
   // ── Generic UPI / payment app flat patterns ────────────────────────────────
-  { re: /paid\s+to\s+([A-Za-z0-9 &.'"\-@]+?)(?:\s+on\b|\s+for\b|\s+via\b|\s*[|\n]|$)/i },
-  { re: /sent\s+to\s+([A-Za-z0-9 &.'"\-@]+?)(?:\s+on\b|\s+for\b|\s+via\b|\s*[|\n]|$)/i },
-  { re: /transferred\s+to\s+([A-Za-z0-9 &.'"\-@]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
-  { re: /payment\s+to\s+([A-Za-z0-9 &.'"\-@]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
+  { re: /paid\s+to\s+([A-Za-z0-9 &.'"@-]+?)(?:\s+on\b|\s+for\b|\s+via\b|\s*[|\n]|$)/i },
+  { re: /sent\s+to\s+([A-Za-z0-9 &.'"@-]+?)(?:\s+on\b|\s+for\b|\s+via\b|\s*[|\n]|$)/i },
+  { re: /transferred\s+to\s+([A-Za-z0-9 &.'"@-]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
+  { re: /payment\s+to\s+([A-Za-z0-9 &.'"@-]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
   // ── Physical receipt / bank SMS ────────────────────────────────────────────
-  { re: /merchant\s*[:\-]\s*([A-Za-z0-9 &.'"\-]+?)(?:\s*[|\n]|$)/i },
-  { re: /store\s*[:\-]\s*([A-Za-z0-9 &.'"\-]+?)(?:\s*[|\n]|$)/i },
-  { re: /vendor\s*[:\-]\s*([A-Za-z0-9 &.'"\-]+?)(?:\s*[|\n]|$)/i },
-  { re: /at\s+([A-Za-z][A-Za-z0-9 &.'"\-]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
-  { re: /to\s+([A-Za-z][A-Za-z0-9 &.'"\-@]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
-  { re: /for\s+([A-Za-z][A-Za-z0-9 &.'"\-]+?)(?:\s+on\b|\s*[|\n]|$)/i },
+  { re: /merchant\s*[:-]\s*([A-Za-z0-9 &.'".-]+?)(?:\s*[|\n]|$)/i },
+  { re: /store\s*[:-]\s*([A-Za-z0-9 &.'".-]+?)(?:\s*[|\n]|$)/i },
+  { re: /vendor\s*[:-]\s*([A-Za-z0-9 &.'".-]+?)(?:\s*[|\n]|$)/i },
+  { re: /at\s+([A-Za-z][A-Za-z0-9 &.'".-]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
+  { re: /to\s+([A-Za-z][A-Za-z0-9 &.'"@-]+?)(?:\s+on\b|\s+for\b|\s*[|\n]|$)/i },
+  { re: /for\s+([A-Za-z][A-Za-z0-9 &.'".-]+?)(?:\s+on\b|\s*[|\n]|$)/i },
 ]
 
 /** Normalize a merchant name: strip UPI handle, noise suffixes, excess whitespace. */
@@ -188,7 +260,7 @@ function expandYear(y: number): number {
 const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number | null }> = [
   // YYYY-MM-DD (ISO — check first to avoid ambiguity with DD/MM/YYYY)
   {
-    re: /\b(\d{4})[\/\-](\d{2})[\/\-](\d{2})\b/,
+    re: /\b(\d{4})[/-](\d{2})[/-](\d{2})\b/,
     parse: (m) => {
       const y = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), d = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
@@ -197,7 +269,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   },
   // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY (4-digit year)
   {
-    re: /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})\b/,
+    re: /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/,
     parse: (m) => {
       const d = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), y = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null

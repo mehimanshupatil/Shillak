@@ -1,1218 +1,260 @@
 # Shillak — Household Budget Tracker
-> Privacy-first, offline-only PWA for household and family finances.
-> No server. No login. No cloud. Data never leaves the device.
+> Privacy-first, offline-only PWA. No server. No login. No cloud. Data never leaves the device.
 
----
-
-## App name
-
-**Shillak** — raw, Marathi-rooted, means exactly "the balance left" — very direct and distinctive.
+**Shillak** — Marathi for "the balance left."
 
 ---
 
 ## What this app is
 
-Shillak is a **household finance app** — built for couples and families who want full control over their financial data without handing it to a cloud service.
+Household finance for couples and families with **pooled finances**. Both partners treat spending as "our money" — no IOUs, no splits. For split-bill tracking, use Splitwise.
 
-Primary use case: a married couple / family tracking shared income, spending vs budget, savings goals, EMIs, SIPs, and recurring expenses — on their own devices, privately.
+- One **space** = one household. Both partners install, sync over home WiFi or QR.
+- Multiple spaces supported (e.g. personal + joint household), each isolated.
+- All data lives in IndexedDB, encrypted with a local PIN.
 
-- One space = one household. Both partners install the app, sync over home WiFi or QR.
-- Multiple spaces supported — e.g. a "personal" space alongside a "joint" household space.
-
-**No splits.** Shillak is for couples and families with pooled finances — both partners treat spending as "our money", not IOUs. Splits (who-owes-whom) are a flatmate/trip feature and have been deliberately removed. For split-bill tracking, use Splitwise. Shillak's strength is the shared budget picture: category budgets, savings goals, income tracking, and recurring EMIs/SIPs.
-
-Each **space** is an independent, private pocket. All data lives in the browser's IndexedDB, encrypted with a local PIN.
-
-> **UI terminology:** The user-visible word for a group is **"space"** (Settings → Space, "Add space", "New space", etc.). Internal code variables remain `groupId`, `group_secret`, `db.groups`, etc. — do not rename code symbols.
+> **UI terminology:** User-visible word is **"space"** (Settings → Space, "Add space", etc.). Internal code uses `groupId`, `group_secret`, `db.groups` — do not rename code symbols.
 
 ---
 
 ## Core principles
 
-1. **Offline first** — the app works 100% without internet. Always. No feature degrades silently when offline.
-2. **Privacy first** — no server, no account, no analytics, no telemetry. Data stays on device.
-3. **Local sync only** — data syncs between devices via home WiFi (WebRTC, no server), QR code, or JSON export. Sync is for device-to-device within a household, not async cloud collaboration.
-4. **Multi-space** — one install, N spaces. Personal + joint household, each isolated.
-5. **Transparent** — full visibility into space data for all members (no hidden transactions).
+1. **Offline first** — works 100% without internet. No feature degrades silently.
+2. **Privacy first** — no server, no account, no analytics, no telemetry.
+3. **Local sync only** — WebRTC (same WiFi), QR batch, or JSON export. No cloud.
+4. **Multi-space** — one install, N spaces, each isolated.
 
 ---
 
 ## Tech stack
 
-### Core
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| Framework | React 18 + Vite | Fast DX, excellent PWA support |
-| Language | TypeScript (strict) | Safety for complex data model |
-| Routing | React Router v6 | Battle-tested, good PWA/nested route support |
-| Styling | Tailwind CSS v4 | Utility-first, fast iteration |
-| Component lib | shadcn/ui | Accessible, unstyled base, customisable |
-| Animation | Motion (Framer Motion v11) | Smooth micro-interactions |
-| Icons | Lucide React | Consistent, tree-shakable |
+| Layer | Choice |
+|-------|--------|
+| Framework | React 18 + Vite |
+| Language | TypeScript strict |
+| Routing | React Router v6 |
+| Styling | Tailwind CSS v4 |
+| Components | shadcn/ui |
+| Icons | Lucide React |
+| Local DB | Dexie.js v4 |
+| Encryption | Web Crypto API (AES-GCM) |
+| Reactive queries | `useLiveQuery` (dexie-react-hooks) |
+| Derived cache | TanStack Query v5 |
+| App state | Zustand |
+| Sync P2P | Native `RTCPeerConnection` + `RTCDataChannel` |
+| QR | qrcode + html5-qrcode |
+| Compression | lz-string |
+| PWA | vite-plugin-pwa + Workbox |
 
-### Data & State
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| Local DB | Dexie.js v4 | TypeScript-first IndexedDB wrapper, reactive live queries |
-| Encryption | Web Crypto API (AES-GCM) | Native browser, no dependency, encrypts all Dexie writes |
-| Reactive queries | dexie-react-hooks `useLiveQuery` | Direct Dexie reactivity, no extra cache layer |
-| Derived state cache | TanStack Query v5 | Cache for computed/derived data only (balances, summaries) |
-| App state | Zustand | Lightweight, minimal boilerplate |
-| Forms | React Hook Form + Zod | Type-safe validation |
-
-> **TanStack Query vs useLiveQuery — rule:**
-> - Raw Dexie table reads → `useLiveQuery` from `dexie-react-hooks`.
-> - Derived/computed values (net balances, budget summaries, month-over-month totals) → TanStack Query with Dexie queries as `queryFn`.
-> - Never mix both for the same data source — double subscription causes stale reads.
-
-### Sync
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| Local WiFi P2P | Native `RTCPeerConnection` + `RTCDataChannel` | No signaling server needed — SDP exchanged via QR. Fully offline. |
-| QR generation | qrcode (npm) | Lightweight, no canvas deps |
-| QR scanning | html5-qrcode | Camera access + decode |
-| Compression | lz-string | Compress SDP + JSON chunks for QR |
-
-> **Why not PeerJS:** PeerJS requires a hosted signaling server (peerjs.com or self-hosted) to exchange WebRTC SDP offers/answers — even on local WiFi. That contradicts "no server." Instead, we use raw `RTCPeerConnection` with manual SDP exchange via QR codes (Device A shows offer QR → Device B scans → shows answer QR → Device A scans → connected). No STUN/TURN needed on local WiFi because both devices have directly reachable local IPs. SDP + local ICE candidates compresses to ~600–800 bytes — fits comfortably in a QR.
-
-### PWA
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| PWA plugin | vite-plugin-pwa | Service worker, manifest, offline shell |
-| Service worker | Workbox (via plugin) | Cache strategies, app shell caching |
+**`useLiveQuery` vs TanStack Query rule:**
+- Raw Dexie table reads → `useLiveQuery`
+- Derived/computed values (balances, summaries, totals) → TanStack Query
+- Never mix both for the same data source — double subscription causes stale reads.
 
 ---
 
 ## Design system
 
-### Aesthetic direction
-**Refined utilitarian** — clean, dense, data-forward. No decorative fluff. Every element earns its place.
-Think: monochrome base with a single warm accent, generous whitespace, sharp type hierarchy.
+**Refined utilitarian** — dark, dense, data-forward. Single warm saffron accent (`#f59e0b`).
 
-### Fonts
-- Display / headings: **Geist** (Vercel) — geometric, modern, readable at all sizes
-- Body / data: **Geist Mono** for numbers and amounts — consistent column alignment
-- Import via `@fontsource/geist` and `@fontsource/geist-mono`
-
-### Color tokens (CSS variables in `src/styles/tokens.css`)
-```css
-:root {
-  /* Base */
-  --color-bg: #0f0f0f;
-  --color-surface: #1a1a1a;
-  --color-surface-2: #242424;
-  --color-surface-3: #2c2c2c;    /* modals, sheets over surface-2 */
-  --color-overlay: #000000cc;    /* backdrop behind bottom sheets / modals */
-  --color-border: #2e2e2e;
-  --color-border-subtle: #1e1e1e;
-
-  /* Text */
-  --color-text-primary: #f0f0f0;
-  --color-text-secondary: #888;
-  --color-text-tertiary: #6b6b6b; /* minimum ~4.6:1 on surface — was #555 (failed WCAG AA) */
-
-  /* Accent — warm saffron */
-  --color-accent: #f59e0b;
-  --color-accent-subtle: #f59e0b18;
-  --color-accent-hover: #fbbf24;
-
-  /* Semantic — WARNING must differ from accent */
-  --color-success: #22c55e;
-  --color-danger: #ef4444;
-  --color-warning: #f97316;       /* orange, distinct from saffron accent */
-  --color-info: #3b82f6;
-
-  /* Finance-specific aliases (maps to semantic, prevents call-site drift) */
-  --color-income: var(--color-success);   /* #22c55e — green amounts */
-  --color-expense: var(--color-danger);   /* #ef4444 — red amounts */
-  --color-budget-ok: var(--color-success);
-  --color-budget-warn: var(--color-warning);   /* 80–99% of limit */
-  --color-budget-over: var(--color-danger);    /* ≥100% of limit */
-
-  /* Group avatar palette (8 colors, cycle on creation) */
-  --group-color-1: #6366f1;   /* indigo */
-  --group-color-2: #ec4899;   /* pink */
-  --group-color-3: #14b8a6;   /* teal */
-  --group-color-4: #f97316;   /* orange */
-  --group-color-5: #8b5cf6;   /* violet */
-  --group-color-6: #06b6d4;   /* cyan */
-  --group-color-7: #64748b;   /* slate — replaces neon lime (#84cc16) */
-  --group-color-8: #f43f5e;   /* rose */
-}
-
-/* Light mode — v2, not in Phase 1 scope. Define tokens here when ready. */
-/* @media (prefers-color-scheme: light) { :root { ... } } */
-```
-
-### Spacing & radius
-- Base unit: 4px
-- Border radius: `rounded-xl` (12px) for cards, `rounded-lg` (8px) for inputs, `rounded-full` for pills/avatars
-- Consistent 16px / 24px padding on all cards
-
-### Mobile-first layout
-- Max content width: 430px (phone-sized even on desktop)
-- Bottom navigation bar (5 tabs)
-- No sidebar, no top nav hamburger
+- Fonts: Geist (headings) + Geist Mono (numbers/amounts)
+- Max width: 430px. Bottom nav (5 tabs). No sidebar.
+- Radius: `rounded-xl` cards, `rounded-lg` inputs, `rounded-full` pills
+- Tokens in `src/styles/tokens.css` — bg `#0f0f0f`, surface `#1a1a1a`, accent `#f59e0b`, income `#22c55e`, expense `#ef4444`, warning `#f97316`
 
 ---
 
-## Folder structure
+## Data schema (Dexie — 13 tables, `Shillak_db`)
 
-```
-Shillak/
-├── public/
-│   ├── icons/              # PWA icons (192, 512, maskable)
-│   └── manifest.webmanifest
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── styles/
-│   │   └── tokens.css      # CSS custom properties
-│   ├── db/
-│   │   ├── schema.ts       # Dexie table definitions + version history
-│   │   ├── db.ts           # ShillakDB subclass (Dexie) — encryption baked in
-│   │   ├── seeds.ts        # createDefaultCategories() helper
-│   │   └── queries/        # One file per entity (transactions.ts, budgets.ts, etc.)
-│   ├── crypto/
-│   │   ├── pin.ts          # PIN → AES-GCM key derivation (PBKDF2)
-│   │   ├── encrypt.ts      # encrypt / decrypt helpers
-│   │   └── keystore.ts     # Bootstrap: salt + pin_check, verify, PIN change, BroadcastChannel lock sync
-│   ├── sync/
-│   │   ├── webrtc.ts       # RTCPeerConnection: offer/answer flow, data channel, delta exchange
-│   │   ├── qr.ts           # QR chunk generation + reassembly (also used for SDP signaling)
-│   │   ├── json.ts         # Full snapshot export / import
-│   │   ├── transport.ts    # Transport encryption (HKDF from group_secret)
-│   │   ├── vector-clock.ts # Vector clock merge logic
-│   │   └── conflict.ts     # Conflict detection + resolution queue
-│   ├── stores/
-│   │   ├── app.store.ts    # Active group, current user, UI state
-│   │   ├── key.store.ts    # CryptoKey — session only, NEVER persisted
-│   │   └── sync.store.ts   # Sync status, pending conflicts
-│   ├── hooks/
-│   │   ├── useTransactions.ts
-│   │   ├── useBudgets.ts
-│   │   ├── useGroup.ts
-│   │   └── useSync.ts
-│   ├── components/
-│   │   ├── ui/             # shadcn base components
-│   │   ├── layout/         # BottomNav, PageHeader, SpaceSwitcher
-│   │   ├── transaction/    # TransactionCard, TransactionForm, TransactionList
-│   │   ├── budget/         # BudgetBar, BudgetCard, BudgetForm
-│   │   ├── space/          # EditSpaceSheet, EditProfileSheet, InviteSheet
-│   │   ├── sync/           # SyncSheet, QRDisplay, QRScanner, ConflictResolver
-│   │   └── charts/         # SpendingDonut, MonthlyBar, GoalProgress
-│   ├── pages/
-│   │   ├── Onboarding/     # WelcomeScreen, CreateProfileScreen, SpaceChoiceScreen,
-│   │   │                   # CreateSpaceScreen, JoinSpacePreviewScreen
-│   │   ├── Dashboard/
-│   │   ├── Transactions/
-│   │   ├── Budgets/
-│   │   ├── Sync/
-│   │   └── Settings/
-│   └── lib/
-│       ├── utils.ts
-│       ├── constants.ts
-│       └── validations.ts
-├── CLAUDE.md
-├── vite.config.ts
-├── tailwind.config.ts
-└── tsconfig.json
-```
+All tables encrypted via AES-GCM **except** `keystore`.
 
----
-
-## Data schema (Dexie — 14 tables)
-
-All tables stored in IndexedDB db name: `Shillak_db`. All writes (except `keystore`) encrypted via AES-GCM before storage.
-
-### Keystore *(unencrypted — bootstrap only)*
 ```ts
-interface Keystore {
-  id: 1
-  salt: string           // base64 Uint8Array (16 bytes) — PBKDF2 salt
-  pin_check: string      // base64 AES-GCM ciphertext of "SHILLAK_V1"
-  pin_change_in_progress: boolean
-}
-```
-Unencrypted singleton. Bootstrap flow:
-1. Read `salt` (no key needed)
-2. Derive key: `PBKDF2(enteredPIN, salt)`
-3. Decrypt `pin_check` → verify === `"SHILLAK_V1"`
-4. Hold key in `key.store.ts` (session memory only)
+// Keystore — unencrypted singleton
+interface Keystore { id: 1; salt: string; pin_check: string; pin_change_in_progress: boolean }
 
-### User
-```ts
-interface User {
-  user_id: string
-  display_name: string
-  avatar_color: string     // hex, from group-color palette
-  identity_backup_hint: string
-  created_at: number
-}
-```
+interface User { userId: string; displayName: string; avatarColor: string; identityBackupHint: string; createdAt: number }
 
-### Group
-```ts
 interface Group {
-  group_id: string
-  name: string
-  avatar_color: string
-  created_by: string
-  currency: string         // ISO 4217
-  fiscal_year_start: number  // 1-12, default 4
-  visibility: 'full' | 'totals_only'
-  status: 'active' | 'archived'
-  group_secret: string     // base64 random 32 bytes
-                           // HMAC key for invite signatures
-                           // HKDF input for sync transport encryption
-                           // rotate via Settings → "Rotate sync key" (Phase 4)
-  vector_clock: Record<string, number>
-  created_at: number
-  updated_at: number
+  groupId: string; name: string; avatarColor: string; createdBy: string
+  currency: string; fiscalYearStart: number  // 1-12, default 4
+  visibility: 'full' | 'totals_only'; status: 'active' | 'archived'
+  groupSecret: string   // HMAC key for invites + HKDF input for transport encryption
+  vectorClock: Record<string, number>; createdAt: number; updatedAt: number
 }
-```
 
-### GroupMember
-```ts
 interface GroupMember {
-  id: string
-  group_id: string
-  user_id: string
-  role: 'admin' | 'member'
-  status: 'active' | 'left'
-  joined_at: number
-  left_at: number | null
-  nickname: string | null
-  monthly_income: number | null
-  income_currency: string | null
-  updated_at: number       // required for LWW conflict resolution
+  id: string; groupId: string; userId: string; role: 'admin' | 'member'
+  status: 'active' | 'left'; joinedAt: number; leftAt: number | null
+  nickname: string | null; monthlyIncome: number | null; incomeCurrency: string | null
+  updatedAt: number  // required for LWW conflict resolution
 }
-// Compound index: [group_id+user_id]
-```
-**Admin invariant enforcement on sync apply:** after merging all GroupMember records for a group, enforce exactly one admin:
-- 0 admins → promote the member with oldest `joined_at`
-- 2+ admins → demote all but the one with newest `updated_at`
-This runs synchronously after every sync apply, before committing to DB.
+// Index: [groupId+userId]
+// Admin invariant: after every sync apply, enforce exactly 1 admin.
+//   0 admins → promote oldest joinedAt. 2+ admins → keep newest updatedAt.
 
-### GroupInvite
-```ts
 interface GroupInvite {
-  invite_id: string
-  group_id: string
-  created_by: string
-  method: 'qr' | 'webrtc' | 'json'
-  reusable: boolean
-  payload: Record<string, unknown>
-  signature: string        // HMAC-SHA256(payload, key=group_secret) — NOT group_id
-  expires_at: number
-  used_by: string[]
-  created_at: number
+  inviteId: string; groupId: string; createdBy: string; method: 'qr' | 'webrtc' | 'json'
+  reusable: boolean; payload: Record<string, unknown>
+  signature: string  // HMAC-SHA256(payload, key=groupSecret) — NOT groupId
+  expiresAt: number; usedBy: string[]; createdAt: number
 }
-```
 
-### Category
-```ts
 interface Category {
-  category_id: string
-  group_id: string
-  name: string
-  icon: string
-  color: string
-  type: 'expense' | 'income' 
-  sort_order: number
-  is_default: boolean
-  created_by: string
-  created_at: number
+  categoryId: string; groupId: string; name: string; icon: string; color: string
+  type: 'expense' | 'income'; sortOrder: number; isDefault: boolean
+  createdBy: string; createdAt: number
 }
-// Index: group_id
-```
-Always seed via `createDefaultCategories(groupId, userId)` — never spread raw seed constants.
+// Seed via createDefaultCategories(groupId, userId) — never spread raw constants.
 
-### Transaction
-```ts
 interface Transaction {
-  txn_id: string
-  group_id: string
-  owner_id: string         // user_id — who logged it (immutable after creation)
-  author_seq: number       // group.vector_clock[owner_id] at write time — for sync delta
-  category_id: string
-  type: 'expense' | 'income' 
-  amount: number           // INTEGER — smallest currency unit (paise for INR, cents for USD)
-                           // NEVER store decimal rupees. 1 INR = 100 stored as 100, not 1.0
-  currency: string
-  fx_rate: number | null   // stored as integer basis points (1.23 rate = 12300). Divide by 10000 to use.
-  original_amount: number | null  // also integer, in original currency's smallest unit
-  note: string
-  tags: string[]
-  date: number             // unix ms, date only
-  attachment_ids: string[]
-  recurrence_id: string | null
-  created_at: number
-  updated_at: number
-  deleted_at: number | null
+  txnId: string; groupId: string
+  ownerId: string       // immutable after creation
+  authorSeq: number     // group.vectorClock[ownerId] at write time
+  categoryId: string; type: 'expense' | 'income'
+  amount: number        // INTEGER paise — never decimal rupees
+  currency: string; fxRate: number | null  // basis points: 1.23 → 12300
+  originalAmount: number | null
+  note: string; tags: string[]; date: number  // midnight UTC unix ms
+  attachmentIds: string[]; recurrenceId: string | null
+  accountId: string | null; paidBy: string
+  createdAt: number; updatedAt: number; deletedAt: number | null
 }
-// Indexes: group_id, owner_id, [group_id+date], [group_id+category_id], [recurrence_id+date]
-```
-`[recurrence_id+date]` enables O(1) dedup check during recurrence processing.
+// Indexes: groupId, ownerId, [groupId+date], [groupId+categoryId], [recurrenceId+date]
+// [recurrenceId+date] → O(1) dedup during recurrence processing
 
-### Recurrence
-```ts
 interface Recurrence {
-  recurrence_id: string
-  group_id: string
-  owner_id: string
-  template: Omit<Transaction,
-    'txn_id' | 'date' | 'recurrence_id' | 'author_seq' | 'created_at' | 'updated_at' | 'deleted_at'
-  >
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
-  interval: number
-  next_due: number
-  last_generated_at: number | null
-  end_date: number | null
-  active: boolean
-  created_at: number
+  recurrenceId: string; groupId: string; ownerId: string
+  template: Omit<Transaction, 'txnId'|'date'|'recurrenceId'|'authorSeq'|'createdAt'|'updatedAt'|'deletedAt'>
+  frequency: 'daily'|'weekly'|'monthly'|'yearly'; interval: number
+  nextDue: number; lastGeneratedAt: number | null; endDate: number | null
+  active: boolean; isFixed: boolean; createdAt: number
 }
-// Index: [group_id+owner_id], next_due
-```
-**Only process recurrences where `owner_id === currentUserId`.** Other users' recurrences are processed on their own devices and arrive via sync as normal transactions. Never increment another user's vector clock.
+// Only process recurrences where ownerId === currentUserId.
 
-### Attachment
-```ts
 interface Attachment {
-  attachment_id: string
-  group_id: string
-  txn_id: string
-  mime_type: string
-  data: string             // base64 raw bytes (record-level encrypted by ShillakDB)
-  size_bytes: number
-  created_at: number
+  attachmentId: string; groupId: string; txnId: string
+  mimeType: string; data: string  // base64, record-level encrypted
+  sizeBytes: number; createdAt: number
 }
-// Hard limit: 5MB per attachment. Warn user at 80% of storage quota.
-// Excluded from QR sync. WebRTC + JSON export only.
-```
+// Hard limit: 5MB. Excluded from QR sync.
 
-### Budget
-```ts
-interface Budget {
-  budget_id: string
-  group_id: string
-  category_id: string
-  limit: number            // integer, paise
-  period: 'monthly' | 'yearly'
-  updated_at: number
-}
-// Admin-only. Conflict → ConflictLog.
-```
-
-### SavingsGoal
-```ts
-interface SavingsGoal {
-  goal_id: string
-  group_id: string
-  name: string
-  target: number           // integer, paise
-  saved: number            // integer, paise
-  deadline: number | null
-  category_id: string | null
-  updated_at: number
-}
-// Admin-only. Conflict → ConflictLog.
-```
-
-### SyncEvent
-```ts
-interface SyncEvent {
-  sync_id: string
-  group_id: string
-  initiated_by: string
-  method: 'webrtc' | 'qr' | 'json'
-  synced_with: string
-  records_sent: number
-  records_received: number
-  conflicts_found: number
-  status: 'ok' | 'partial' | 'failed'
-  synced_at: number
-}
-// Audit log. Never deleted.
-```
-
-### ConflictLog
-```ts
-interface ConflictLog {
-  conflict_id: string
-  group_id: string
-  sync_id: string
-  entity_type: 'transaction' | 'budget' | 'goal'
-  entity_id: string
-  local_value: Record<string, unknown>
-  remote_value: Record<string, unknown>
-  resolved_by: string | null
-  resolution: 'local' | 'remote' | 'pending'
-  created_at: number
-  resolved_at: number | null
-}
+interface Budget { budgetId: string; groupId: string; categoryId: string; limit: number; period: 'monthly'|'yearly'; updatedAt: number }
+interface SavingsGoal { goalId: string; groupId: string; name: string; target: number; saved: number; deadline: number|null; categoryId: string|null; updatedAt: number }
+interface Account { accountId: string; groupId: string; name: string; type: 'savings'|'current'|'credit'|'cash'|'upi'; color: string; icon: string; sortOrder: number; isDefault: boolean; createdAt: number; updatedAt: number }
+interface SyncEvent { syncId: string; groupId: string; initiatedBy: string; method: 'webrtc'|'qr'|'json'; syncedWith: string; recordsSent: number; recordsReceived: number; conflictsFound: number; status: 'ok'|'partial'|'failed'; syncedAt: number }
+interface ConflictLog { conflictId: string; groupId: string; syncId: string; entityType: 'transaction'|'budget'|'goal'; entityId: string; localValue: Record<string,unknown>; remoteValue: Record<string,unknown>; resolvedBy: string|null; resolution: 'local'|'remote'|'pending'; createdAt: number; resolvedAt: number|null }
 ```
 
 ---
 
-## Dexie architecture (`db/db.ts`)
+## Encryption model
 
-### Subclass pattern — encryption wrapper
-
-Dexie's `table.hook('reading')` is synchronous — Web Crypto is async. **Never use reading hooks for decryption.** Instead, subclass Dexie and wrap all read/write paths:
-
-```ts
-// db/db.ts
-class ShillakDB extends Dexie {
-  transactions!: Dexie.Table<Transaction, string>
-  // ... all other tables
-  keystore!: Dexie.Table<Keystore, number>  // NOT encrypted
-
-  constructor() {
-    super('Shillak_db')
-    this.version(1).stores({
-      keystore:     'id',
-      users:        'user_id',
-      groups:       'group_id',
-      groupMembers: 'id, [group_id+user_id]',
-      groupInvites: 'invite_id, group_id',
-      categories:   'category_id, group_id',
-      transactions: 'txn_id, group_id, owner_id, [group_id+date], [group_id+category_id], [recurrence_id+date]',
-      recurrences:  'recurrence_id, [group_id+owner_id], next_due',
-      attachments:  'attachment_id, txn_id, group_id',
-      budgets:      'budget_id, group_id',
-      savingsGoals: 'goal_id, group_id',
-      syncEvents:   'sync_id, group_id',
-      conflictLogs: 'conflict_id, group_id',
-    })
-  }
-
-  // Override get/toArray/bulkGet etc. to decrypt after read
-  // Override add/put/bulkAdd/bulkPut to encrypt before write
-  // keystore table bypasses encrypt/decrypt entirely
-}
-
-export const db = new ShillakDB()
-```
-
-All query methods that return records must pass through `decryptRecord(record, key)`. All write methods must pass through `encryptRecord(record, key)`. The key is read from `key.store.ts` (never from DB). If key is null (locked), throw `AppLockedError` — caught at the top-level error boundary.
-
-**Complete list of methods to override in ShillakDB:**
-```ts
-// Writes — encrypt input before Dexie sees it:
-//   Table.add(), Table.put(), Table.bulkAdd(), Table.bulkPut(), Table.update()
-//
-// Reads — decrypt output after Dexie returns it:
-//   Table.get(), Table.bulkGet()
-//   Collection.toArray(), Collection.first(), Collection.last(), Collection.sortBy()
-//   Table.toArray(), Table.orderBy().toArray() (these go through Collection internally)
-//
-// keystore table: bypass encrypt/decrypt entirely on all of the above
-//
-// Do NOT override: Table.where() itself (returns Collection, not records)
-// DO override: every Collection terminal method that materialises records
-```
-
-The safest pattern: create an `EncryptedTable<T>` wrapper class that proxies a `Dexie.Table<EncryptedRecord, string>` and handles all encrypt/decrypt at the boundary. `ShillakDB` exposes `EncryptedTable` instances, never raw `Dexie.Table` (except `keystore`).
-
-### Schema versioning
-
-Every schema change requires a new `db.version(N)` entry. Migrations that transform encrypted records need the key to be in memory — they will fail if the app is locked. Rule: if `pin_change_in_progress` is false and `version < current`, prompt unlock before opening DB.
-
-```ts
-// Example future migration
-this.version(2).stores({ transactions: '..., new_index' }).upgrade(async tx => {
-  const key = getKeyFromStore()  // throws AppLockedError if locked
-  const all = await tx.table('transactions').toArray()
-  for (const rec of all) {
-    const decrypted = await decryptRecord(rec, key)
-    const updated = { ...decrypted, new_field: defaultValue }
-    await tx.table('transactions').put(await encryptRecord(updated, key))
-  }
-})
-```
-
-Lock current schema as **version 1**. Never amend version 1 stores.
-
----
-
-## Encryption
-
-### Key model
-One AES-256-GCM key per device, derived from PIN + salt. All groups on the device share this key. `group_secret` is a separate per-group secret for invite signing and sync transport only — stored encrypted in the DB.
-
-### Key storage (`src/stores/key.store.ts`)
-```ts
-// NEVER add zustand/middleware/persist to this store.
-// CryptoKey is non-extractable — serializing it produces {}.
-// This store is session-only: key clears on lock, tab close, and page reload.
-interface KeyStore {
-  key: CryptoKey | null
-  setKey: (k: CryptoKey) => void
-  clearKey: () => void
-}
-```
-
-### Multi-tab lock sync
-Use `BroadcastChannel('shillak-lock')` to sync lock state across tabs:
-- On lock: broadcast `{ type: 'lock' }` → all tabs clear key and show PIN screen
-- On unlock: broadcast `{ type: 'unlock' }` → tabs re-derive key from same salt (no PIN re-entry needed if unlock happened within 30s)
-
-### Keystore bootstrap (`src/crypto/keystore.ts`)
-```ts
-// First PIN set:
-const salt = crypto.getRandomValues(new Uint8Array(16))
-const key = await deriveKey(pin, salt)
-const pin_check = await encrypt('SHILLAK_V1', key)
-await db.keystore.put({ id: 1, salt: toBase64(salt), pin_check, pin_change_in_progress: false })
-
-// Every unlock:
-const { salt, pin_check } = await db.keystore.get(1)
-const key = await deriveKey(pin, fromBase64(salt))
-await decrypt(pin_check, key)  // throws DOMException if PIN wrong — catch and show "Wrong PIN"
-keyStore.setKey(key)
-broadcastChannel.postMessage({ type: 'unlock' })
-```
-
-### PIN derivation (`src/crypto/pin.ts`)
-```ts
-async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
-  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey'])
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 200_000, hash: 'SHA-256' },
-    material,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  )
-}
-```
-
-### PIN change flow
-Blocking operation with progress UI. Requires both old and new PIN.
-1. Verify old PIN → get `currentKey`
-2. Derive `newKey` with new salt
-3. Set `pin_change_in_progress: true` in keystore
-4. For each encrypted table: read all → decrypt with `currentKey` → re-encrypt with `newKey` → write back
-5. Commit new keystore (`salt`, `pin_check`, `pin_change_in_progress: false`)
-
-On launch: if `pin_change_in_progress === true`, prompt both PINs and resume. Re-encryption is idempotent — records that were already migrated fail to decrypt with `currentKey`, log warning, skip.
-
-### App lock
-- Locks after 5 minutes background (Page Visibility API)
-- `CryptoKey` cleared from `key.store.ts`
-- BroadcastChannel lock event sent to all tabs
-- Re-entry requires PIN
-- Biometric (WebAuthn) as v2 unlock shortcut
+- **One AES-256-GCM key per device**, derived from PIN + salt (PBKDF2, 200k iterations).
+- All spaces on the device share this key. Key lives in `key.store.ts` (session memory only — never persisted).
+- `groupSecret` is a **separate per-space secret**: HMAC key for invite signatures + HKDF input for sync transport.
+- `keystore` table: unencrypted. Everything else: always encrypted.
+- Lock after 5min background (Page Visibility API). BroadcastChannel syncs lock/unlock across tabs.
+- PIN change: blocking re-encryption of all tables. `pin_change_in_progress` flag allows resume on crash.
 
 ---
 
 ## Sync architecture
 
-### Overview
-Three fully offline sync methods. No server required for any of them.
+Three offline tiers — no server required for any.
 
-| Method | Requires internet? | Use case |
-|--------|--------------------|----------|
-| Local WiFi (WebRTC) | No | Same room, same network |
-| QR batch | No | Offline, different locations |
-| JSON export/import | No | Async, any distance |
+| Tier | Method | Direction |
+|------|--------|-----------|
+| 1 | WebRTC (same WiFi, SDP via QR) | Bidirectional |
+| 2 | QR batch chunks ≤600 bytes raw | Unidirectional |
+| 3 | JSON export/import (`.shillak`) | Unidirectional |
 
-### Transport encryption
-All sync payloads encrypted with a key derived from `group_secret` before transmission:
+**Vector clock delta:**
+- Every local write: `group.vectorClock[myUserId]++`, stamp `authorSeq` on record.
+- My delta for peer: records where `ownerId === peerId && authorSeq > myKnownClock[peerId]`.
+- After apply: `vectorClock[userId] = max(local, remote)` for each user.
+- Only increment own clock. `incrementVectorClock` asserts `userId === currentUserId`.
 
-```ts
-// sync/transport.ts
-async function deriveTransportKey(groupSecret: string): Promise<CryptoKey> {
-  const raw = fromBase64(groupSecret)
-  const base = await crypto.subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey'])
-  return crypto.subtle.deriveKey(
-    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: new TextEncoder().encode('shillak-sync-v1') },
-    base,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  )
-}
-```
+**Conflict resolution:**
+| Entity | Strategy |
+|--------|----------|
+| Own transaction | No conflict (ownerId-scoped) |
+| Transaction edited by other | LWW by updatedAt |
+| Transaction deleted one side, edited other | ConflictLog → user |
+| Budget / SavingsGoal | ConflictLog → user (never auto-resolve) |
+| Category / GroupMember | LWW by updatedAt |
 
-Sync payloads are decrypted records — device key is NOT used for transport. Transport key is derived from `group_secret` which both devices share.
-
-### Tier 1 — Local WiFi (WebRTC, fully offline)
-
-Uses raw `RTCPeerConnection` + `RTCDataChannel`. No signaling server. SDP exchanged via QR codes.
-
-**Why no STUN needed:** On local WiFi, both devices have directly reachable LAN IPs (192.168.x.x). ICE gathers local candidates without STUN. `iceServers: []`.
-
-**SDP size:** A data-channel SDP + local ICE candidates is ~1–2KB plain, ~600–800 bytes after lz-string compression — fits in one QR (version 40, error level M, ~1850 alphanumeric chars capacity).
-
-```
-Flow:
-Device A                           Device B
-────────────────────────────────────────────
-Open sync screen
-createOffer()
-setLocalDescription(offer)
-Wait for ICE gathering complete
-Compress offer SDP → QR ──────────────────→ Scan QR
-                                   setRemoteDescription(offer)
-                                   createAnswer()
-                                   setLocalDescription(answer)
-                                   Wait for ICE gathering complete
-Scan QR ←────────────────────────── Compress answer SDP → QR
-setRemoteDescription(answer)
-RTCDataChannel opens ◄────────────────────► RTCDataChannel opens
-Exchange vector clocks
-Compute deltas
-Encrypt with transportKey
-Send delta ◄──────────────────────────────► Send delta
-Apply received delta
-Run admin invariant check
-Log SyncEvent
-```
-
-### Tier 2 — QR batch (offline, unidirectional)
-
-For when devices are not on the same network. Exporter → Importer only (not bidirectional).
-
-1. Exporter computes delta, encrypts with transport key
-2. Target chunk size: **≤600 bytes** of raw data (after encryption, base64, and JSON wrapper, fits within QR capacity)
-3. Chunk 0: `{ v: 1, total_chunks, group_id, vector_clock, chunk_index: 0, data }`
-4. Other chunks: `{ v: 1, chunk_index, total_chunks, group_id, data }`
-5. Display carousel — importer scans each. UI shows which indices are still missing.
-6. On all chunks received: reassemble → decrypt → apply delta → log SyncEvent
-7. Attachments excluded (size). WebRTC or JSON export for attachments.
-
-### Tier 3 — JSON export/import (fully offline, async)
-
-1. Export: full group snapshot, transport-encrypted → `.shillak` file
-2. Import: load file → decrypt → merge via vector clock → conflict detection
-3. `group_secret` not included in JSON export (it's already on the importer's device from the join flow)
-
-### Vector clock + delta calculation
-
-```ts
-// On every local write:
-//   1. group.vector_clock[myUserId]++
-//   2. record.author_seq = group.vector_clock[myUserId]
-//
-// On sync handshake, exchange full vector clocks.
-//
-// My delta for peer:
-//   records where owner_id === peerId && author_seq > myKnownClock[peerId]
-//
-// After applying delta:
-//   for each userId: group.vector_clock[userId] = max(local[userId], remote[userId])
-```
-
-**Only increment your own clock.** `incrementVectorClock(groupId, userId)` must assert `userId === currentUserId` and throw if not.
-
-### Conflict resolution
-
-| Entity | Strategy | Notes |
-|--------|----------|-------|
-| Transaction (own) | No conflict | owner_id scoped |
-| Transaction (edited by other) | LWW by updated_at | |
-| Transaction (deleted one side, edited other) | ConflictLog → user | Destructive |
-| Budget | ConflictLog → user | High stakes |
-| SavingsGoal | ConflictLog → user | High stakes |
-| Category | LWW by updated_at | |
-| GroupMember | LWW by updated_at + admin invariant | See invariant rule above |
-
----
-
-## Sync — adding a new member (join flow)
-
-### Via QR code
-1. Admin: Settings → Members → Invite → Show QR
-2. QR payload: `{ invite_id, group_id, group_name, group_color, currency, created_by_name, expires_at, member_count, group_secret, signature }`
-3. `signature = HMAC-SHA256(payload_without_signature, group_secret)`
-4. New member: Dashboard "+" → "Join existing space" → scans QR → sees space preview → taps "Join"
-5. App creates GroupMember, stores `group_secret` encrypted
-6. Then sync via Settings → Sync (WebRTC or JSON) to get full transaction history
-7. If not on same WiFi: admin exports JSON snapshot, shares manually
-
-### Via JSON invite file
-1. Admin exports invite file (space snapshot + invite payload including `group_secret`)
-2. New member imports → joins with snapshot
-3. Next sync uses normal delta flow
-
-### 6-digit code
-Removed — required a PeerJS signaling server. Replaced by QR-based WebRTC (Tier 1) and JSON invite (Tier 3).
+**Join flow:** Admin shows invite QR (HMAC-signed payload with `groupSecret`). New member scans → sees preview → joins. Then syncs via WebRTC or JSON to get history.
 
 ---
 
 ## App boot sequence
 
-Every launch runs this sequence before any route is rendered. Lives in `<AppBootstrap>` which wraps the router.
-
 ```
-app launches
-    │
-    ▼
-db.open()  ──── throws ──────────────────────► <StorageErrorScreen> (dead end)
-    │
-    ▼
-keystore.get(1)
-    │
-    ├── null ───────────────────────────────► <Onboarding> (first launch)
-    │
-    ▼
-User record exists?
-    │
-    ├── no ────────────────────────────────► <Onboarding> (keystore exists but no user — corrupted state, treat as fresh)
-    │
-    ▼
-<PinScreen>  ──── correct PIN ──────────────► deriveKey → keyStore.setKey(key)
-    │                                              │
-    │                                              ▼
-    │                                         processRecurrences(activeGroupId)
-    │                                              │
-    │                                              ▼
-    │                                         <Router> → /  (Dashboard)
-    │
-    └── wrong PIN ──────────────────────────► show error, increment attempt counter
-                                              (v2: lockout after 10 failed attempts)
+db.open() → throws → StorageErrorScreen (dead end)
+         → ok → keystore.get(1)
+                  → null → Onboarding
+                  → exists, no User → Onboarding
+                  → exists → PinScreen → correct → deriveKey → processRecurrences → Dashboard
+                                       → wrong → error + attempt counter
 ```
 
-```tsx
-// src/App.tsx
-export function App() {
-  return (
-    <AppBootstrap>        {/* handles db.open(), keystore check, PIN gate */}
-      <RouterProvider router={router} />
-    </AppBootstrap>
-  )
-}
-```
-
-`AppBootstrap` renders one of: `<StorageErrorScreen>`, `<Onboarding>`, `<PinScreen>`, or children (the actual app). It never renders children until `keyStore.key` is non-null.
+`AppBootstrap` never renders children until `keyStore.key !== null`.
 
 ---
 
-## Onboarding flow (first launch)
+## OCR receipt parsing (`src/lib/ocr.ts`)
 
-```
-Launch
-  ↓
-[No User found in DB / keystore empty]
-  ↓
-Screen 1: Welcome — "Your private shared ledger"
-  ↓
-Screen 2: Create profile — Name + avatar color + PIN (required)
-           → writes keystore (salt + pin_check), creates User record
-  ↓
-Screen 3: Choice — "Create a new space" | "Join existing space"
-  ↓
-[Create path]                        [Join path]
-Screen 4: Space name + currency +    Screen 4: Scan invite QR | Import .shillak file
-          fiscal year
-  ↓                                   ↓
-Screen 5: Add members now or later   Screen 5: Syncing history...
-  ↓                                   ↓
-Dashboard                            Dashboard
-```
+`parseReceiptText(raw)` returns `{ amount, note, date, categoryHint }`.
 
-### DB open failure
-If `db.open()` throws (private browsing, storage blocked, quota exceeded), show a full-screen error: "Storage unavailable — Shillak requires persistent storage. Check your browser settings." Do not attempt to proceed. Provide a link to browser-specific instructions.
+- **Amount**: score-based — labels like GRAND TOTAL/NET PAYABLE score 100, bare numbers score 20. Pass 2 handles ₹ OCR'd as junk (BHIM/GPay): looks for decimal on line after "Paid" keyword.
+- **Merchant**: ordered patterns — `banking name\n<NAME>` (BHIM), `payment received by`, `paid to`, `sent to`, UPI VPA stripped of `@handle`.
+- **Date**: DD/MM/YYYY, ISO, `5th May 26` (ordinal + 2-digit year), `May 5 2025`.
+- **Category hint**: keyword→category map (Swiggy→Dining, HPCL→Fuel, Netflix→Entertainment, etc.)
 
 ---
 
-## Screen map (5 bottom nav tabs)
+## Key constraints
 
-### 1. Dashboard (`/`)
-- Active space switcher (top, pill carousel)
-- Month selector (swipeable)
-- Total spend vs budget ring chart
-- Budget bars per category
-- Quick-add FAB
-- Upcoming recurring transactions (next 7 days)
-- Recent transactions (last 5)
-
-### 2. Transactions (`/transactions`)
-- Search + filter (date range, category, person, type)
-- Grouped by date
-- Each card: category icon + color, amount, owner avatar
-- Swipe left: soft delete. Swipe right: edit.
-
-### 3. Budgets (`/budgets`)
-- Monthly budget bars
-- Savings goals with progress bars
-- Admin edits inline
-- Month-over-month sparklines
-
-### 4. Settings (`/settings`)
-- Space: name, currency, fiscal year
-- Members: list, roles, transfer admin, remove
-- Categories: list, add, reorder, edit
-- Sync: last sync status, open sync sheet
-- Profile: name, PIN change, identity backup export
-- Data: export, import, clear, archived spaces
-- Security: rotate space sync key (Phase 4)
-
----
-
-## Key UX patterns
-
-### Quick add (FAB)
-Bottom sheet: amount numpad → category pill row → note → date → submit → optimistic update → Dexie write.
-
-### Conflict resolver
-Triggered by `ConflictLog.resolution === 'pending'`. Card: entity type, "Your version" vs "Their version". Actions: Keep mine / Keep theirs / View full record. Never auto-resolved for budget/goal.
-
-### Sync sheet (3 tabs)
-- Tab 1: Local WiFi — Step 1 shows offer QR, Step 2 scans answer QR, then shows progress
-- Tab 2: QR Batch — chunk carousel + missing-chunk indicator
-- Tab 3: JSON — export + import buttons
-- Sync log: last N SyncEvent records
-
-### Space switcher
-Pill row at Dashboard top. Tap: switch. Long press: context menu. Archived spaces shown greyed. "+" opens sheet to create or join.
-
-### Archived spaces
-- Archived when last member leaves
-- Read-only (no new txns, no edits)
-- Accessible: Settings → Archived Spaces
-- Can export JSON snapshot
-- Cannot rejoin — create new space
-
----
-
-## Identity backup
-
-```ts
-interface IdentityBackup {
-  version: 1
-  user_id: string
-  display_name: string
-  avatar_color: string
-  salt: string        // from keystore — needed to re-derive key on new device
-  pin_check: string   // from keystore — verifies PIN on restore
-  exported_at: number
-}
-```
-
-Exported as `.shillak-id`. Not additionally encrypted — contains no transaction data. `pin_check` is already AES-GCM ciphertext requiring the PIN to verify.
-
-**Restore:** New device → import `.shillak-id` → enter PIN → derive key from `backup.salt` → verify → restore User + keystore → show "Join a space" screen.
-
----
-
-## PWA config
-
-```ts
-VitePWA({
-  registerType: 'autoUpdate',
-  includeAssets: ['icons/*.png'],
-  manifest: {
-    name: 'Shillak',
-    short_name: 'Shillak',
-    description: 'Private group budget tracker',
-    theme_color: '#0f0f0f',
-    background_color: '#0f0f0f',
-    display: 'standalone',
-    orientation: 'portrait',
-    start_url: '/',
-    icons: [
-      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-      { src: 'icons/icon-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-    ]
-  },
-  workbox: {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-    runtimeCaching: []
-  }
-})
-```
-
-**Service worker constraint:** The Workbox service worker caches the app shell only. It must **never** read or write IndexedDB — it has no access to the in-memory CryptoKey and would either crash or produce unencrypted writes. Do not register a Share Target or Background Sync handler that touches Dexie.
-
----
-
-## Recurrence processing
-
-On app launch and every foreground event:
-
-```ts
-async function processRecurrences(groupId: string, currentUserId: string) {
-  // Only process own recurrences — never increment another user's vector clock
-  const due = await db.recurrences
-    .where('next_due').belowOrEqual(Date.now())
-    .and(r => r.group_id === groupId && r.owner_id === currentUserId && r.active)
-    .toArray()
-
-  for (const rec of due) {
-    // Catch up fully in one launch — loop until next_due > today
-    let dueDate = rec.next_due
-    while (dueDate <= Date.now()) {
-      const existing = await db.transactions
-        .where('[recurrence_id+date]')
-        .equals([rec.recurrence_id, dueDate])
-        .first()
-
-      if (!existing) {
-        const seq = await incrementVectorClock(groupId, currentUserId)
-        await db.transactions.add({
-          ...rec.template,
-          txn_id: crypto.randomUUID(),
-          date: dueDate,
-          recurrence_id: rec.recurrence_id,
-          author_seq: seq,
-          deleted_at: null,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-        })
-      }
-
-      dueDate = advanceDate(dueDate, rec.frequency, rec.interval)
-      if (rec.end_date && dueDate > rec.end_date) break
-    }
-
-    await db.recurrences.update(rec.recurrence_id, {
-      next_due: dueDate,
-      last_generated_at: Date.now(),
-    })
-  }
-}
-```
-
----
-
-## `advanceDate` — recurrence date arithmetic
-
-Month-end arithmetic in JavaScript overflows silently (Jan 31 + 1 month → Mar 2). Always clamp to the last valid day of the target month.
-
-```ts
-// src/lib/utils.ts
-export function advanceDate(
-  date: number,
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly',
-  interval: number
-): number {
-  const d = new Date(date)
-  switch (frequency) {
-    case 'daily':
-      d.setDate(d.getDate() + interval)
-      break
-    case 'weekly':
-      d.setDate(d.getDate() + 7 * interval)
-      break
-    case 'monthly': {
-      const targetMonth = d.getMonth() + interval
-      const day = d.getDate()
-      // Set to 1st of target month first, then clamp day
-      d.setDate(1)
-      d.setMonth(targetMonth)
-      // Clamp: last day of target month
-      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-      d.setDate(Math.min(day, lastDay))
-      break
-    }
-    case 'yearly': {
-      const day = d.getDate()
-      const month = d.getMonth()
-      d.setFullYear(d.getFullYear() + interval)
-      // Handle Feb 29 → Feb 28 on non-leap years
-      const lastDay = new Date(d.getFullYear(), month + 1, 0).getDate()
-      d.setDate(Math.min(day, lastDay))
-      break
-    }
-  }
-  // Strip time — store date-only as start of day UTC
-  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-}
-```
-
-All `Transaction.date` values must be midnight UTC (start of day). Use `Date.UTC(y, m, d)` — never `Date.now()` — when setting a date-only field.
-
----
-
-## Money — integer arithmetic
-
-All monetary amounts stored as **integers in the smallest currency unit.**
-
-| Currency | Unit | Example |
-|----------|------|---------|
-| INR | paise | ₹1,234.56 stored as `123456` |
-| USD | cents | $12.34 stored as `1234` |
-
-```ts
-// src/lib/utils.ts
-
-/** Convert rupees (user input) to paise (storage) */
-export function toPaise(rupees: number): number {
-  return Math.round(rupees * 100)  // Math.round avoids 1.005 * 100 = 100.49999...
-}
-
-/** Format paise for display */
-export function formatCurrency(paise: number, currency = 'INR'): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(paise / 100)
-}
-
-/** fx_rate stored as basis points (integer). 1 USD = 83.50 INR → stored as 835000 */
-export function applyFxRate(amountInOriginal: number, fxRateBasisPoints: number): number {
-  return Math.round((amountInOriginal * fxRateBasisPoints) / 10000)
-}
-```
-
-**Never accept a `number` with a decimal as an amount anywhere in the codebase.** Form inputs parse to paise immediately via `toPaise()`. All arithmetic (budget comparisons, balance calculations) operates on integers only.
-
----
-
-## Indian defaults
-
-```ts
-// src/db/seeds.ts
-// Always use createDefaultCategories(groupId, userId) — stamps all required fields.
-
-export const DEFAULT_EXPENSE_CATEGORIES = [
-  { name: 'Groceries',     icon: 'shopping-cart',  color: '#22c55e' },
-  { name: 'Rent',          icon: 'home',           color: '#6366f1' },
-  { name: 'Transport',     icon: 'car',            color: '#3b82f6' },
-  { name: 'EMI',           icon: 'credit-card',    color: '#ef4444' },
-  { name: 'Utilities',     icon: 'zap',            color: '#f59e0b' },
-  { name: 'Health',        icon: 'heart-pulse',    color: '#ec4899' },
-  { name: 'Entertainment', icon: 'tv',             color: '#8b5cf6' },
-  { name: 'Dining',        icon: 'utensils',       color: '#f97316' },
-  { name: 'Shopping',      icon: 'bag',            color: '#14b8a6' },
-  { name: 'Education',     icon: 'book-open',      color: '#06b6d4' },
-  { name: 'Insurance',     icon: 'shield',         color: '#84cc16' },
-  { name: 'Fuel',          icon: 'fuel',           color: '#eab308' },
-  { name: 'Household',     icon: 'wrench',         color: '#64748b' },
-  { name: 'Personal Care', icon: 'sparkles',       color: '#f43f5e' },
-  { name: 'Other',         icon: 'circle-dot',     color: '#888888' },
-]
-
-export const DEFAULT_INCOME_CATEGORIES = [
-  { name: 'Salary',             icon: 'briefcase',   color: '#22c55e' },
-  { name: 'Freelance',          icon: 'laptop',      color: '#3b82f6' },
-  { name: 'Investment Returns', icon: 'trending-up', color: '#f59e0b' },
-  { name: 'Other Income',       icon: 'plus-circle', color: '#888888' },
-]
-```
-
-- Default currency: INR (₹)
-- Formatting: `new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })`
-- Fiscal year: April (month 4)
-
----
-
-## Storage quota
-
-```ts
-// Check before saving any attachment
-async function checkStorageQuota(): Promise<{ ok: boolean; usedPercent: number }> {
-  const { usage, quota } = await navigator.storage.estimate()
-  const usedPercent = ((usage ?? 0) / (quota ?? 1)) * 100
-  return { ok: usedPercent < 80, usedPercent }
-}
-```
-
-- Hard limit: 5MB per attachment (enforce at upload)
-- Warn user when overall quota > 80%
-- Block attachment upload when quota > 90%
-- Safari default IndexedDB cap: ~50MB — surface this clearly if `quota < 100MB`
+- **Amounts: integers (paise).** Never decimal rupees. `toPaise()` immediately on user input.
+- **Dates: midnight UTC.** `Date.UTC(y, m, d)` always. Never `Date.now()` for transaction date.
+- **`advanceDate()`** for all recurrence arithmetic. Never raw `setMonth()` — month overflow.
+- **Soft deletes only.** Never `db.transactions.delete()`. Always `deletedAt = Date.now()`.
+- **No backend.** No Express, Supabase, Firebase. Dexie only.
+- **No localStorage for sensitive data.** Encrypted Dexie only.
+- **TypeScript strict.** No `any`. No `as unknown`. No unchecked index access without `?? fallback`.
+- **Mobile first.** Max 430px. Test at 390px.
+- **Encryption via ShillakDB subclass** — not Dexie hooks (hooks are sync; Web Crypto is async).
+- **`keystore` never encrypted.** All other tables always are.
+- **Service worker never touches Dexie.** No background sync handlers that read/write DB.
+- **`key.store.ts` never uses Zustand persist.** Session memory only.
+- **Multi-tab lock via BroadcastChannel.**
+- **Only process own recurrences** (`ownerId === currentUserId`). Catch up fully in one loop.
+- **Never increment another user's vector clock.**
+- **Admin invariant after every sync apply.** 0 admins → promote oldest. 2+ → keep newest updatedAt.
+- **Budget/goal conflicts never auto-resolved.** Always ConflictLog + user prompt.
+- **`useLiveQuery` for raw reads. TanStack Query for derived only.** Never mix for same source.
+- **Seed via `createDefaultCategories(groupId, userId)`.** Never spread raw seed constants.
+- **QR chunk ≤600 bytes raw** (encryption + base64 + JSON wrapper fits QR capacity).
+- **DB open failure → full-screen error.** Never proceed silently without storage.
+- **Attachment limit: 5MB.** Warn at 80% quota. Block at 90%.
+- **Schema versioning:** version 1 locked. Future changes via `db.version(N).stores().upgrade()`.
+- **`groupSecret` as HMAC key.** Never `groupId`.
 
 ---
 
 ## Build commands
 
 ```bash
-pnpm install
-pnpm dev
-pnpm build
-pnpm preview
-pnpm typecheck
-pnpm lint
+pnpm dev       # dev server
+pnpm build     # production build
+pnpm typecheck # tsc --noEmit
+pnpm lint      # biome lint
 ```
 
 ---
 
-## Development priorities (build order)
+## Status
 
-### Phase 1 — Core (MVP) ✅ COMPLETE
-1. ShillakDB subclass (`EncryptedTable` wrapper) + keystore + encryption
-2. `AppBootstrap` boot sequence + React Router v6 skeleton
-3. `lib/utils.ts` — `toPaise`, `formatCurrency`, `advanceDate`, `applyFxRate`
-4. Onboarding (profile + first space + PIN)
-5. Dashboard (monthly summary, budget bars, spending donut, monthly bar chart)
-6. Quick-add FAB + bottom sheet
-7. Transaction list
-
-### Phase 2 — Spaces ✅ COMPLETE
-6. Space settings + member management (admin invariant enforced)
-7. Category management
-8. Recurrence setup UI
-9. Multi-space switcher (SpaceSwitcher pill row on Dashboard)
-
-### Phase 3 — Sync ✅ COMPLETE
-10. ✅ JSON export/import (`src/sync/json.ts` + Settings Data section)
-11. ✅ Local WiFi sync (WebRTC, manual SDP via QR) — `src/sync/webrtc.ts`
-12. ✅ QR batch sync — `src/sync/qr.ts`
-13. ✅ Sync sheet UI (3 tabs: WiFi / QR Batch / History) — `src/components/sync/SyncSheet.tsx`
-14. ✅ QR display + scanner — `src/components/sync/QRDisplay.tsx`, `QRScanner.tsx`
-15. ✅ Conflict resolver UI — `src/components/sync/ConflictResolver.tsx`
-16. ✅ Transport encryption — `src/sync/transport.ts` (HKDF from group_secret)
-17. ✅ Vector clock + delta — `src/sync/vector-clock.ts`
-18. ✅ Apply delta + admin invariant — `src/sync/conflict.ts`
-19. ✅ Invite member via QR — `src/sync/invite.ts` (HMAC-signed, 24h expiry), `InviteSheet`, `SpaceChoiceScreen` join flow, `JoinSpacePreviewScreen`
-
-### Phase 4 — Polish ✅ MOSTLY COMPLETE
-14. ✅ Charts (SpendingDonut, MonthlyBar, GoalProgress with recharts + shadcn ChartContainer)
-16. ✅ Type filter on transactions (All/Expense/Income chips)
-17. ✅ Transaction edit sheet (TransactionEditSheet)
-18. ✅ Budget overrun alerts (AlertTriangle banners on BudgetsPage, ≥80% threshold)
-19. ✅ App lock (PIN gate, Page Visibility API, BroadcastChannel multi-tab)
-20. ✅ PIN change (re-encryption with progress UI — ChangePinSheet)
-21. ✅ Identity backup export/restore (`.shillak-id` — Settings + SpaceChoiceScreen)
-22. ✅ Storage quota warnings (Settings → Data section, bar + warn/block messages)
-23. ✅ Full transaction search (date range, category, person filters + collapsible filter panel)
-24. ✅ Swipe gestures on transaction cards (left = delete, right = edit via SwipeCard component)
-25. ✅ Budget month-over-month sparklines (6-bar SVG per budget card, last 6 months)
-26. ✅ PWA — offline support, install prompt, update banner (`PWAManager.tsx`, `registerType: 'prompt'`, workbox navigateFallback + cleanupOutdatedCaches)
-27. ⬜ Space sync key rotation (Settings → Security → "Rotate sync key")
-28. ⬜ Biometric unlock (WebAuthn as PIN shortcut — Phase 4 v2)
-29. ✅ Add/join space from inside app — SpaceSwitcher "+" sheet (create or scan invite QR)
-
----
-
-## Key constraints for Claude Code
-
-- **All amounts are integers (paise).** Never store decimal rupees. Parse user input with `toPaise()` immediately. All arithmetic on integers only.
-- **All dates are midnight UTC.** Use `Date.UTC(y, m, d)` for date-only fields. Never `Date.now()` for a transaction date.
-- **`advanceDate` for all recurrence arithmetic.** Never manipulate `Date` month fields directly — use the clamping helper.
-- **Router: React Router v6.** Routes defined in `src/App.tsx`. `<AppBootstrap>` gates all routes behind PIN unlock.
-- **No route renders without a valid key.** `<AppBootstrap>` must return null/spinner/lock screen if `keyStore.key === null`.
-- **No backend.** No Express, Supabase, Firebase, or any server. Dexie only.
-- **No localStorage for sensitive data.** Encrypted Dexie layer only.
-- **TypeScript strict.** No `any`. No `as unknown`.
-- **Mobile first.** Max 430px. Test at 390px.
-- **Soft deletes only.** Never `db.transactions.delete()`. Always `deleted_at = Date.now()`.
-- **Encryption via ShillakDB subclass**, not Dexie hooks. Hooks are sync; Web Crypto is async.
-- **`keystore` table is never encrypted.** All other tables always are.
-- **Service worker never touches Dexie.** No background sync, no share target handlers that read/write DB.
-- **`key.store.ts` never uses Zustand persist middleware.** Session memory only.
-- **Multi-tab lock via BroadcastChannel.** Lock one tab → all tabs lock.
-- **Only process own recurrences** (`owner_id === currentUserId`). Catch up fully in one loop per launch.
-- **Never increment another user's vector clock.** `incrementVectorClock` asserts `userId === currentUserId`.
-- **Admin invariant enforced after every sync apply.** 0 admins → promote oldest. 2+ admins → keep newest updated_at.
-- **Conflict resolution never silent for budget/goal.** Always ConflictLog + user prompt.
-- **Vector clock per space.** Stamp `author_seq` on every write.
-- **One AES key per device.** Never per-space keys.
-- **`group_secret` as HMAC key.** Never `group_id`.
-- **`useLiveQuery` for raw reads. TanStack Query for derived values only.** Never mix for same source.
-- **Never spread raw seed constants** into Dexie. Always `createDefaultCategories(groupId, userId)`.
-- **QR chunk target ≤600 bytes** of raw data (leaves room for encryption overhead + base64 + JSON wrapper).
-- **DB open failure → full-screen error.** Never silently fail or proceed without storage.
-- **Attachment hard limit: 5MB.** Warn at 80% storage quota. Block at 90%.
-- **Dexie schema versioning:** lock version 1. All future changes use `db.version(N).stores().upgrade()` with key in memory.
-
----
-
-*Last updated: architecture reviewed by senior developer — schema locked, build not started.*
-*Built with Claude Code. Context window: see this file.*
+Phases 1–4 complete. Remaining:
+- ⬜ Space sync key rotation (Settings → Security → "Rotate sync key")
+- ⬜ Biometric unlock (WebAuthn as PIN shortcut)

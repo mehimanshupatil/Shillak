@@ -25,7 +25,6 @@ export async function processRecurrences(groupId: string, userId: string): Promi
           date: dueDate,
           recurrenceId: rec.recurrenceId,
           authorSeq: newSeq,
-          splitId: null,
           deletedAt: null,
           createdAt: Date.now(),
           updatedAt: Date.now(),

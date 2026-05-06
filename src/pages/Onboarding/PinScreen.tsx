@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { Fingerprint } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import Logo from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
+import { unlockWithBiometric } from '@/crypto/biometric'
 import { broadcastUnlock, verifyPin } from '@/crypto/keystore'
 import { db } from '@/db/db'
+import type { KeystoreRecord } from '@/db/schema'
 import useKeyStore from '@/stores/key.store'
 
 interface Props {
@@ -13,7 +16,16 @@ export default function PinScreen({ onUnlocked }: Props) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [ks, setKs] = useState<KeystoreRecord | null>(null)
   const setKey = useKeyStore((s) => s.setKey)
+
+  useEffect(() => {
+    db.keystoreTable.get(1).then((k) => {
+      if (k) setKs(k)
+    })
+  }, [])
+
+  const hasBiometric = !!(ks?.biometricCredentialId && ks.biometricIv && ks.biometricEncryptedPin)
 
   async function handleSubmit() {
     if (pin.length < 4) {
@@ -23,15 +35,31 @@ export default function PinScreen({ onUnlocked }: Props) {
     setLoading(true)
     setError('')
     try {
-      const ks = await db.keystoreTable.get(1)
-      if (!ks) throw new Error('No keystore found')
-      const key = await verifyPin(pin, ks.salt, ks.pinCheck)
+      const k = ks ?? (await db.keystoreTable.get(1))
+      if (!k) throw new Error('No keystore found')
+      const key = await verifyPin(pin, k.salt, k.pinCheck)
       setKey(key)
       broadcastUnlock()
       onUnlocked()
     } catch {
       setError('Wrong PIN. Try again.')
       setPin('')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleBiometric() {
+    if (!ks) return
+    setLoading(true)
+    setError('')
+    try {
+      const key = await unlockWithBiometric(ks)
+      setKey(key)
+      broadcastUnlock()
+      onUnlocked()
+    } catch (e) {
+      setError(String(e).replace('Error: ', ''))
     } finally {
       setLoading(false)
     }
@@ -57,7 +85,7 @@ export default function PinScreen({ onUnlocked }: Props) {
         <p className="text-sm text-text-secondary">Enter your PIN to unlock</p>
       </div>
 
-      {/* PIN dots — reflect actual length (4–6) */}
+      {/* PIN dots */}
       <div className="flex gap-4">
         {Array.from({ length: 6 }, (_, i) => `dot-${i}`).map((id, i) => (
           <div
@@ -69,7 +97,7 @@ export default function PinScreen({ onUnlocked }: Props) {
         ))}
       </div>
 
-      {error && <p className="text-sm text-danger -mt-4">{error}</p>}
+      {error && <p className="text-sm text-danger -mt-4 text-center">{error}</p>}
 
       {/* Numpad */}
       <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
@@ -97,17 +125,31 @@ export default function PinScreen({ onUnlocked }: Props) {
         ))}
       </div>
 
-      {
+      <div className="flex flex-col items-center gap-3 w-full max-w-[280px]">
         <Button
           onClick={handleSubmit}
           disabled={pin.length < 4 || loading}
-          className="w-full max-w-[280px] h-14 rounded-2xl bg-accent
+          className="w-full h-14 rounded-2xl bg-accent
                      text-black font-semibold text-base hover:bg-accent-hover
                      disabled:opacity-50"
         >
           {loading ? 'Unlocking…' : 'Unlock'}
         </Button>
-      }
+
+        {hasBiometric && (
+          <button
+            type="button"
+            onClick={handleBiometric}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl
+                       text-sm text-text-secondary active:bg-surface-2
+                       transition-colors disabled:opacity-50"
+          >
+            <Fingerprint size={18} className="text-accent" />
+            Use biometric
+          </button>
+        )}
+      </div>
     </div>
   )
 }

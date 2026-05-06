@@ -1,5 +1,5 @@
-# Shillak — Shared Budget Tracker
-> Privacy-first, offline-only PWA for shared household and group finances.
+# Shillak — Household Budget Tracker
+> Privacy-first, offline-only PWA for household and family finances.
 > No server. No login. No cloud. Data never leaves the device.
 
 ---
@@ -12,13 +12,16 @@
 
 ## What this app is
 
-Shillak is a **shared finance app** — not a personal budget tracker, not a Splitwise clone.
+Shillak is a **household finance app** — built for couples and families who want full control over their financial data without handing it to a cloud service.
 
-- A family uses it as a **household budget tracker**: track income, spending vs budget, savings goals, recurring expenses (rent, EMIs, SIPs).
-- A group of flatmates uses it to **split shared expenses** and see who owes whom.
-- A trip group uses it to **track shared costs** for a holiday.
+Primary use case: a married couple / family tracking shared income, spending vs budget, savings goals, EMIs, SIPs, and recurring expenses — on their own devices, privately.
 
-Each **space** is an independent, private pocket. One app install can belong to multiple spaces (family, flatmates, trip — each isolated). All data lives in the browser's IndexedDB, encrypted with a local PIN.
+- One space = one household. Both partners install the app, sync over home WiFi or QR.
+- Multiple spaces supported — e.g. a "personal" space alongside a "joint" household space.
+
+**No splits.** Shillak is for couples and families with pooled finances — both partners treat spending as "our money", not IOUs. Splits (who-owes-whom) are a flatmate/trip feature and have been deliberately removed. For split-bill tracking, use Splitwise. Shillak's strength is the shared budget picture: category budgets, savings goals, income tracking, and recurring EMIs/SIPs.
+
+Each **space** is an independent, private pocket. All data lives in the browser's IndexedDB, encrypted with a local PIN.
 
 > **UI terminology:** The user-visible word for a group is **"space"** (Settings → Space, "Add space", "New space", etc.). Internal code variables remain `groupId`, `group_secret`, `db.groups`, etc. — do not rename code symbols.
 
@@ -28,8 +31,8 @@ Each **space** is an independent, private pocket. One app install can belong to 
 
 1. **Offline first** — the app works 100% without internet. Always. No feature degrades silently when offline.
 2. **Privacy first** — no server, no account, no analytics, no telemetry. Data stays on device.
-3. **Local sync only** — data syncs between devices via local WiFi (WebRTC, no server), QR code batching, or JSON file export. User chooses.
-4. **Multi-space** — one install, N spaces. Family, flatmates, trip — each isolated.
+3. **Local sync only** — data syncs between devices via home WiFi (WebRTC, no server), QR code, or JSON export. Sync is for device-to-device within a household, not async cloud collaboration.
+4. **Multi-space** — one install, N spaces. Personal + joint household, each isolated.
 5. **Transparent** — full visibility into space data for all members (no hidden transactions).
 
 ---
@@ -122,7 +125,6 @@ Think: monochrome base with a single warm accent, generous whitespace, sharp typ
   /* Finance-specific aliases (maps to semantic, prevents call-site drift) */
   --color-income: var(--color-success);   /* #22c55e — green amounts */
   --color-expense: var(--color-danger);   /* #ef4444 — red amounts */
-  --color-transfer: var(--color-info);    /* #3b82f6 — neutral transfers */
   --color-budget-ok: var(--color-success);
   --color-budget-warn: var(--color-warning);   /* 80–99% of limit */
   --color-budget-over: var(--color-danger);    /* ≥100% of limit */
@@ -205,7 +207,6 @@ Shillak/
 │   │   ├── Dashboard/
 │   │   ├── Transactions/
 │   │   ├── Budgets/
-│   │   ├── Splits/
 │   │   ├── Sync/
 │   │   └── Settings/
 │   └── lib/
@@ -259,8 +260,6 @@ interface Group {
   created_by: string
   currency: string         // ISO 4217
   fiscal_year_start: number  // 1-12, default 4
-  split_enabled: boolean
-  income_tracking: boolean
   visibility: 'full' | 'totals_only'
   status: 'active' | 'archived'
   group_secret: string     // base64 random 32 bytes
@@ -319,7 +318,7 @@ interface Category {
   name: string
   icon: string
   color: string
-  type: 'expense' | 'income' | 'transfer'
+  type: 'expense' | 'income' 
   sort_order: number
   is_default: boolean
   created_by: string
@@ -337,7 +336,7 @@ interface Transaction {
   owner_id: string         // user_id — who logged it (immutable after creation)
   author_seq: number       // group.vector_clock[owner_id] at write time — for sync delta
   category_id: string
-  type: 'expense' | 'income' | 'transfer'
+  type: 'expense' | 'income' 
   amount: number           // INTEGER — smallest currency unit (paise for INR, cents for USD)
                            // NEVER store decimal rupees. 1 INR = 100 stored as 100, not 1.0
   currency: string
@@ -347,7 +346,6 @@ interface Transaction {
   tags: string[]
   date: number             // unix ms, date only
   attachment_ids: string[]
-  split_id: string | null
   recurrence_id: string | null
   created_at: number
   updated_at: number
@@ -364,8 +362,7 @@ interface Recurrence {
   group_id: string
   owner_id: string
   template: Omit<Transaction,
-    | 'txn_id' | 'date' | 'recurrence_id' | 'author_seq'
-    | 'created_at' | 'updated_at' | 'deleted_at' | 'split_id'
+    'txn_id' | 'date' | 'recurrence_id' | 'author_seq' | 'created_at' | 'updated_at' | 'deleted_at'
   >
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
   interval: number
@@ -392,29 +389,6 @@ interface Attachment {
 }
 // Hard limit: 5MB per attachment. Warn user at 80% of storage quota.
 // Excluded from QR sync. WebRTC + JSON export only.
-```
-
-### Split
-```ts
-interface SplitShare {
-  user_id: string
-  amount: number           // integer, smallest currency unit (paise)
-  settled: boolean
-  settled_at: number | null
-}
-
-interface Split {
-  split_id: string
-  group_id: string
-  txn_id: string
-  paid_by: string
-  total: number
-  currency: string
-  shares: SplitShare[]
-  note: string
-  created_at: number
-}
-// Net balances computed at query time via minimum-transactions algorithm (see Splits section)
 ```
 
 ### Budget
@@ -506,7 +480,6 @@ class ShillakDB extends Dexie {
       transactions: 'txn_id, group_id, owner_id, [group_id+date], [group_id+category_id], [recurrence_id+date]',
       recurrences:  'recurrence_id, [group_id+owner_id], next_due',
       attachments:  'attachment_id, txn_id, group_id',
-      splits:       'split_id, group_id, txn_id',
       budgets:      'budget_id, group_id',
       savingsGoals: 'goal_id, group_id',
       syncEvents:   'sync_id, group_id',
@@ -748,55 +721,11 @@ For when devices are not on the same network. Exporter → Importer only (not bi
 
 ---
 
-## Splits — net balance algorithm
-
-Net balances are never stored. Computed at query time via minimum-transactions debt simplification:
-
-```ts
-// 1. Build net balance map: how much each person owes/is owed overall
-function computeNetBalances(splits: Split[]): Map<string, number> {
-  const balances = new Map<string, number>()
-  for (const split of splits) {
-    for (const share of split.shares.filter(s => !s.settled)) {
-      if (share.user_id === split.paid_by) continue
-      // paid_by is owed `share.amount` by share.user_id
-      balances.set(split.paid_by, (balances.get(split.paid_by) ?? 0) + share.amount)
-      balances.set(share.user_id, (balances.get(share.user_id) ?? 0) - share.amount)
-    }
-  }
-  return balances
-}
-
-// 2. Minimum transactions algorithm (greedy)
-// Produces the smallest set of transfers that clears all debts
-function minimizeTransfers(balances: Map<string, number>): Array<{ from: string, to: string, amount: number }> {
-  const creditors = [...balances.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
-  const debtors   = [...balances.entries()].filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1])
-  const result = []
-  let i = 0, j = 0
-  while (i < creditors.length && j < debtors.length) {
-    const [creditor, credit] = creditors[i]
-    const [debtor,   debt]   = debtors[j]
-    const amount = Math.min(credit, -debt)
-    result.push({ from: debtor, to: creditor, amount })
-    creditors[i][1] -= amount
-    debtors[j][1]   += amount
-    if (creditors[i][1] === 0) i++
-    if (debtors[j][1]   === 0) j++
-  }
-  return result
-}
-```
-
-The Splits tab shows the output of `minimizeTransfers` — minimum number of payments to clear all debts.
-
----
-
 ## Sync — adding a new member (join flow)
 
 ### Via QR code
 1. Admin: Settings → Members → Invite → Show QR
-2. QR payload: `{ invite_id, group_id, group_name, group_color, split_enabled, income_tracking, created_by_name, expires_at, member_count, group_secret, signature }`
+2. QR payload: `{ invite_id, group_id, group_name, group_color, currency, created_by_name, expires_at, member_count, group_secret, signature }`
 3. `signature = HMAC-SHA256(payload_without_signature, group_secret)`
 4. New member: Dashboard "+" → "Join existing space" → scans QR → sees space preview → taps "Join"
 5. App creates GroupMember, stores `group_secret` encrypted
@@ -877,8 +806,7 @@ Screen 3: Choice — "Create a new space" | "Join existing space"
   ↓
 [Create path]                        [Join path]
 Screen 4: Space name + currency +    Screen 4: Scan invite QR | Import .shillak file
-          fiscal year + split? +
-          income tracking?
+          fiscal year
   ↓                                   ↓
 Screen 5: Add members now or later   Screen 5: Syncing history...
   ↓                                   ↓
@@ -913,14 +841,8 @@ If `db.open()` throws (private browsing, storage blocked, quota exceeded), show 
 - Admin edits inline
 - Month-over-month sparklines
 
-### 4. Splits (`/splits`) — only if `group.split_enabled`
-- Minimum-transfer net balances (who pays whom)
-- Unsettled split list
-- Tap → breakdown + mark settled
-- "Settle all with [person]" shortcut
-
-### 5. Settings (`/settings`)
-- Space: name, currency, fiscal year, toggles
+### 4. Settings (`/settings`)
+- Space: name, currency, fiscal year
 - Members: list, roles, transfer admin, remove
 - Categories: list, add, reorder, edit
 - Sync: last sync status, open sync sheet
@@ -933,7 +855,7 @@ If `db.open()` throws (private browsing, storage blocked, quota exceeded), show 
 ## Key UX patterns
 
 ### Quick add (FAB)
-Bottom sheet: amount numpad → category pill row → note → date → split toggle → submit → optimistic update → Dexie write.
+Bottom sheet: amount numpad → category pill row → note → date → submit → optimistic update → Dexie write.
 
 ### Conflict resolver
 Triggered by `ConflictLog.resolution === 'pending'`. Card: entity type, "Your version" vs "Their version". Actions: Keep mine / Keep theirs / View full record. Never auto-resolved for budget/goal.
@@ -1037,7 +959,6 @@ async function processRecurrences(groupId: string, currentUserId: string) {
           date: dueDate,
           recurrence_id: rec.recurrence_id,
           author_seq: seq,
-          split_id: null,
           deleted_at: null,
           created_at: Date.now(),
           updated_at: Date.now(),
@@ -1139,7 +1060,7 @@ export function applyFxRate(amountInOriginal: number, fxRateBasisPoints: number)
 }
 ```
 
-**Never accept a `number` with a decimal as an amount anywhere in the codebase.** Form inputs parse to paise immediately via `toPaise()`. All arithmetic (budget comparisons, split totals, balance calculations) operates on integers only.
+**Never accept a `number` with a decimal as an amount anywhere in the codebase.** Form inputs parse to paise immediately via `toPaise()`. All arithmetic (budget comparisons, balance calculations) operates on integers only.
 
 ---
 
@@ -1242,8 +1163,7 @@ pnpm lint
 19. ✅ Invite member via QR — `src/sync/invite.ts` (HMAC-signed, 24h expiry), `InviteSheet`, `SpaceChoiceScreen` join flow, `JoinSpacePreviewScreen`
 
 ### Phase 4 — Polish ✅ MOSTLY COMPLETE
-14. ✅ Splits tab + minimum-transfer algorithm
-15. ✅ Charts (SpendingDonut, MonthlyBar, GoalProgress with recharts + shadcn ChartContainer)
+14. ✅ Charts (SpendingDonut, MonthlyBar, GoalProgress with recharts + shadcn ChartContainer)
 16. ✅ Type filter on transactions (All/Expense/Income chips)
 17. ✅ Transaction edit sheet (TransactionEditSheet)
 18. ✅ Budget overrun alerts (AlertTriangle banners on BudgetsPage, ≥80% threshold)

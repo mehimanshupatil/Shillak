@@ -70,17 +70,6 @@ function parseSDP(sdp: RTCSessionDescriptionInit): MinimalSDP {
     }
   }
 
-  console.log(
-    '[QR:parseSDP] ufrag:',
-    ufrag,
-    'pwd len:',
-    pwd.length,
-    'fp len:',
-    fp.length,
-    'candidates:',
-    candidates,
-  )
-
   if (!ufrag || !pwd || !fp || !setup || candidates.length === 0) {
     throw new Error(
       `SDP missing required fields — ufrag:${!!ufrag} pwd:${!!pwd} fp:${!!fp} setup:${!!setup} candidates:${candidates.length}`,
@@ -132,46 +121,17 @@ function reconstructSDP(m: MinimalSDP): RTCSessionDescriptionInit {
  */
 export function encodeSDP(sdp: RTCSessionDescriptionInit): string {
   const m = parseSDP(sdp)
-  const encoded = [
-    m.type === 'offer' ? 'o' : 'a',
-    m.ufrag,
-    m.pwd,
-    m.fp,
-    m.setup,
-    ...m.candidates,
-  ].join(SEP)
-  console.log(
-    '[QR:encodeSDP] encoded length:',
-    encoded.length,
-    'value:',
-    `${encoded.slice(0, 40)}…`,
-  )
-  return encoded
+  return [m.type === 'offer' ? 'o' : 'a', m.ufrag, m.pwd, m.fp, m.setup, ...m.candidates].join(SEP)
 }
 
 export function decodeSDP(encoded: string): RTCSessionDescriptionInit {
-  console.log('[QR:decodeSDP] encoded length:', encoded.length)
   const parts = encoded.split(SEP)
   if (parts.length < 6) throw new Error(`Invalid compact SDP — got ${parts.length} fields, need ≥6`)
   const [t, ufrag, pwd, fp, setup, ...candidates] = parts
   if (!t || !ufrag || !pwd || !fp || !setup || candidates.length === 0) {
     throw new Error('Invalid compact SDP — missing required fields')
   }
-  const result = reconstructSDP({
-    type: t === 'o' ? 'offer' : 'answer',
-    ufrag,
-    pwd,
-    fp,
-    setup,
-    candidates,
-  })
-  console.log(
-    '[QR:decodeSDP] reconstructed type:',
-    result.type,
-    'sdp lines:',
-    result.sdp?.split('\r\n').length,
-  )
-  return result
+  return reconstructSDP({ type: t === 'o' ? 'offer' : 'answer', ufrag, pwd, fp, setup, candidates })
 }
 
 export function isSDP(encoded: string): boolean {
@@ -214,6 +174,48 @@ export function isChunk(scanned: string): boolean {
   try {
     const env = decodeChunk(scanned)
     return typeof env.index === 'number' && typeof env.total === 'number'
+  } catch {
+    return false
+  }
+}
+
+// ─── Clock QR ────────────────────────────────────────────────────────────────
+// Small QR the receiver shows so the sender knows what they already have.
+// Format: { v: 1, type: 'clock', groupId: string, clock: Record<string,number> }
+
+export interface ClockEnvelope {
+  v: 1
+  type: 'clock'
+  groupId: string
+  clock: Record<string, number>
+  /**
+   * Max timestamp (ms) across all non-transaction entities the receiver already has.
+   * Sender uses this to skip entities that haven't changed since the last sync.
+   * Absent = receiver has nothing (first sync) → send everything.
+   */
+  since?: number
+}
+
+export function encodeClockQR(
+  groupId: string,
+  clock: Record<string, number>,
+  since?: number,
+): string {
+  const env: ClockEnvelope = { v: 1, type: 'clock', groupId, clock }
+  if (since !== undefined && since > 0) env.since = since
+  return JSON.stringify(env)
+}
+
+export function decodeClockQR(scanned: string): ClockEnvelope {
+  const env = JSON.parse(scanned) as ClockEnvelope
+  if (env.v !== 1 || env.type !== 'clock') throw new Error('Not a clock QR')
+  return env
+}
+
+export function isClockQR(scanned: string): boolean {
+  try {
+    const env = JSON.parse(scanned) as Partial<ClockEnvelope>
+    return env.v === 1 && env.type === 'clock' && typeof env.groupId === 'string'
   } catch {
     return false
   }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Avatar, IconPicker, PROFILE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +17,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [colorIdx, setColorIdx] = useState(0)
+  const [avatarIcon, setAvatarIcon] = useState<string | undefined>(undefined)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const setKey = useKeyStore((s) => s.setKey)
@@ -48,6 +50,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
         userId,
         displayName: name.trim(),
         avatarColor: groupColor(colorIdx),
+        avatarIcon,
         identityBackupHint: '',
         createdAt: Date.now(),
       })
@@ -67,6 +70,17 @@ export default function CreateProfileScreen({ onNext }: Props) {
         <p className="text-sm text-text-secondary mt-1">Your identity stays on this device.</p>
       </div>
 
+      {/* Avatar preview */}
+      <div className="flex justify-center">
+        <Avatar
+          color={groupColor(colorIdx)}
+          name={name || 'Y'}
+          icon={avatarIcon}
+          size={72}
+          rounded="full"
+        />
+      </div>
+
       {/* Avatar color */}
       <div className="space-y-2">
         <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -83,6 +97,14 @@ export default function CreateProfileScreen({ onNext }: Props) {
             />
           ))}
         </div>
+      </div>
+
+      {/* Profile icon */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+          Profile icon
+        </p>
+        <IconPicker icons={PROFILE_ICONS} selected={avatarIcon} onSelect={setAvatarIcon} />
       </div>
 
       {/* Name */}

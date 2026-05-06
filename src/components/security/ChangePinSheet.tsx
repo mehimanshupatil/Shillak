@@ -71,11 +71,11 @@ export default function ChangePinSheet({ open, onClose }: Props) {
         transactions,
         recurrences,
         attachments,
-        splits,
         budgets,
         goals,
         syncEvents,
         conflicts,
+        accounts,
       ] = await Promise.all([
         db.users.toArray(),
         db.groups.toArray(),
@@ -85,11 +85,11 @@ export default function ChangePinSheet({ open, onClose }: Props) {
         db.transactions.toArray(),
         db.recurrences.toArray(),
         db.attachments.toArray(),
-        db.splits.toArray(),
         db.budgets.toArray(),
         db.goals.toArray(),
         db.syncEvents.toArray(),
         db.conflicts.toArray(),
+        db.accounts.toArray(),
       ])
 
       // 5. Swap key — all subsequent writes use new key
@@ -106,11 +106,11 @@ export default function ChangePinSheet({ open, onClose }: Props) {
         transactions.length > 0 ? db.transactions.bulkPut(transactions) : Promise.resolve(),
         recurrences.length > 0 ? db.recurrences.bulkPut(recurrences) : Promise.resolve(),
         attachments.length > 0 ? db.attachments.bulkPut(attachments) : Promise.resolve(),
-        splits.length > 0 ? db.splits.bulkPut(splits) : Promise.resolve(),
         budgets.length > 0 ? db.budgets.bulkPut(budgets) : Promise.resolve(),
         goals.length > 0 ? db.goals.bulkPut(goals) : Promise.resolve(),
         syncEvents.length > 0 ? db.syncEvents.bulkPut(syncEvents) : Promise.resolve(),
         conflicts.length > 0 ? db.conflicts.bulkPut(conflicts) : Promise.resolve(),
+        accounts.length > 0 ? db.accounts.bulkPut(accounts) : Promise.resolve(),
       ])
 
       // 7. Commit new keystore

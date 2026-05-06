@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const MONTHS_SHORT = [
@@ -40,19 +40,28 @@ export default function BudgetsPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
+  const [activePeriod, setActivePeriod] = useState<'monthly' | 'yearly'>('monthly')
 
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false)
   const [editBudget, setEditBudget] = useState<Budget | undefined>(undefined)
   const [goalSheetOpen, setGoalSheetOpen] = useState(false)
   const [editGoal, setEditGoal] = useState<SavingsGoal | undefined>(undefined)
 
-  const startOfMonth = Date.UTC(year, month, 1)
-  const endOfMonth = Date.UTC(year, month + 1, 1) - 1
-
   const group = useLiveQuery(
     () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),
     [activeGroupId],
   )
+
+  // Fiscal year window
+  const fiscalStart = (group?.fiscalYearStart ?? 4) - 1 // 0-indexed
+  const fiscalYearStart = Date.UTC(year, fiscalStart, 1)
+  const fiscalYearEnd = Date.UTC(year + 1, fiscalStart, 1) - 1
+
+  const startOfMonth = Date.UTC(year, month, 1)
+  const endOfMonth = Date.UTC(year, month + 1, 1) - 1
+
+  const windowStart = activePeriod === 'yearly' ? fiscalYearStart : startOfMonth
+  const windowEnd = activePeriod === 'yearly' ? fiscalYearEnd : endOfMonth
 
   const categories = useLiveQuery(
     () => (activeGroupId ? db.categories.where((c) => c.groupId === activeGroupId) : []),
@@ -69,6 +78,17 @@ export default function BudgetsPage() {
     [activeGroupId],
   )
 
+  // Lifetime income transactions — for auto-deriving savings goal progress
+  const incomeTxns = useLiveQuery(
+    () =>
+      activeGroupId
+        ? db.transactions.where(
+            (t) => t.groupId === activeGroupId && t.deletedAt === null && t.type === 'income',
+          )
+        : [],
+    [activeGroupId],
+  )
+
   const transactions = useLiveQuery(
     () =>
       activeGroupId
@@ -77,18 +97,18 @@ export default function BudgetsPage() {
               t.groupId === activeGroupId &&
               t.deletedAt === null &&
               t.type === 'expense' &&
-              t.date >= startOfMonth &&
-              t.date <= endOfMonth,
+              t.date >= windowStart &&
+              t.date <= windowEnd,
           )
         : [],
-    [activeGroupId, startOfMonth, endOfMonth],
+    [activeGroupId, windowStart, windowEnd],
   )
 
-  // 6-month history for sparklines
+  // 6-month history for sparklines (monthly mode only)
   const sixMonthsAgo = Date.UTC(year, month - 5, 1)
   const historicTxns = useLiveQuery(
     () =>
-      activeGroupId
+      activeGroupId && activePeriod === 'monthly'
         ? db.transactions.where(
             (t) =>
               t.groupId === activeGroupId &&
@@ -97,8 +117,10 @@ export default function BudgetsPage() {
               t.date >= sixMonthsAgo,
           )
         : [],
-    [activeGroupId, sixMonthsAgo],
+    [activeGroupId, sixMonthsAgo, activePeriod],
   )
+
+  const currency = group?.currency ?? 'INR'
 
   const catMap = useMemo(() => {
     const m: Record<string, { name: string; color: string; icon: string }> = {}
@@ -111,34 +133,72 @@ export default function BudgetsPage() {
   const categorySpend = useMemo(() => {
     const spend: Record<string, number> = {}
     ;(transactions ?? []).forEach((t) => {
-      spend[t.categoryId] = (spend[t.categoryId] ?? 0) + t.amount
+      spend[t.categoryId] = (spend[t.categoryId] ?? 0) + toBaseCurrency(t, currency)
     })
     return spend
-  }, [transactions])
+  }, [transactions, currency])
 
-  const totalBudget = useMemo(
-    () => (budgets ?? []).filter((b) => b.period === 'monthly').reduce((s, b) => s + b.limit, 0),
-    [budgets],
+  const activeBudgets = useMemo(
+    () => (budgets ?? []).filter((b) => b.period === activePeriod),
+    [budgets, activePeriod],
   )
+
+  // For goals linked to an income category: sum income transactions in that category
+  // since the goal was created (goal.createdAt) — avoids counting pre-goal income
+  const goalSavedMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    const txns = incomeTxns ?? []
+    for (const goal of goals ?? []) {
+      if (!goal.categoryId) continue
+      map[goal.goalId] = txns
+        .filter((t) => t.categoryId === goal.categoryId && t.date >= (goal.createdAt ?? 0))
+        .reduce((s, t) => s + toBaseCurrency(t, currency), 0)
+    }
+    return map
+  }, [goals, incomeTxns, currency])
+
+  const totalBudget = useMemo(() => activeBudgets.reduce((s, b) => s + b.limit, 0), [activeBudgets])
   const totalSpend = useMemo(
     () => Object.values(categorySpend).reduce((s, v) => s + v, 0),
     [categorySpend],
   )
 
-  function prevMonth() {
-    if (month === 0) {
-      setMonth(11)
+  // Navigation
+  const isCurrent = year === now.getFullYear() && month === now.getMonth()
+  const isFiscalCurrent = useMemo(() => {
+    const fyYear = now.getMonth() >= fiscalStart ? now.getFullYear() : now.getFullYear() - 1
+    return year === fyYear
+  }, [year, fiscalStart, now])
+
+  function prevPeriod() {
+    if (activePeriod === 'monthly') {
+      if (month === 0) {
+        setMonth(11)
+        setYear((y) => y - 1)
+      } else setMonth((m) => m - 1)
+    } else {
       setYear((y) => y - 1)
-    } else setMonth((m) => m - 1)
+    }
   }
-  function nextMonth() {
-    const isCurrent = year === now.getFullYear() && month === now.getMonth()
-    if (isCurrent) return
-    if (month === 11) {
-      setMonth(0)
+  function nextPeriod() {
+    if (activePeriod === 'monthly') {
+      if (isCurrent) return
+      if (month === 11) {
+        setMonth(0)
+        setYear((y) => y + 1)
+      } else setMonth((m) => m + 1)
+    } else {
+      if (isFiscalCurrent) return
       setYear((y) => y + 1)
-    } else setMonth((m) => m + 1)
+    }
   }
+
+  const periodLabel =
+    activePeriod === 'monthly'
+      ? `${MONTHS_SHORT[month]} ${year}`
+      : `FY ${year}–${String(year + 1).slice(2)}`
+
+  const isNavAtCurrent = activePeriod === 'monthly' ? isCurrent : isFiscalCurrent
 
   async function handleDeleteBudget(budgetId: string) {
     await db.budgets.delete(budgetId)
@@ -148,12 +208,11 @@ export default function BudgetsPage() {
     await db.goals.delete(goalId)
   }
 
-  const currency = group?.currency ?? 'INR'
-  const isCurrent = year === now.getFullYear() && month === now.getMonth()
   const overallPct = totalBudget > 0 ? Math.min((totalSpend / totalBudget) * 100, 100) : 0
 
   // Per-category spend per month over last 6 months [oldest → newest]
   const sparkData = useMemo(() => {
+    if (activePeriod === 'yearly') return {}
     const data: Record<string, number[]> = {}
     for (let i = 0; i < 6; i++) {
       const mMonth = (((month - 5 + i) % 12) + 12) % 12
@@ -168,11 +227,10 @@ export default function BudgetsPage() {
       }
     }
     return data
-  }, [historicTxns, month, year])
+  }, [historicTxns, month, year, activePeriod])
 
   const alerts = useMemo(() => {
-    return (budgets ?? [])
-      .filter((b) => b.period === 'monthly')
+    return activeBudgets
       .map((b) => {
         const spent = categorySpend[b.categoryId] ?? 0
         const pct = b.limit > 0 ? (spent / b.limit) * 100 : 0
@@ -180,31 +238,48 @@ export default function BudgetsPage() {
       })
       .filter(({ pct }) => pct >= 80)
       .sort((a, b) => b.pct - a.pct)
-  }, [budgets, categorySpend])
+  }, [activeBudgets, categorySpend])
 
   return (
     <div className="flex flex-col pb-24">
       {/* Header */}
       <div className="px-4 pt-6 pb-3">
         <h1 className="text-xl font-bold text-text-primary">Budgets</h1>
-        {/* Month selector */}
+
+        {/* Period toggle */}
+        <div className="flex gap-1 mt-3 p-1 rounded-xl bg-surface-2">
+          {(['monthly', 'yearly'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setActivePeriod(p)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                activePeriod === p ? 'bg-accent text-black' : 'text-text-secondary'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Navigator */}
         <div className="flex items-center gap-2 mt-3">
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={prevMonth}
+            onClick={prevPeriod}
             className="text-text-secondary"
           >
             <ChevronLeft size={18} />
           </Button>
           <span className="flex-1 text-center text-sm font-medium text-text-primary">
-            {MONTHS_SHORT[month]} {year}
+            {periodLabel}
           </span>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={nextMonth}
-            disabled={isCurrent}
+            onClick={nextPeriod}
+            disabled={isNavAtCurrent}
             className="text-text-secondary"
           >
             <ChevronRight size={18} />
@@ -241,7 +316,7 @@ export default function BudgetsPage() {
       )}
 
       {/* Budget overrun alerts */}
-      {isCurrent && alerts.length > 0 && (
+      {alerts.length > 0 && (
         <div className="mx-4 mt-3 flex flex-col gap-2">
           {alerts.map(({ budget, spent, pct }) => {
             const cat = catMap[budget.categoryId]
@@ -270,7 +345,7 @@ export default function BudgetsPage() {
       <div className="mt-4 px-4">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-            Monthly budgets
+            {activePeriod === 'yearly' ? 'Yearly budgets' : 'Monthly budgets'}
           </p>
           <Button
             variant="secondary"
@@ -286,88 +361,86 @@ export default function BudgetsPage() {
           </Button>
         </div>
 
-        {(budgets ?? []).filter((b) => b.period === 'monthly').length === 0 ? (
+        {activeBudgets.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-sm text-text-tertiary">No budgets set.</p>
+            <p className="text-sm text-text-tertiary">No {activePeriod} budgets set.</p>
             <p className="text-xs text-text-tertiary mt-1">Tap + to add a budget for a category.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {(budgets ?? [])
-              .filter((b) => b.period === 'monthly')
-              .map((budget) => {
-                const cat = catMap[budget.categoryId]
-                const spent = categorySpend[budget.categoryId] ?? 0
-                const bpct = Math.min((spent / budget.limit) * 100, 100)
-                const over = spent > budget.limit
-                return (
-                  <div
-                    key={budget.budgetId}
-                    className="p-3 rounded-xl bg-surface border border-border"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <CategoryIcon
-                        icon={cat?.icon ?? 'CircleDot'}
-                        color={cat?.color ?? '#888'}
-                        size={14}
-                        containerSize={28}
-                      />
-                      <span className="flex-1 text-sm font-medium text-text-primary">
-                        {cat?.name ?? 'Unknown'}
-                      </span>
-                      <span
-                        className={`text-xs font-mono ${over ? 'text-danger' : 'text-text-secondary'}`}
-                      >
-                        {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => {
-                          setEditBudget(budget)
-                          setBudgetSheetOpen(true)
-                        }}
-                        className="text-text-tertiary hover:text-text-primary"
-                      >
-                        <Pencil size={13} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => handleDeleteBudget(budget.budgetId)}
-                        className="text-text-tertiary hover:text-danger hover:bg-danger/10"
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-surface-2">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${bpct}%`,
-                          backgroundColor: over
-                            ? 'var(--color-danger)'
-                            : bpct >= 80
-                              ? 'var(--color-warning)'
-                              : (cat?.color ?? 'var(--color-accent)'),
-                        }}
-                      />
-                    </div>
-                    {over && (
-                      <p className="text-[10px] text-danger mt-1">
-                        Over by {formatCurrency(spent - budget.limit, currency)}
-                      </p>
-                    )}
-                    {sparkData[budget.categoryId] && (
-                      <BudgetSparkline
-                        months={sparkData[budget.categoryId] ?? []}
-                        limit={budget.limit}
-                        color={cat?.color ?? 'var(--color-accent)'}
-                      />
-                    )}
+            {activeBudgets.map((budget) => {
+              const cat = catMap[budget.categoryId]
+              const spent = categorySpend[budget.categoryId] ?? 0
+              const bpct = Math.min((spent / budget.limit) * 100, 100)
+              const over = spent > budget.limit
+              return (
+                <div
+                  key={budget.budgetId}
+                  className="p-3 rounded-xl bg-surface border border-border"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <CategoryIcon
+                      icon={cat?.icon ?? 'CircleDot'}
+                      color={cat?.color ?? '#888'}
+                      size={14}
+                      containerSize={28}
+                    />
+                    <span className="flex-1 text-sm font-medium text-text-primary">
+                      {cat?.name ?? 'Unknown'}
+                    </span>
+                    <span
+                      className={`text-xs font-mono ${over ? 'text-danger' : 'text-text-secondary'}`}
+                    >
+                      {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => {
+                        setEditBudget(budget)
+                        setBudgetSheetOpen(true)
+                      }}
+                      className="text-text-tertiary hover:text-text-primary"
+                    >
+                      <Pencil size={13} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleDeleteBudget(budget.budgetId)}
+                      className="text-text-tertiary hover:text-danger hover:bg-danger/10"
+                    >
+                      <Trash2 size={13} />
+                    </Button>
                   </div>
-                )
-              })}
+                  <div className="h-1.5 rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${bpct}%`,
+                        backgroundColor: over
+                          ? 'var(--color-danger)'
+                          : bpct >= 80
+                            ? 'var(--color-warning)'
+                            : (cat?.color ?? 'var(--color-accent)'),
+                      }}
+                    />
+                  </div>
+                  {over && (
+                    <p className="text-[10px] text-danger mt-1">
+                      Over by {formatCurrency(spent - budget.limit, currency)}
+                    </p>
+                  )}
+                  {activePeriod === 'monthly' && sparkData[budget.categoryId] && (
+                    <BudgetSparkline
+                      months={sparkData[budget.categoryId] ?? []}
+                      limit={budget.limit}
+                      color={cat?.color ?? 'var(--color-accent)'}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -394,7 +467,13 @@ export default function BudgetsPage() {
 
         {(goals ?? []).length > 0 && (
           <div className="mb-4">
-            <GoalProgress goals={goals ?? []} currency={currency} />
+            <GoalProgress
+              goals={(goals ?? []).map((g) => ({
+                ...g,
+                saved: goalSavedMap[g.goalId] ?? g.saved,
+              }))}
+              currency={currency}
+            />
           </div>
         )}
 
@@ -407,8 +486,10 @@ export default function BudgetsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {(goals ?? []).map((goal) => {
-              const gpct = goal.target > 0 ? Math.min((goal.saved / goal.target) * 100, 100) : 0
-              const done = goal.saved >= goal.target
+              const effectiveSaved = goalSavedMap[goal.goalId] ?? goal.saved
+              const gpct = goal.target > 0 ? Math.min((effectiveSaved / goal.target) * 100, 100) : 0
+              const done = effectiveSaved >= goal.target
+              const autoTracked = goal.categoryId !== null
               return (
                 <div key={goal.goalId} className="p-4 rounded-xl bg-surface border border-border">
                   <div className="flex items-start justify-between mb-3">
@@ -423,6 +504,9 @@ export default function BudgetsPage() {
                             year: 'numeric',
                           })}
                         </p>
+                      )}
+                      {autoTracked && (
+                        <p className="text-[10px] text-accent mt-0.5">auto-tracked</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1">
@@ -458,7 +542,7 @@ export default function BudgetsPage() {
                   </div>
                   <div className="flex justify-between text-xs font-mono">
                     <span className={done ? 'text-success' : 'text-text-secondary'}>
-                      {formatCurrency(goal.saved, currency)}
+                      {formatCurrency(effectiveSaved, currency)}
                     </span>
                     <span className="text-text-tertiary">
                       {formatCurrency(goal.target, currency)} · {Math.round(gpct)}%
@@ -479,6 +563,7 @@ export default function BudgetsPage() {
         currency={currency}
         categories={categories ?? []}
         budget={editBudget}
+        initialPeriod={activePeriod}
       />
       <GoalSheet
         open={goalSheetOpen}
@@ -486,21 +571,21 @@ export default function BudgetsPage() {
         groupId={activeGroupId ?? ''}
         currency={currency}
         goal={editGoal}
+        categories={categories ?? []}
       />
     </div>
   )
 }
 
 // ─── BudgetSparkline ──────────────────────────────────────────────────────────
-// 6-bar mini chart showing month-over-month spend vs limit.
 
 function BudgetSparkline({
   months,
   limit,
   color,
 }: {
-  months: number[] // length 6, oldest → newest, paise
-  limit: number // paise
+  months: number[]
+  limit: number
   color: string
 }) {
   const hasData = months.some((v) => v > 0)
@@ -515,7 +600,6 @@ function BudgetSparkline({
   return (
     <div className="mt-2 flex items-end gap-1">
       <svg width={W} height={H} className="shrink-0" aria-label="6-month spend sparkline">
-        {/* Budget limit line */}
         {limit > 0 && (
           <line
             x1={0}

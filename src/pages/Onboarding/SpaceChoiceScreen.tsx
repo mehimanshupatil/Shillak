@@ -89,7 +89,7 @@ export default function SpaceChoiceScreen({
           <div>
             <p className="font-semibold text-text-primary">Create a new space</p>
             <p className="text-sm text-text-secondary mt-0.5">
-              Family budget, flatmates, trip — set up from scratch.
+              Household, family, partners — set up from scratch.
             </p>
           </div>
         </Button>

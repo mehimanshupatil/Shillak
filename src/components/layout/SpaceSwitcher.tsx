@@ -2,11 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, QrCode, Users } from 'lucide-react'
 import { useState } from 'react'
 import QRScanner from '@/components/sync/QRScanner'
-import CreateSpaceScreen from '@/pages/Onboarding/CreateSpaceScreen'
-import JoinSpacePreviewScreen from '@/pages/Onboarding/JoinSpacePreviewScreen'
+import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
+import CreateSpaceScreen from '@/pages/Onboarding/CreateSpaceScreen'
+import JoinSpacePreviewScreen from '@/pages/Onboarding/JoinSpacePreviewScreen'
 import useAppStore from '@/stores/app.store'
 import { type InvitePayload, isInvite, parseAndVerifyInvite } from '@/sync/invite'
 
@@ -71,11 +72,18 @@ export default function SpaceSwitcher() {
               key={g.groupId}
               type="button"
               onClick={() => setActiveGroupId(g.groupId)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              className={`shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-xs font-semibold transition-all ${
                 active ? 'text-black scale-105' : 'bg-surface-2 text-text-secondary'
               }`}
               style={active ? { backgroundColor: g.avatarColor } : {}}
             >
+              <Avatar
+                color={g.avatarColor}
+                name={g.name}
+                icon={g.avatarIcon}
+                size={22}
+                rounded="full"
+              />
               {g.name}
             </button>
           )
@@ -136,7 +144,7 @@ export default function SpaceSwitcher() {
                   <div>
                     <p className="font-semibold text-text-primary">Create new space</p>
                     <p className="text-sm text-text-secondary mt-0.5">
-                      Start a new family, flatmates, or trip space.
+                      Household, family, or partners — set up from scratch.
                     </p>
                   </div>
                 </Button>

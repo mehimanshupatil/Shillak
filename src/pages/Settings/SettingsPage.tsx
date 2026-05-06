@@ -1,16 +1,29 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, Crown, Download, MonitorDown, Pencil, Plus, Upload, User } from 'lucide-react'
+import {
+  ChevronRight,
+  Crown,
+  Download,
+  Fingerprint,
+  MonitorDown,
+  Pencil,
+  Plus,
+  Upload,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useInstallPrompt } from '@/hooks/useInstallPrompt'
-import EditSpaceSheet from '@/components/space/EditSpaceSheet'
-import EditProfileSheet from '@/components/space/EditProfileSheet'
-import InviteSheet from '@/components/space/InviteSheet'
+import BiometricSheet from '@/components/security/BiometricSheet'
 import ChangePinSheet from '@/components/security/ChangePinSheet'
+import EditProfileSheet from '@/components/space/EditProfileSheet'
+import EditSpaceSheet from '@/components/space/EditSpaceSheet'
+import InviteSheet from '@/components/space/InviteSheet'
+import MemberIncomeSheet from '@/components/space/MemberIncomeSheet'
 import SyncSheet from '@/components/sync/SyncSheet'
+import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
+import { disableBiometric, isBiometricAvailable } from '@/crypto/biometric'
 import { broadcastLock } from '@/crypto/keystore'
 import { db } from '@/db/db'
+import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import useAppStore from '@/stores/app.store'
 import useKeyStore from '@/stores/key.store'
 import { exportIdentityBackup } from '@/sync/identity'
@@ -28,9 +41,13 @@ export default function SettingsPage() {
   const [exportLoading, setExportLoading] = useState(false)
   const [importMsg, setImportMsg] = useState('')
   const [changePinOpen, setChangePinOpen] = useState(false)
+  const [biometricSheetOpen, setBiometricSheetOpen] = useState(false)
   const [syncSheetOpen, setSyncSheetOpen] = useState(false)
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
+  const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [storageUsedPct, setStorageUsedPct] = useState<number | null>(null)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricEnrolled, setBiometricEnrolled] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const group = useLiveQuery(
@@ -51,17 +68,24 @@ export default function SettingsPage() {
     [activeGroupId],
   )
 
-  const memberUsers = useLiveQuery(
-    async () => {
-      if (!members?.length) return {}
-      const userIds = members.map((m) => m.userId)
-      const users = await db.users.bulkGet(userIds)
-      return Object.fromEntries(
-        users.filter((u): u is NonNullable<typeof u> => u !== undefined).map((u) => [u.userId, u]),
-      )
-    },
-    [members],
-  )
+  const memberUsers = useLiveQuery(async () => {
+    if (!members?.length) return {}
+    const userIds = members.map((m) => m.userId)
+    const users = await db.users.bulkGet(userIds)
+    return Object.fromEntries(
+      users.filter((u): u is NonNullable<typeof u> => u !== undefined).map((u) => [u.userId, u]),
+    )
+  }, [members])
+
+  const isAdmin = members?.some((m) => m.userId === currentUserId && m.role === 'admin') ?? false
+
+  const lastSync = useLiveQuery(async () => {
+    if (!activeGroupId) return null
+    const events = await db.syncEvents.where(
+      (e) => e.groupId === activeGroupId && e.status === 'ok',
+    )
+    return events.sort((a, b) => b.syncedAt - a.syncedAt)[0] ?? null
+  }, [activeGroupId])
 
   async function handleExport() {
     if (!activeGroupId || !group) return
@@ -95,6 +119,10 @@ export default function SettingsPage() {
         setStorageUsedPct(((usage ?? 0) / quota) * 100)
       }
     })
+    isBiometricAvailable().then(setBiometricAvailable)
+    db.keystoreTable.get(1).then((ks) => {
+      setBiometricEnrolled(!!ks?.biometricCredentialId)
+    })
   }, [])
 
   function handleLock() {
@@ -110,7 +138,7 @@ export default function SettingsPage() {
       <section>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Space</p>
-          {group && (
+          {group && isAdmin && (
             <Button variant="link" onClick={() => setGroupSheetOpen(true)}>
               <Pencil size={11} />
               Edit
@@ -120,9 +148,12 @@ export default function SettingsPage() {
         {group ? (
           <div className="rounded-2xl bg-surface border border-border divide-y divide-border">
             <div className="p-4 flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-xl shrink-0"
-                style={{ backgroundColor: group.avatarColor }}
+              <Avatar
+                color={group.avatarColor}
+                name={group.name}
+                icon={group.avatarIcon}
+                size={36}
+                rounded="xl"
               />
               <div>
                 <p className="text-base font-semibold text-text-primary">{group.name}</p>
@@ -134,40 +165,32 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
-            <div className="px-4 py-3 flex items-center justify-between">
-              <span className="text-sm text-text-secondary">Split bills</span>
-              <span
-                className={`text-xs font-medium ${group.splitEnabled ? 'text-success' : 'text-text-tertiary'}`}
-              >
-                {group.splitEnabled ? 'On' : 'Off'}
-              </span>
-            </div>
-            <div className="px-4 py-3 flex items-center justify-between">
-              <span className="text-sm text-text-secondary">Income tracking</span>
-              <span
-                className={`text-xs font-medium ${group.incomeTracking ? 'text-success' : 'text-text-tertiary'}`}
-              >
-                {group.incomeTracking ? 'On' : 'Off'}
-              </span>
-            </div>
           </div>
         ) : (
           <div className="h-20 rounded-2xl bg-surface border border-border animate-pulse" />
         )}
       </section>
 
-      {/* ── Categories ── */}
+      {/* ── Categories & Accounts ── */}
       <section>
         <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-          Categories
+          Customise
         </p>
-        <div className="rounded-2xl bg-surface border border-border overflow-hidden">
+        <div className="rounded-2xl bg-surface border border-border divide-y divide-border overflow-hidden">
           <button
             type="button"
             onClick={() => navigate('/settings/categories')}
             className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
           >
             <span className="text-sm text-text-primary">Manage categories</span>
+            <ChevronRight size={16} className="text-text-tertiary" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/settings/accounts')}
+            className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
+          >
+            <span className="text-sm text-text-primary">Manage accounts</span>
             <ChevronRight size={16} className="text-text-tertiary" />
           </button>
         </div>
@@ -177,9 +200,9 @@ export default function SettingsPage() {
       <section>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-            Members
+            Household Members
           </p>
-          {activeGroupId && currentUserId && (
+          {activeGroupId && currentUserId && isAdmin && (
             <Button variant="link" onClick={() => setInviteSheetOpen(true)}>
               <Plus size={12} />
               Invite
@@ -192,12 +215,13 @@ export default function SettingsPage() {
               key={member.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface border border-border"
             >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: memberUsers?.[member.userId]?.avatarColor ?? '#888' }}
-              >
-                <User size={14} className="text-black" />
-              </div>
+              <Avatar
+                color={memberUsers?.[member.userId]?.avatarColor ?? '#888'}
+                name={memberUsers?.[member.userId]?.displayName ?? member.userId}
+                icon={memberUsers?.[member.userId]?.avatarIcon}
+                size={32}
+                rounded="full"
+              />
               <div className="flex-1">
                 <p className="text-sm font-medium text-text-primary">
                   {member.userId === currentUserId
@@ -207,7 +231,27 @@ export default function SettingsPage() {
                     <span className="text-text-tertiary"> (you)</span>
                   )}
                 </p>
+                {member.monthlyIncome != null && member.monthlyIncome > 0 && (
+                  <p className="text-xs text-text-tertiary">
+                    {new Intl.NumberFormat('en-IN', {
+                      style: 'currency',
+                      currency: member.incomeCurrency ?? 'INR',
+                      maximumFractionDigits: 0,
+                    }).format(member.monthlyIncome / 100)}
+                    /mo
+                  </p>
+                )}
               </div>
+              {member.userId === currentUserId && (
+                <button
+                  type="button"
+                  onClick={() => setIncomeSheetOpen(true)}
+                  className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-surface-2 transition-colors"
+                  aria-label="Edit income"
+                >
+                  <Pencil size={12} />
+                </button>
+              )}
               {member.role === 'admin' && <Crown size={13} className="text-accent" />}
               <span className="text-xs text-text-tertiary capitalize">{member.role}</span>
             </div>
@@ -230,9 +274,12 @@ export default function SettingsPage() {
         </div>
         {user ? (
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface border border-border">
-            <div
-              className="w-11 h-11 rounded-full shrink-0"
-              style={{ backgroundColor: user.avatarColor }}
+            <Avatar
+              color={user.avatarColor}
+              name={user.displayName}
+              icon={user.avatarIcon}
+              size={44}
+              rounded="full"
             />
             <div>
               <p className="text-base font-semibold text-text-primary">{user.displayName}</p>
@@ -262,6 +309,7 @@ export default function SettingsPage() {
             </span>
             <Download size={16} className="text-text-tertiary" />
           </button>
+
           <button
             type="button"
             onClick={() => importInputRef.current?.click()}
@@ -278,7 +326,24 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between px-4 py-3 transition-colors
                        hover:bg-surface-2 disabled:opacity-50"
           >
-            <span className="text-sm text-text-primary">Sync with another device</span>
+            <div className="flex flex-col items-baseline">
+              <span className="text-sm text-text-primary">Sync with another device</span>
+              {lastSync ? (
+                <p className="text-[11px] text-text-tertiary mt-0.5">
+                  Last synced{' '}
+                  {new Date(lastSync.syncedAt).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                  {' · '}
+                  {lastSync.method}
+                </p>
+              ) : (
+                <p className="text-[11px] text-text-tertiary mt-0.5">Never synced</p>
+              )}
+            </div>
             <ChevronRight size={16} className="text-text-tertiary" />
           </button>
         </div>
@@ -338,6 +403,29 @@ export default function SettingsPage() {
             <span className="text-sm text-text-primary">Change PIN</span>
             <ChevronRight size={16} className="text-text-tertiary" />
           </button>
+          {biometricAvailable && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (biometricEnrolled) {
+                  await disableBiometric()
+                  setBiometricEnrolled(false)
+                } else {
+                  setBiometricSheetOpen(true)
+                }
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
+            >
+              <span className="text-sm text-text-primary flex items-center gap-2">
+                <Fingerprint
+                  size={15}
+                  className={biometricEnrolled ? 'text-success' : 'text-text-tertiary'}
+                />
+                {biometricEnrolled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
+              </span>
+              <ChevronRight size={16} className="text-text-tertiary" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -386,6 +474,16 @@ export default function SettingsPage() {
         />
       )}
       <ChangePinSheet open={changePinOpen} onClose={() => setChangePinOpen(false)} />
+      {currentUserId && (
+        <BiometricSheet
+          open={biometricSheetOpen}
+          onClose={() => {
+            setBiometricSheetOpen(false)
+            db.keystoreTable.get(1).then((ks) => setBiometricEnrolled(!!ks?.biometricCredentialId))
+          }}
+          userId={currentUserId}
+        />
+      )}
       <SyncSheet open={syncSheetOpen} onClose={() => setSyncSheetOpen(false)} />
       {activeGroupId && currentUserId && (
         <InviteSheet
@@ -395,6 +493,17 @@ export default function SettingsPage() {
           userId={currentUserId}
         />
       )}
+      {(() => {
+        const myMember = (members ?? []).find((m) => m.userId === currentUserId)
+        return myMember && group ? (
+          <MemberIncomeSheet
+            open={incomeSheetOpen}
+            onClose={() => setIncomeSheetOpen(false)}
+            member={myMember}
+            defaultCurrency={group.currency}
+          />
+        ) : null
+      })()}
     </div>
   )
 }

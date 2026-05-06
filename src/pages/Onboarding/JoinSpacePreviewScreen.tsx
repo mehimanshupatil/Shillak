@@ -59,20 +59,6 @@ export default function JoinSpacePreviewScreen({ invite, userId, onComplete, onB
         </div>
       </div>
 
-      {/* Feature flags */}
-      <div className="flex gap-2 flex-wrap">
-        {invite.splitEnabled && (
-          <span className="px-3 py-1 rounded-full bg-surface-2 text-xs text-text-secondary border border-border">
-            Split bills
-          </span>
-        )}
-        {invite.incomeTracking && (
-          <span className="px-3 py-1 rounded-full bg-surface-2 text-xs text-text-secondary border border-border">
-            Income tracking
-          </span>
-        )}
-      </div>
-
       <div className="rounded-xl bg-surface-2 border border-border px-4 py-3">
         <p className="text-xs text-text-secondary leading-relaxed">
           Joining gives you access to this shared space. After joining, sync via{' '}

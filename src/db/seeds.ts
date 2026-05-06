@@ -1,4 +1,4 @@
-import type { Category, TransactionType } from './schema'
+import type { Account, Category, TransactionType } from './schema'
 
 const EXPENSE_SEEDS: Array<{ name: string; icon: string; color: string }> = [
   { name: 'Groceries', icon: 'ShoppingCart', color: '#22c55e' },
@@ -48,6 +48,28 @@ export function createDefaultCategories(groupId: string, userId: string): Catego
     ...EXPENSE_SEEDS.map((s, i) => make(s, 'expense', i)),
     ...INCOME_SEEDS.map((s, i) => make(s, 'income', EXPENSE_SEEDS.length + i)),
   ]
+}
+
+export function createDefaultAccounts(groupId: string): Account[] {
+  const now = Date.now()
+  const defaults: Array<{ name: string; type: Account['type']; color: string; icon: string }> = [
+    { name: 'Cash', type: 'cash', color: '#22c55e', icon: 'Wallet' },
+    { name: 'Savings Account', type: 'savings', color: '#3b82f6', icon: 'Building2' },
+    { name: 'Credit Card', type: 'credit', color: '#ef4444', icon: 'CreditCard' },
+    { name: 'UPI / Wallet', type: 'upi', color: '#8b5cf6', icon: 'Smartphone' },
+  ]
+  return defaults.map((d, i) => ({
+    accountId: crypto.randomUUID(),
+    groupId,
+    name: d.name,
+    type: d.type,
+    color: d.color,
+    icon: d.icon,
+    sortOrder: i,
+    isDefault: true,
+    createdAt: now,
+    updatedAt: now,
+  }))
 }
 
 export const GROUP_COLORS = [

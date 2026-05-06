@@ -56,8 +56,8 @@ export async function decryptPayload<T>(b64: string, key: CryptoKey): Promise<T>
   } catch {
     throw new Error(
       'Sync failed — the two devices are not in the same space. ' +
-      'Make sure you joined via an invite QR from the space admin (Settings → Members → Invite), ' +
-      'not by creating a separate space.',
+        'Make sure you joined via an invite QR from the space admin (Settings → Members → Invite), ' +
+        'not by creating a separate space.',
     )
   }
   const json = inflateSync(new Uint8Array(compressed))

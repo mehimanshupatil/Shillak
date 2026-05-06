@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
-import { toPaise } from '@/lib/utils'
+import { parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 interface Props {
@@ -18,10 +18,14 @@ interface Props {
 
 export default function TransactionEditSheet({ open, onClose, transaction, currency }: Props) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
+  const currentUserId = useAppStore((s) => s.currentUserId)
 
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
+  const [dateStr, setDateStr] = useState('')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [paidBy, setPaidBy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,12 +37,40 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
     [activeGroupId, transaction?.type],
   )
 
+  const accounts = useLiveQuery(
+    () => (activeGroupId ? db.accounts.where((a) => a.groupId === activeGroupId) : []),
+    [activeGroupId],
+  )
+
+  const members = useLiveQuery(
+    () =>
+      activeGroupId
+        ? db.members.where((m) => m.groupId === activeGroupId && m.status === 'active')
+        : [],
+    [activeGroupId],
+  )
+
+  const memberUsers = useLiveQuery(async () => {
+    if (!members?.length) return {}
+    const userIds = members.map((m) => m.userId)
+    const users = await db.users.bulkGet(userIds)
+    return Object.fromEntries(
+      users.filter((u): u is NonNullable<typeof u> => !!u).map((u) => [u.userId, u]),
+    )
+  }, [members])
+
   useEffect(() => {
     if (open && transaction) {
       setAmountStr((transaction.amount / 100).toFixed(2))
       setNote(transaction.note)
       setSelectedCatId(transaction.categoryId)
+      setSelectedAccountId(transaction.accountId ?? null)
+      setPaidBy(transaction.paidBy ?? null)
       setError('')
+      const d = new Date(transaction.date)
+      setDateStr(
+        `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+      )
     }
   }, [open, transaction])
 
@@ -56,10 +88,14 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
     setLoading(true)
     setError('')
     try {
+      const date = parseDateStr(dateStr)
       await db.transactions.update(transaction.txnId, {
         amount: toPaise(amount),
         categoryId: selectedCatId,
         note: note.trim(),
+        date,
+        accountId: selectedAccountId,
+        paidBy: paidBy ?? currentUserId,
         updatedAt: Date.now(),
       })
       onClose()
@@ -164,6 +200,86 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                        text-text-primary placeholder:text-text-tertiary
                        focus-visible:border-accent focus-visible:ring-accent/20"
           />
+
+          {/* Paid by — only when multiple members */}
+          {(members ?? []).length > 1 && (
+            <div>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                Paid by
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {(members ?? []).map((m) => {
+                  const u = memberUsers?.[m.userId]
+                  const displayName =
+                    m.userId === currentUserId ? 'Me' : (u?.displayName ?? 'Member')
+                  const active =
+                    paidBy === m.userId || (paidBy === null && m.userId === currentUserId)
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setPaidBy(m.userId)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        active ? 'bg-accent text-black' : 'bg-surface-2 text-text-secondary'
+                      }`}
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold"
+                        style={{ backgroundColor: u?.avatarColor ?? '#888', color: '#fff' }}
+                      >
+                        {displayName[0]}
+                      </div>
+                      {displayName}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Account */}
+          {(accounts ?? []).length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                Account (optional)
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {(accounts ?? [])
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((acc) => {
+                    const active = selectedAccountId === acc.accountId
+                    return (
+                      <button
+                        key={acc.accountId}
+                        type="button"
+                        onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                        }`}
+                        style={active ? { backgroundColor: acc.color } : {}}
+                      >
+                        {acc.name}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Date */}
+          <div>
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+              Date
+            </p>
+            <input
+              type="date"
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="w-full h-11 px-4 rounded-xl bg-surface-2 border border-border
+                         text-sm text-text-primary focus:outline-none focus:border-accent
+                         scheme-dark"
+            />
+          </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}
 

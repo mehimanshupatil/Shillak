@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { InvitePayload } from '@/sync/invite'
-import CreateSpaceScreen from './CreateSpaceScreen'
 import CreateProfileScreen from './CreateProfileScreen'
-import SpaceChoiceScreen from './SpaceChoiceScreen'
+import CreateSpaceScreen from './CreateSpaceScreen'
 import JoinSpacePreviewScreen from './JoinSpacePreviewScreen'
+import SpaceChoiceScreen from './SpaceChoiceScreen'
 import WelcomeScreen from './WelcomeScreen'
 
 type Step = 'welcome' | 'profile' | 'choice' | 'create-group' | 'join-preview' | 'restore'

@@ -1,30 +1,15 @@
-import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeftRight, LayoutDashboard, PiggyBank, Settings, Users } from 'lucide-react'
+import { ArrowLeftRight, LayoutDashboard, PiggyBank, Settings } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import { db } from '@/db/db'
 import { cn } from '@/lib/utils'
-import useAppStore from '@/stores/app.store'
 
-const BASE_NAV = [
+const tabs = [
   { to: '/', label: 'Home', Icon: LayoutDashboard },
   { to: '/transactions', label: 'Txns', Icon: ArrowLeftRight },
   { to: '/budgets', label: 'Budgets', Icon: PiggyBank },
+  { to: '/settings', label: 'Settings', Icon: Settings },
 ]
 
-const SPLITS_NAV = { to: '/splits', label: 'Splits', Icon: Users }
-const SETTINGS_NAV = { to: '/settings', label: 'Settings', Icon: Settings }
-
 export default function BottomNav() {
-  const activeGroupId = useAppStore((s) => s.activeGroupId)
-  const group = useLiveQuery(
-    () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),
-    [activeGroupId],
-  )
-
-  const tabs = group?.splitEnabled
-    ? [...BASE_NAV, SPLITS_NAV, SETTINGS_NAV]
-    : [...BASE_NAV, SETTINGS_NAV]
-
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] safe-bottom

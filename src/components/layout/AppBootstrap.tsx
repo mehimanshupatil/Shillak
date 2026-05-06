@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { broadcastLock, initLockChannel } from '@/crypto/keystore'
 import { db } from '@/db/db'
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
 import { processRecurrences } from '@/lib/recurrences'
-import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import OnboardingFlow from '@/pages/Onboarding/OnboardingFlow'
 import PinScreen from '@/pages/Onboarding/PinScreen'
 import useAppStore from '@/stores/app.store'
@@ -106,7 +106,8 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
     //           > users[0] (last resort — fails after sync adds remote user records)
     const [users, ks] = await Promise.all([db.users.toArray(), db.keystoreTable.get(1)])
     const resolvedUserId = ks?.userId ?? localStorage.getItem('shillak_user_id') ?? null
-    const user = (resolvedUserId ? users.find((u) => u.userId === resolvedUserId) : null) ?? users[0]
+    const user =
+      (resolvedUserId ? users.find((u) => u.userId === resolvedUserId) : null) ?? users[0]
     if (!user) {
       setBoot({ status: 'onboarding' })
       return

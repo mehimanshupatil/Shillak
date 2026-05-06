@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Avatar, IconPicker, SPACE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Group } from '@/db/schema'
 import { CURRENCIES, MONTHS } from '@/lib/constants'
@@ -16,20 +16,18 @@ interface Props {
 
 export default function EditSpaceSheet({ open, onClose, group }: Props) {
   const [name, setName] = useState(group.name)
+  const [avatarIcon, setAvatarIcon] = useState<string | undefined>(group.avatarIcon)
   const [currency, setCurrency] = useState(group.currency)
   const [fiscalMonth, setFiscalMonth] = useState(group.fiscalYearStart)
-  const [splitEnabled, setSplitEnabled] = useState(group.splitEnabled)
-  const [incomeTracking, setIncomeTracking] = useState(group.incomeTracking)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (open) {
       setName(group.name)
+      setAvatarIcon(group.avatarIcon)
       setCurrency(group.currency)
       setFiscalMonth(group.fiscalYearStart)
-      setSplitEnabled(group.splitEnabled)
-      setIncomeTracking(group.incomeTracking)
       setError('')
     }
   }, [open, group])
@@ -44,10 +42,9 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
     try {
       await db.groups.update(group.groupId, {
         name: name.trim(),
+        avatarIcon,
         currency,
         fiscalYearStart: fiscalMonth,
-        splitEnabled,
-        incomeTracking,
         updatedAt: Date.now(),
       })
       onClose()
@@ -75,6 +72,25 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
               Edit space
             </SheetTitle>
           </SheetHeader>
+
+          {/* Avatar preview */}
+          <div className="flex justify-center">
+            <Avatar
+              color={group.avatarColor}
+              name={name || group.name}
+              icon={avatarIcon}
+              size={64}
+              rounded="xl"
+            />
+          </div>
+
+          {/* Icon picker */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+              Space icon
+            </Label>
+            <IconPicker icons={SPACE_ICONS} selected={avatarIcon} onSelect={setAvatarIcon} />
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -123,31 +139,6 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-primary">Split bills</p>
-                <p className="text-xs text-text-tertiary">Track who owes whom</p>
-              </div>
-              <Switch
-                checked={splitEnabled}
-                onCheckedChange={setSplitEnabled}
-                aria-label="Enable split bills"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-primary">Income tracking</p>
-                <p className="text-xs text-text-tertiary">Log income alongside expenses</p>
-              </div>
-              <Switch
-                checked={incomeTracking}
-                onCheckedChange={setIncomeTracking}
-                aria-label="Enable income tracking"
-              />
-            </div>
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { Avatar, IconPicker, SPACE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
-import { createDefaultCategories, pickGroupColor } from '@/db/seeds'
+import { createDefaultAccounts, createDefaultCategories, pickGroupColor } from '@/db/seeds'
 import { CURRENCIES, MONTHS } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
 
@@ -15,10 +15,9 @@ interface Props {
 
 export default function CreateSpaceScreen({ userId, onComplete }: Props) {
   const [name, setName] = useState('')
+  const [avatarIcon, setAvatarIcon] = useState<string | undefined>(undefined)
   const [currency, setCurrency] = useState('INR')
   const [fiscalMonth, setFiscalMonth] = useState(4) // April
-  const [splitEnabled, setSplitEnabled] = useState(false)
-  const [incomeTracking, setIncomeTracking] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -44,11 +43,10 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         groupId,
         name: name.trim(),
         avatarColor,
+        avatarIcon,
         createdBy: userId,
         currency,
         fiscalYearStart: fiscalMonth,
-        splitEnabled,
-        incomeTracking,
         visibility: 'full',
         status: 'active',
         groupSecret,
@@ -74,6 +72,9 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
       const categories = createDefaultCategories(groupId, userId)
       await db.categories.bulkPut(categories)
 
+      const accounts = createDefaultAccounts(groupId)
+      await db.accounts.bulkPut(accounts)
+
       onComplete(groupId)
     } catch (e) {
       setError(String(e))
@@ -89,6 +90,25 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         <p className="text-sm text-text-secondary mt-1">Set up your shared budget.</p>
       </div>
 
+      {/* Avatar preview */}
+      <div className="flex justify-center">
+        <Avatar
+          color={pickGroupColor(0)}
+          name={name || 'S'}
+          icon={avatarIcon}
+          size={72}
+          rounded="xl"
+        />
+      </div>
+
+      {/* Space icon */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+          Space icon
+        </p>
+        <IconPicker icons={SPACE_ICONS} selected={avatarIcon} onSelect={setAvatarIcon} />
+      </div>
+
       {/* Space name */}
       <div className="space-y-2">
         <Label
@@ -102,7 +122,7 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Patil Family, Flat 4B, Goa Trip"
+          placeholder="e.g. Patil Household, Joint Budget, Family Expenses"
           className="h-12 rounded-xl bg-surface border-border
                      text-text-primary placeholder:text-text-tertiary
                      focus-visible:border-accent focus-visible:ring-accent/20"
@@ -153,32 +173,6 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Toggles */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Split bills</p>
-            <p className="text-xs text-text-tertiary">Track who owes whom</p>
-          </div>
-          <Switch
-            checked={splitEnabled}
-            onCheckedChange={setSplitEnabled}
-            aria-label="Enable split bills"
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Income tracking</p>
-            <p className="text-xs text-text-tertiary">Log income alongside expenses</p>
-          </div>
-          <Switch
-            checked={incomeTracking}
-            onCheckedChange={setIncomeTracking}
-            aria-label="Enable income tracking"
-          />
-        </div>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

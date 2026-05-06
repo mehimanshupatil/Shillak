@@ -2,6 +2,7 @@ import Dexie from 'dexie'
 import { decryptRecord, encryptRecord } from '@/crypto/encrypt'
 import { getKey } from '@/stores/key.store'
 import type {
+  Account,
   Attachment,
   Budget,
   Category,
@@ -12,7 +13,6 @@ import type {
   KeystoreRecord,
   Recurrence,
   SavingsGoal,
-  Split,
   SyncEvent,
   Transaction,
   User,
@@ -133,11 +133,11 @@ class ShillakDB extends Dexie {
   private _transactions!: Dexie.Table<EncryptedRow, string>
   private _recurrences!: Dexie.Table<EncryptedRow, string>
   private _attachments!: Dexie.Table<EncryptedRow, string>
-  private _splits!: Dexie.Table<EncryptedRow, string>
   private _budgets!: Dexie.Table<EncryptedRow, string>
   private _goals!: Dexie.Table<EncryptedRow, string>
   private _syncEvents!: Dexie.Table<EncryptedRow, string>
   private _conflicts!: Dexie.Table<EncryptedRow, string>
+  private _accounts!: Dexie.Table<EncryptedRow, string>
 
   // Public encrypted wrappers
   users!: EncryptedTable<User>
@@ -148,11 +148,11 @@ class ShillakDB extends Dexie {
   transactions!: EncryptedTable<Transaction>
   recurrences!: EncryptedTable<Recurrence>
   attachments!: EncryptedTable<Attachment>
-  splits!: EncryptedTable<Split>
   budgets!: EncryptedTable<Budget>
   goals!: EncryptedTable<SavingsGoal>
   syncEvents!: EncryptedTable<SyncEvent>
   conflicts!: EncryptedTable<ConflictLog>
+  accounts!: EncryptedTable<Account>
 
   constructor() {
     super('Shillak_db')
@@ -167,11 +167,14 @@ class ShillakDB extends Dexie {
       _transactions: '_id',
       _recurrences: '_id',
       _attachments: '_id',
-      _splits: '_id',
       _budgets: '_id',
       _goals: '_id',
       _syncEvents: '_id',
       _conflicts: '_id',
+    })
+
+    this.version(2).stores({
+      _accounts: '_id',
     })
 
     this.on('ready', () => {
@@ -183,11 +186,11 @@ class ShillakDB extends Dexie {
       this.transactions = new EncryptedTable<Transaction>(this._transactions, 'txnId')
       this.recurrences = new EncryptedTable<Recurrence>(this._recurrences, 'recurrenceId')
       this.attachments = new EncryptedTable<Attachment>(this._attachments, 'attachmentId')
-      this.splits = new EncryptedTable<Split>(this._splits, 'splitId')
       this.budgets = new EncryptedTable<Budget>(this._budgets, 'budgetId')
       this.goals = new EncryptedTable<SavingsGoal>(this._goals, 'goalId')
       this.syncEvents = new EncryptedTable<SyncEvent>(this._syncEvents, 'syncId')
       this.conflicts = new EncryptedTable<ConflictLog>(this._conflicts, 'conflictId')
+      this.accounts = new EncryptedTable<Account>(this._accounts, 'accountId')
     })
   }
 }

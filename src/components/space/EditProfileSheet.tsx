@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Avatar, IconPicker, PROFILE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +16,7 @@ interface Props {
 
 export default function EditProfileSheet({ open, onClose, user }: Props) {
   const [name, setName] = useState(user.displayName)
+  const [avatarIcon, setAvatarIcon] = useState<string | undefined>(user.avatarIcon)
   const [colorIdx, setColorIdx] = useState(
     Math.max(0, GROUP_COLORS.indexOf(user.avatarColor as (typeof GROUP_COLORS)[number])),
   )
@@ -24,6 +26,7 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
   useEffect(() => {
     if (open) {
       setName(user.displayName)
+      setAvatarIcon(user.avatarIcon)
       setColorIdx(
         Math.max(0, GROUP_COLORS.indexOf(user.avatarColor as (typeof GROUP_COLORS)[number])),
       )
@@ -42,6 +45,7 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
       await db.users.update(user.userId, {
         displayName: name.trim(),
         avatarColor: GROUP_COLORS[colorIdx % GROUP_COLORS.length] as string,
+        avatarIcon,
       })
       onClose()
     } catch (e) {
@@ -68,6 +72,25 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
               Edit profile
             </SheetTitle>
           </SheetHeader>
+
+          {/* Avatar preview */}
+          <div className="flex justify-center">
+            <Avatar
+              color={GROUP_COLORS[colorIdx % GROUP_COLORS.length] as string}
+              name={name || user.displayName}
+              icon={avatarIcon}
+              size={64}
+              rounded="full"
+            />
+          </div>
+
+          {/* Icon picker */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+              Profile icon
+            </Label>
+            <IconPicker icons={PROFILE_ICONS} selected={avatarIcon} onSelect={setAvatarIcon} />
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">

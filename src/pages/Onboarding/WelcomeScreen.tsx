@@ -14,8 +14,8 @@ export default function WelcomeScreen({ onNext }: Props) {
         <h1 className="text-3xl font-bold text-text-primary">Shillak</h1>
         <p className="text-lg text-text-secondary">Your private space ledger</p>
         <p className="text-sm text-text-tertiary max-w-xs mx-auto leading-relaxed">
-          Track shared expenses, split bills, and manage budgets with your space. No account. No
-          cloud. Everything stays on your device.
+          Track shared expenses, manage budgets, and hit savings goals with your household. No
+          account. No cloud. Everything stays on your device.
         </p>
       </div>
 

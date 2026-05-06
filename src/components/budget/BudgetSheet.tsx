@@ -15,6 +15,7 @@ interface Props {
   categories: Category[]
   budget?: Budget
   initialCategoryId?: string
+  initialPeriod?: 'monthly' | 'yearly'
 }
 
 export default function BudgetSheet({
@@ -25,6 +26,7 @@ export default function BudgetSheet({
   categories,
   budget,
   initialCategoryId,
+  initialPeriod,
 }: Props) {
   const isEdit = !!budget
   const [categoryId, setCategoryId] = useState('')
@@ -37,10 +39,10 @@ export default function BudgetSheet({
     if (open) {
       setCategoryId(budget?.categoryId ?? initialCategoryId ?? '')
       setLimitStr(budget ? String(budget.limit / 100) : '')
-      setPeriod(budget?.period ?? 'monthly')
+      setPeriod(budget?.period ?? initialPeriod ?? 'monthly')
       setError('')
     }
-  }, [open, budget, initialCategoryId])
+  }, [open, budget, initialCategoryId, initialPeriod])
 
   const expenseCategories = categories.filter((c) => c.type === 'expense')
 

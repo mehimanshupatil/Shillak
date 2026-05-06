@@ -379,6 +379,8 @@ function SwipeCard({
   const committed = useRef(false)
 
   function onPointerDown(e: React.PointerEvent) {
+    // Don't hijack clicks on buttons/links inside the card — let them fire normally.
+    if ((e.target as HTMLElement).closest('button, a, [role="button"]')) return
     startX.current = e.clientX
     committed.current = false
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)

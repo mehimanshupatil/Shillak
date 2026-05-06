@@ -5,6 +5,10 @@ export interface KeystoreRecord {
   pinCheck: string // base64 AES-GCM ciphertext of "SHILLAK_V1"
   pinChangeInProgress: boolean
   userId?: string // local device owner — set at profile creation, never overwritten by sync
+  // Biometric unlock (WebAuthn PRF) — all optional, absent = not enrolled
+  biometricCredentialId?: string | null // base64 WebAuthn rawId
+  biometricIv?: string | null // base64 AES-GCM IV for encrypted PIN
+  biometricEncryptedPin?: string | null // base64 AES-GCM ciphertext of PIN
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -12,6 +16,7 @@ export interface User {
   userId: string
   displayName: string
   avatarColor: string
+  avatarIcon?: string // emoji character, e.g. "😊"
   identityBackupHint: string
   createdAt: number
 }
@@ -23,11 +28,10 @@ export interface Group {
   groupId: string
   name: string
   avatarColor: string
+  avatarIcon?: string // emoji character, e.g. "🏠"
   createdBy: string
   currency: string
   fiscalYearStart: number // 1–12
-  splitEnabled: boolean
-  incomeTracking: boolean
   visibility: 'full' | 'totals_only'
   status: GroupStatus
   groupSecret: string // base64 random 32 bytes
@@ -66,7 +70,7 @@ export interface GroupInvite {
 }
 
 // ─── Category ─────────────────────────────────────────────────────────────────
-export type TransactionType = 'expense' | 'income' | 'transfer'
+export type TransactionType = 'expense' | 'income'
 
 export interface Category {
   categoryId: string
@@ -79,6 +83,22 @@ export interface Category {
   isDefault: boolean
   createdBy: string
   createdAt: number
+}
+
+// ─── Account ──────────────────────────────────────────────────────────────────
+export type AccountType = 'savings' | 'current' | 'credit' | 'cash' | 'upi'
+
+export interface Account {
+  accountId: string
+  groupId: string
+  name: string // "HDFC Savings", "ICICI Credit Card", "Cash"
+  type: AccountType
+  color: string
+  icon: string // lucide icon name
+  sortOrder: number
+  isDefault: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 // ─── Transaction ──────────────────────────────────────────────────────────────
@@ -97,8 +117,9 @@ export interface Transaction {
   tags: string[]
   date: number // midnight UTC unix ms
   attachmentIds: string[]
-  splitId: string | null
   recurrenceId: string | null
+  accountId: string | null // which account was debited/credited
+  paidBy: string | null // userId — who actually spent (null = unspecified/household)
   createdAt: number
   updatedAt: number
   deletedAt: number | null
@@ -109,14 +130,7 @@ export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 type RecurrenceTemplate = Omit<
   Transaction,
-  | 'txnId'
-  | 'date'
-  | 'recurrenceId'
-  | 'authorSeq'
-  | 'createdAt'
-  | 'updatedAt'
-  | 'deletedAt'
-  | 'splitId'
+  'txnId' | 'date' | 'recurrenceId' | 'authorSeq' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >
 
 export interface Recurrence {
@@ -130,6 +144,7 @@ export interface Recurrence {
   lastGeneratedAt: number | null
   endDate: number | null
   active: boolean
+  isFixed?: boolean // true = committed outflow (EMI, SIP, rent) — separates from discretionary spend
   createdAt: number
 }
 
@@ -141,26 +156,6 @@ export interface Attachment {
   mimeType: string
   data: string // base64 raw bytes (encrypted at record level)
   sizeBytes: number
-  createdAt: number
-}
-
-// ─── Split ────────────────────────────────────────────────────────────────────
-interface SplitShare {
-  userId: string
-  amount: number // paise
-  settled: boolean
-  settledAt: number | null
-}
-
-export interface Split {
-  splitId: string
-  groupId: string
-  txnId: string
-  paidBy: string
-  total: number // paise
-  currency: string
-  shares: SplitShare[]
-  note: string
   createdAt: number
 }
 
@@ -180,9 +175,10 @@ export interface SavingsGoal {
   groupId: string
   name: string
   target: number // paise
-  saved: number // paise
+  saved: number // paise — used only when categoryId is null (manual tracking)
   deadline: number | null
-  categoryId: string | null
+  categoryId: string | null // income category to auto-derive progress from
+  createdAt: number // lower bound for auto-tracked income sum
   updatedAt: number
 }
 

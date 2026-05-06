@@ -243,26 +243,6 @@ export function createMessageQueue(channel: RTCDataChannel): MessageQueue {
   }
 }
 
-/** @deprecated Use createMessageQueue instead — this one-shot variant can miss messages. */
-export function waitForMessage(channel: RTCDataChannel): Promise<SyncMessage> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      log('msg', 'waitForMessage TIMEOUT')
-      reject(new Error('Message timeout'))
-    }, 30_000)
-
-    function handler(e: MessageEvent) {
-      clearTimeout(timeout)
-      channel.removeEventListener('message', handler)
-      const msg = JSON.parse(e.data as string) as SyncMessage
-      log('msg', '← recv', msg.type)
-      resolve(msg)
-    }
-
-    channel.addEventListener('message', handler)
-  })
-}
-
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 function waitForICEGathering(pc: RTCPeerConnection): Promise<void> {

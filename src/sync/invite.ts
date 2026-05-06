@@ -1,20 +1,19 @@
 /**
  * Group invite QR flow.
  *
- * Invite payload (JSON, ~450 chars → version-10 QR at level M — scannable at full-screen size):
- *   { v, inviteId, groupId, groupName, groupColor, currency, splitEnabled, incomeTracking,
+ * Invite payload (JSON, ~400 chars → version-10 QR at level M — scannable at full-screen size):
+ *   { v, inviteId, groupId, groupName, groupColor, currency,
  *     createdByName, memberCount, groupSecret, expiresAt, sig }
  *   sig = HMAC-SHA256(canonical string, key=groupSecret)
  *
  * Canonical string (pipe-delimited, deterministic):
- *   v|inviteId|groupId|groupName|groupColor|currency|splitEnabled|incomeTracking|
+ *   v|inviteId|groupId|groupName|groupColor|currency|
  *   createdByName|memberCount|groupSecret|expiresAt
  */
 
 import { fromBase64, toBase64 } from '@/crypto/encrypt'
 import { db } from '@/db/db'
 import type { Group, GroupMember } from '@/db/schema'
-import { createDefaultCategories } from '@/db/seeds'
 
 export interface InvitePayload {
   v: 1
@@ -23,8 +22,6 @@ export interface InvitePayload {
   groupName: string
   groupColor: string
   currency: string
-  splitEnabled: boolean
-  incomeTracking: boolean
   createdByName: string
   memberCount: number
   groupSecret: string // base64 32 bytes
@@ -52,8 +49,6 @@ function canonicalString(p: Omit<InvitePayload, 'sig'>): string {
     p.groupName,
     p.groupColor,
     p.currency,
-    p.splitEnabled ? '1' : '0',
-    p.incomeTracking ? '1' : '0',
     p.createdByName,
     p.memberCount,
     p.groupSecret,
@@ -100,8 +95,6 @@ export async function generateInvite(groupId: string, createdBy: string): Promis
     groupName: group.name,
     groupColor: group.avatarColor,
     currency: group.currency,
-    splitEnabled: group.splitEnabled,
-    incomeTracking: group.incomeTracking,
     createdByName: creator.displayName,
     memberCount: members.length,
     groupSecret: group.groupSecret,
@@ -171,8 +164,6 @@ export async function joinGroupFromInvite(invite: InvitePayload, userId: string)
       createdBy: userId,
       currency: invite.currency,
       fiscalYearStart: 4,
-      splitEnabled: invite.splitEnabled,
-      incomeTracking: invite.incomeTracking,
       visibility: 'full',
       status: 'active',
       groupSecret: invite.groupSecret,
@@ -181,9 +172,8 @@ export async function joinGroupFromInvite(invite: InvitePayload, userId: string)
       updatedAt: Date.now(),
     }
     await db.groups.put(group)
-
-    const cats = createDefaultCategories(invite.groupId, userId)
-    await db.categories.bulkAdd(cats)
+    // Do NOT seed default categories here — the joiner receives them via sync.
+    // Seeding would create duplicate categories with different IDs after the first sync.
   }
 
   const existingMember = await db.members.where(

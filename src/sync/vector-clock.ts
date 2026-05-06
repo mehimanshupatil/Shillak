@@ -4,12 +4,13 @@
  */
 import { db } from '@/db/db'
 import type {
+  Account,
   Budget,
   Category,
+  Group,
   GroupMember,
   Recurrence,
   SavingsGoal,
-  Split,
   Transaction,
   User,
 } from '@/db/schema'
@@ -18,14 +19,15 @@ import useAppStore from '@/stores/app.store'
 export interface SyncDelta {
   fromUserId: string
   vectorClock: Record<string, number>
+  group?: Group // space settings — LWW by updatedAt
   transactions: Transaction[]
   categories: Category[]
   members: GroupMember[]
   users: User[]
   budgets: Budget[]
   goals: SavingsGoal[]
-  splits: Split[]
   recurrences: Recurrence[]
+  accounts: Account[]
 }
 
 /**
@@ -65,53 +67,68 @@ export function mergeClock(
 }
 
 /**
- * Compute what to send to a peer, given what they already know (theirClock).
- * Sends all records where authorSeq > theirClock[ownerId] for that owner.
- * Transactions are owner-scoped. Other entities (categories, budgets, goals) are always included
- * if their updatedAt is newer than what peer might have seen.
+ * Compute what to send to a peer.
+ *
+ * @param theirClock  - peer's vector clock (filters transactions by authorSeq)
+ * @param fromUserId  - this device's userId
+ * @param since       - optional unix-ms timestamp; skip non-transaction entities whose
+ *                      creation/update timestamp is ≤ this value. Pass the peer's max
+ *                      entity timestamp so we only send genuinely new/changed records.
+ *                      Absent = send all (first sync or unknown state).
  */
 export async function computeDelta(
   groupId: string,
   theirClock: Record<string, number>,
   fromUserId: string,
+  since?: number,
 ): Promise<SyncDelta> {
   const group = await db.groups.get(groupId)
   if (!group) throw new Error('Group not found')
 
-  // Transactions: include all where authorSeq > theirClock[ownerId]
+  // Transactions: filter by authorSeq — always precise regardless of `since`
   const allTxns = await db.transactions.where((t) => t.groupId === groupId)
   const transactions = allTxns.filter((t) => {
     const knownSeq = theirClock[t.ownerId] ?? 0
     return t.authorSeq > knownSeq
   })
 
-  // Categories, members, budgets, goals, splits, recurrences:
-  // Always send all — peer applies with LWW by updatedAt.
-  // This is simpler and safe since these tables are small.
-  const [categories, members, budgets, goals, splits, recurrences] = await Promise.all([
-    db.categories.where((c) => c.groupId === groupId),
-    db.members.where((m) => m.groupId === groupId),
-    db.budgets.where((b) => b.groupId === groupId),
-    db.goals.where((g) => g.groupId === groupId),
-    db.splits.where((s) => s.groupId === groupId),
-    db.recurrences.where((r) => r.groupId === groupId),
-  ])
+  // Non-transaction entities: skip anything the peer already has (timestamp ≤ since).
+  // Category has no updatedAt so we use createdAt; members/budgets/goals use updatedAt.
+  const ts = since ?? 0
+  const [allCategories, allMembers, allBudgets, allGoals, allRecurrences, allAccounts] =
+    await Promise.all([
+      db.categories.where((c) => c.groupId === groupId),
+      db.members.where((m) => m.groupId === groupId),
+      db.budgets.where((b) => b.groupId === groupId),
+      db.goals.where((g) => g.groupId === groupId),
+      db.recurrences.where((r) => r.groupId === groupId),
+      db.accounts.where((a) => a.groupId === groupId),
+    ])
 
-  // Users: send profiles of all members in this group so peers can display names/avatars.
-  const memberUserIds = members.map((m) => m.userId)
+  const categories = ts > 0 ? allCategories.filter((c) => c.createdAt > ts) : allCategories
+  const members = ts > 0 ? allMembers.filter((m) => m.updatedAt > ts) : allMembers
+  const budgets = ts > 0 ? allBudgets.filter((b) => b.updatedAt > ts) : allBudgets
+  const goals = ts > 0 ? allGoals.filter((g) => g.updatedAt > ts) : allGoals
+  const recurrences = ts > 0 ? allRecurrences.filter((r) => r.createdAt > ts) : allRecurrences
+  const accounts = ts > 0 ? allAccounts.filter((a) => a.updatedAt > ts) : allAccounts
+
+  // Users: only send profiles that are new to the peer
+  const memberUserIds = allMembers.map((m) => m.userId)
   const userRecords = await db.users.bulkGet(memberUserIds)
-  const users = userRecords.filter((u): u is NonNullable<typeof u> => u !== undefined)
+  const allUsers = userRecords.filter((u): u is NonNullable<typeof u> => u !== undefined)
+  const users = ts > 0 ? allUsers.filter((u) => u.createdAt > ts) : allUsers
 
   return {
     fromUserId,
     vectorClock: group.vectorClock,
+    group,
     transactions,
     categories,
     members,
     users,
     budgets,
     goals,
-    splits,
     recurrences,
+    accounts,
   }
 }

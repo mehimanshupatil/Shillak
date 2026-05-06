@@ -15,8 +15,14 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest' as const,
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'prompt',
       includeAssets: ['icons/*.png', 'screenshots/*.png', 'icon.svg', 'logo.svg'],
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,otf}'],
+      },
       manifest: {
         name: 'Shillak',
         short_name: 'Shillak',
@@ -42,6 +48,16 @@ export default defineConfig({
             label: 'Shillak — Dashboard (desktop)',
           },
         ],
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            files: [{ name: 'image', accept: ['image/*'] }],
+          },
+        },
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -52,15 +68,6 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,otf}'],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        cleanupOutdatedCaches: true,
-        skipWaiting: false,
-        clientsClaim: true,
-        runtimeCaching: [],
       },
       devOptions: {
         enabled: false,

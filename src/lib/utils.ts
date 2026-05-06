@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { RecurrenceFrequency } from '@/db/schema'
+import type { RecurrenceFrequency, Transaction } from '@/db/schema'
 
 // ─── Tailwind class merge ──────────────────────────────────────────────────────
 export function cn(...inputs: ClassValue[]) {
@@ -21,6 +21,34 @@ export function formatCurrency(paise: number, currency = 'INR', locale = 'en-IN'
     currency,
     minimumFractionDigits: 2,
   }).format(paise / 100)
+}
+
+/**
+ * Storage paise → compact display (₹45K, ₹1.2L, ₹12.3L, ₹1.2Cr).
+ * Uses Intl.NumberFormat compact notation — en-IN locale natively outputs L/Cr.
+ * Use in space-constrained UI (summary cards, column headers).
+ */
+export function formatCompact(paise: number, currency = 'INR'): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(paise / 100)
+}
+
+/**
+ * Normalize a transaction amount to the space's base currency.
+ * If same currency, returns amount as-is.
+ * If multi-currency, applies stored fxRate (basis points) to originalAmount.
+ * Falls back to raw amount if fxRate/originalAmount missing.
+ */
+export function toBaseCurrency(
+  txn: Pick<Transaction, 'amount' | 'currency' | 'fxRate' | 'originalAmount'>,
+  baseCurrency: string,
+): number {
+  if (txn.currency === baseCurrency || !txn.fxRate || !txn.originalAmount) return txn.amount
+  return Math.round((txn.originalAmount * txn.fxRate) / 10000)
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -90,6 +118,21 @@ export function relativeDate(unixMs: number): string {
     return new Intl.DateTimeFormat('en-IN', { weekday: 'long' }).format(new Date(unixMs))
   }
   return formatDateShort(unixMs)
+}
+
+// ─── Date input parsing ───────────────────────────────────────────────────────
+
+/**
+ * Parse a `YYYY-MM-DD` date input string to midnight UTC unix ms.
+ * Throws if the string is not a valid date.
+ */
+export function parseDateStr(dateStr: string): number {
+  const parts = dateStr.split('-')
+  const y = Number(parts[0])
+  const mo = Number(parts[1])
+  const d = Number(parts[2])
+  if (!y || !mo || !d) throw new Error(`Invalid date string: ${dateStr}`)
+  return Date.UTC(y, mo - 1, d)
 }
 
 // ─── Misc ─────────────────────────────────────────────────────────────────────

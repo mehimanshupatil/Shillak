@@ -11,11 +11,11 @@ interface GroupSnapshot {
   recurrences: object[]
   budgets: object[]
   goals: object[]
-  splits: object[]
+  accounts: object[]
 }
 
 export async function exportGroupSnapshot(groupId: string): Promise<GroupSnapshot> {
-  const [group, members, categories, transactions, recurrences, budgets, goals, splits] =
+  const [group, members, categories, transactions, recurrences, budgets, goals, accounts] =
     await Promise.all([
       db.groups.get(groupId),
       db.members.where((m) => m.groupId === groupId),
@@ -24,7 +24,7 @@ export async function exportGroupSnapshot(groupId: string): Promise<GroupSnapsho
       db.recurrences.where((r) => r.groupId === groupId),
       db.budgets.where((b) => b.groupId === groupId),
       db.goals.where((g) => g.groupId === groupId),
-      db.splits.where((s) => s.groupId === groupId),
+      db.accounts.where((a) => a.groupId === groupId),
     ])
 
   if (!group) throw new Error('Group not found')
@@ -40,7 +40,7 @@ export async function exportGroupSnapshot(groupId: string): Promise<GroupSnapsho
     recurrences,
     budgets,
     goals,
-    splits,
+    accounts,
   }
 }
 
@@ -98,10 +98,9 @@ export async function importGroupSnapshot(
     await db.goals.put(g as Parameters<typeof db.goals.put>[0])
     imported++
   }
-  for (const s of snapshot.splits) {
-    await db.splits.put(s as Parameters<typeof db.splits.put>[0])
+  for (const a of snapshot.accounts ?? []) {
+    await db.accounts.put(a as Parameters<typeof db.accounts.put>[0])
     imported++
   }
-
   return { imported, groupId: snapshot.groupId }
 }

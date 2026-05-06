@@ -9,7 +9,6 @@ Shillak is a shared budget tracker for families, flatmates, and trip groups. No 
 ## What it does
 
 - **Track shared expenses** — log income, spending, and transfers across your group
-- **Split bills** — see who owes whom with minimum-transfer settlement
 - **Budget together** — set monthly limits per category, track savings goals
 - **Sync offline** — exchange data via local WiFi (WebRTC), QR codes, or JSON file — no internet required
 - **Multi-space** — one install can belong to multiple independent spaces (family, flatmates, trip)
@@ -114,7 +113,6 @@ src/
     ├── Dashboard/
     ├── Transactions/
     ├── Budgets/
-    ├── Splits/
     └── Settings/
 ```
 

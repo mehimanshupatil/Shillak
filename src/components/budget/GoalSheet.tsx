@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
-import type { SavingsGoal } from '@/db/schema'
+import type { Category, SavingsGoal } from '@/db/schema'
 import { generateId, toPaise } from '@/lib/utils'
 
 interface Props {
@@ -13,23 +14,32 @@ interface Props {
   groupId: string
   currency: string
   goal?: SavingsGoal
+  categories: Category[]
 }
 
-export default function GoalSheet({ open, onClose, groupId, currency, goal }: Props) {
+export default function GoalSheet({ open, onClose, groupId, currency, goal, categories }: Props) {
   const isEdit = !!goal
   const [name, setName] = useState('')
   const [targetStr, setTargetStr] = useState('')
-  const [savedStr, setSavedStr] = useState('')
   const [deadline, setDeadline] = useState('')
+  const [linkedCategoryId, setLinkedCategoryId] = useState<string | null>(null)
+  // Manual saved — only used when no category linked
+  const [savedStr, setSavedStr] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const incomeCategories = useMemo(
+    () => categories.filter((c) => c.type === 'income'),
+    [categories],
+  )
 
   useEffect(() => {
     if (open) {
       setName(goal?.name ?? '')
       setTargetStr(goal ? String(goal.target / 100) : '')
-      setSavedStr(goal ? String(goal.saved / 100) : '')
+      setSavedStr(goal?.categoryId ? '' : goal ? String(goal.saved / 100) : '')
       setDeadline(goal?.deadline ? (new Date(goal.deadline).toISOString().split('T')[0] ?? '') : '')
+      setLinkedCategoryId(goal?.categoryId ?? null)
       setError('')
     }
   }, [open, goal])
@@ -44,7 +54,8 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
       setError('Enter a valid target amount')
       return
     }
-    const saved = parseFloat(savedStr) || 0
+    // Manual saved only when no category linked
+    const saved = linkedCategoryId ? 0 : parseFloat(savedStr) || 0
     setLoading(true)
     setError('')
     try {
@@ -55,6 +66,7 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
           target: toPaise(target),
           saved: toPaise(saved),
           deadline: deadlineMs,
+          categoryId: linkedCategoryId,
           updatedAt: Date.now(),
         })
       } else {
@@ -65,7 +77,8 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
           target: toPaise(target),
           saved: toPaise(saved),
           deadline: deadlineMs,
-          categoryId: null,
+          categoryId: linkedCategoryId,
+          createdAt: Date.now(),
           updatedAt: Date.now(),
         })
       }
@@ -78,6 +91,7 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
   }
 
   const currencySymbol = currency === 'INR' ? '₹' : currency
+  const linkedCat = incomeCategories.find((c) => c.categoryId === linkedCategoryId)
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -111,26 +125,71 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+              Target ({currencySymbol})
+            </Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={targetStr}
+              onChange={(e) => setTargetStr(e.target.value)}
+              placeholder="0"
+              className="h-11 rounded-xl bg-surface-2 border-border
+                         text-text-primary placeholder:text-text-tertiary
+                         focus-visible:border-accent focus-visible:ring-accent/20"
+            />
+          </div>
+
+          {/* Link to income category — auto-track savings */}
+          {incomeCategories.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                Target ({currencySymbol})
+                Auto-track from category (optional)
               </Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                value={targetStr}
-                onChange={(e) => setTargetStr(e.target.value)}
-                placeholder="0"
-                className="h-11 rounded-xl bg-surface-2 border-border
-                           text-text-primary placeholder:text-text-tertiary
-                           focus-visible:border-accent focus-visible:ring-accent/20"
-              />
+              <div className="flex gap-2 flex-wrap">
+                {incomeCategories.map((cat) => {
+                  const active = linkedCategoryId === cat.categoryId
+                  return (
+                    <button
+                      key={cat.categoryId}
+                      type="button"
+                      onClick={() => setLinkedCategoryId(active ? null : cat.categoryId)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                      }`}
+                      style={active ? { backgroundColor: cat.color } : {}}
+                    >
+                      <CategoryIcon
+                        icon={cat.icon}
+                        color={active ? '#000' : cat.color}
+                        size={11}
+                        containerSize={0}
+                      />
+                      {cat.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {linkedCat ? (
+                <p className="text-[10px] text-text-tertiary">
+                  Progress derived from all "{linkedCat.name}" income transactions. Manual entry
+                  hidden.
+                </p>
+              ) : (
+                <p className="text-[10px] text-text-tertiary">
+                  Link an income category to auto-track without manual updates.
+                </p>
+              )}
             </div>
+          )}
+
+          {/* Manual saved — only when no category linked */}
+          {!linkedCategoryId && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                Saved ({currencySymbol})
+                Already saved ({currencySymbol})
               </Label>
               <Input
                 type="number"
@@ -144,7 +203,7 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal }: Pr
                            focus-visible:border-accent focus-visible:ring-accent/20"
               />
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">

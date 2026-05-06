@@ -8,17 +8,25 @@
  * can't scan but the device's native camera app can.
  */
 import jsQR from 'jsqr'
-import { ClipboardPaste, X } from 'lucide-react'
+import { Check, ClipboardPaste, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+
+export interface ScanProgress {
+  scanned: number
+  total: number
+  collected: Set<number>
+  nextNeeded: number | null
+}
 
 interface Props {
   onScan: (result: string) => void
   onError?: (err: string) => void
   onClose?: () => void
   active?: boolean
+  progress?: ScanProgress
 }
 
-export default function QRScanner({ onScan, onError, onClose, active = true }: Props) {
+export default function QRScanner({ onScan, onError, onClose, active = true, progress }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
@@ -136,6 +144,56 @@ export default function QRScanner({ onScan, onError, onClose, active = true }: P
           <span className="absolute bottom-0 right-0 w-10 h-10 border-b-[3px] border-r-[3px] border-accent rounded-br" />
         </div>
       </div>
+
+      {/* Chunk progress overlay — shown when scanning multi-part data */}
+      {progress && (
+        <div className="absolute top-14 inset-x-0 px-4 flex flex-col gap-2">
+          {/* Bar + counter */}
+          <div className="rounded-xl bg-black/70 backdrop-blur-sm px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white">
+                {progress.scanned} / {progress.total} scanned
+              </span>
+              <span className="text-sm font-semibold text-amber-400">
+                {Math.round((progress.scanned / progress.total) * 100)}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-400 transition-all duration-300"
+                style={{ width: `${(progress.scanned / progress.total) * 100}%` }}
+              />
+            </div>
+            {progress.nextNeeded !== null && (
+              <p className="text-xs text-white/70">
+                Ask sender:{' '}
+                <span className="text-white font-semibold">show QR {progress.nextNeeded + 1}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Chunk grid */}
+          {progress.total > 1 && (
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {Array.from({ length: progress.total }, (_, i) => (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: stable chunk order
+                  key={i}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+                    progress.collected.has(i)
+                      ? 'bg-green-500/80 text-white'
+                      : i === progress.nextNeeded
+                        ? 'bg-amber-400/90 text-black scale-110'
+                        : 'bg-white/10 text-white/50'
+                  }`}
+                >
+                  {progress.collected.has(i) ? <Check size={13} /> : i + 1}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom controls */}
       <div className="absolute bottom-0 inset-x-0 flex flex-col items-center gap-3 pb-10 px-6">

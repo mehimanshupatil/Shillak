@@ -14,14 +14,24 @@ import {
   QrCode,
   Wifi,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import useAppStore from '@/stores/app.store'
 import { applyDelta } from '@/sync/conflict'
 import type { QRChunkEnvelope } from '@/sync/qr'
-import { chunkPayload, decodeChunk, encodeChunk, isChunk, isSDP, reassembleChunks } from '@/sync/qr'
+import {
+  chunkPayload,
+  decodeChunk,
+  decodeClockQR,
+  encodeChunk,
+  encodeClockQR,
+  isChunk,
+  isClockQR,
+  isSDP,
+  reassembleChunks,
+} from '@/sync/qr'
 import { decryptPayload, deriveTransportKey, encryptPayload } from '@/sync/transport'
 import type { SyncDelta } from '@/sync/vector-clock'
 import { computeDelta } from '@/sync/vector-clock'
@@ -35,7 +45,7 @@ import {
 } from '@/sync/webrtc'
 import ConflictResolver from './ConflictResolver'
 import QRDisplay from './QRDisplay'
-import QRScanner from './QRScanner'
+import QRScanner, { type ScanProgress } from './QRScanner'
 
 type Tab = 'wifi' | 'qr' | 'history'
 
@@ -51,8 +61,14 @@ type WiFiState =
 
 type QRBatchState =
   | { step: 'idle' }
-  | { step: 'exporting'; chunks: string[]; chunkIndex: number }
-  | { step: 'scanning'; collected: Map<number, QRChunkEnvelope>; total: number | null }
+  // Sender path: scan receiver clock → show delta chunks
+  | { step: 'sender-scan-clock' }
+  | { step: 'sender-show-data'; chunks: string[]; chunkIndex: number; recordCount: number }
+  | { step: 'sender-up-to-date' }
+  // Receiver path: show own clock → scan incoming chunks
+  | { step: 'receiver-show-clock'; clockQR: string }
+  | { step: 'receiver-scanning'; collected: Map<number, QRChunkEnvelope>; total: number | null }
+  | { step: 'receiver-processing' } // all chunks collected, decrypting + applying
   | { step: 'done'; applied: number }
   | { step: 'error'; message: string }
 
@@ -66,13 +82,18 @@ function friendlyError(e: unknown): string {
   if (msg.includes('not in the same')) return msg
   if (msg.includes('OperationError') || msg.includes('decrypt'))
     return 'Decryption failed — both devices must be in the same space. Make sure you joined via an invite QR, not by creating a separate space.'
-  if (msg.includes('RTCPeerConnection') || msg.includes('ICE'))
+  if (msg.includes('RTCPeerConnection') || msg.includes('ICE') || msg.includes('WebRTC connection'))
     return 'Connection failed — make sure both devices are on the same WiFi network and try again.'
-  if (msg.includes('InvalidStateError'))
-    return 'Connection closed unexpectedly. Try again.'
+  if (msg.includes('Data channel timeout'))
+    return 'Connection timed out — the other device did not complete the QR scan. Try again.'
+  if (msg.includes('Message timeout'))
+    return 'Sync timed out — both devices must stay on the sync screen until complete.'
+  if (msg.includes('InvalidStateError')) return 'Connection closed unexpectedly. Try again.'
   if (msg.includes('Expected clock') || msg.includes('Expected delta'))
     return 'Sync handshake failed. Try again — both devices must stay on the sync screen.'
-  return 'Something went wrong. Try again.'
+  if (msg.includes('Group not found'))
+    return 'Space not found — make sure both devices have the same space open before syncing.'
+  return `Sync failed: ${msg}`
 }
 
 export default function SyncSheet({ open, onClose }: Props) {
@@ -82,6 +103,8 @@ export default function SyncSheet({ open, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('wifi')
   const [wifi, setWifi] = useState<WiFiState>({ step: 'idle' })
   const [qrBatch, setQRBatch] = useState<QRBatchState>({ step: 'idle' })
+  // Ref to avoid stale closure when chunks arrive in quick succession
+  const collectedRef = useRef<Map<number, QRChunkEnvelope>>(new Map())
 
   const group = useLiveQuery(
     () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),
@@ -98,10 +121,22 @@ export default function SyncSheet({ open, onClose }: Props) {
     [activeGroupId],
   )
 
+  const lastSync = useLiveQuery(async () => {
+    if (!activeGroupId) return null
+    const events = await db.syncEvents.where(
+      (e) => e.groupId === activeGroupId && e.status === 'ok',
+    )
+    return events.sort((a, b) => b.syncedAt - a.syncedAt)[0] ?? null
+  }, [activeGroupId])
+
   // ── Sync protocol ────────────────────────────────────────────────────────────
   const runSyncProtocol = useCallback(
     async (channel: RTCDataChannel, method: 'webrtc' | 'qr') => {
-      if (!activeGroupId || !currentUserId || !group) return
+      if (!activeGroupId || !currentUserId || !group) {
+        channel.close()
+        setWifi({ step: 'error', message: 'Space not ready — wait a moment and try again.' })
+        return
+      }
       try {
         const msgQueue = createMessageQueue(channel)
         const transportKey = await deriveTransportKey(group.groupSecret)
@@ -139,7 +174,11 @@ export default function SyncSheet({ open, onClose }: Props) {
         channel.close()
       } catch (e) {
         setWifi({ step: 'error', message: friendlyError(e) })
-        try { channel.close() } catch { /* already closed */ }
+        try {
+          channel.close()
+        } catch {
+          /* already closed */
+        }
       }
     },
     [activeGroupId, currentUserId, group],
@@ -199,43 +238,36 @@ export default function SyncSheet({ open, onClose }: Props) {
   )
 
   // ── QR Batch ─────────────────────────────────────────────────────────────────
-  async function handleQRExport() {
-    if (!activeGroupId || !currentUserId || !group) return
-    try {
-      const transportKey = await deriveTransportKey(group.groupSecret)
-      const delta = await computeDelta(activeGroupId, {}, currentUserId)
-      const encrypted = await encryptPayload(delta, transportKey)
-      const envelopes = chunkPayload(encrypted)
-      const encoded = envelopes.map(encodeChunk)
-      setQRBatch({ step: 'exporting', chunks: encoded, chunkIndex: 0 })
-    } catch (e) {
-      setQRBatch({ step: 'error', message: friendlyError(e) })
-    }
+
+  // Sender: start by scanning receiver's clock QR
+  function handleQRSenderStart() {
+    setQRBatch({ step: 'sender-scan-clock' })
   }
 
-  function handleQRScanStart() {
-    setQRBatch({ step: 'scanning', collected: new Map(), total: null })
-  }
-
-  const handleQRChunkScan = useCallback(
+  // Sender: scanned receiver's clock → compute delta → show chunks
+  const handleQRClockScan = useCallback(
     async (scanned: string) => {
-      if (qrBatch.step !== 'scanning' || !activeGroupId || !currentUserId || !group) return
-      if (!isChunk(scanned)) return
+      if (qrBatch.step !== 'sender-scan-clock' || !activeGroupId || !currentUserId || !group) return
+      if (!isClockQR(scanned)) return
       try {
-        const envelope = decodeChunk(scanned)
-        const collected = new Map(qrBatch.collected)
-        collected.set(envelope.index, envelope)
-        const total = envelope.total
-        const reassembled = reassembleChunks(collected, total)
-        if (reassembled) {
-          const transportKey = await deriveTransportKey(group.groupSecret)
-          const delta = await decryptPayload<SyncDelta>(reassembled, transportKey)
-          const syncId = crypto.randomUUID()
-          const result = await applyDelta(delta, activeGroupId, syncId, 'qr', currentUserId)
-          setQRBatch({ step: 'done', applied: result.recordsApplied })
-        } else {
-          setQRBatch({ step: 'scanning', collected, total })
+        const { clock: theirClock, since } = decodeClockQR(scanned)
+        const transportKey = await deriveTransportKey(group.groupSecret)
+        const delta = await computeDelta(activeGroupId, theirClock, currentUserId, since)
+        const totalRecords =
+          delta.transactions.length +
+          delta.categories.length +
+          delta.members.length +
+          delta.budgets.length +
+          delta.goals.length +
+          delta.recurrences.length +
+          delta.users.length
+        if (totalRecords === 0) {
+          setQRBatch({ step: 'sender-up-to-date' })
+          return
         }
+        const encrypted = await encryptPayload(delta, transportKey)
+        const chunks = chunkPayload(encrypted).map(encodeChunk)
+        setQRBatch({ step: 'sender-show-data', chunks, chunkIndex: 0, recordCount: totalRecords })
       } catch (e) {
         setQRBatch({ step: 'error', message: friendlyError(e) })
       }
@@ -243,13 +275,82 @@ export default function SyncSheet({ open, onClose }: Props) {
     [qrBatch, activeGroupId, currentUserId, group],
   )
 
+  // Receiver: show own clock QR so sender can compute minimal delta
+  async function handleQRReceiverStart() {
+    if (!activeGroupId || !currentUserId) return
+    try {
+      const grp = await db.groups.get(activeGroupId)
+      if (!grp) return
+
+      // Compute `since`: max timestamp across all non-transaction entities we already have.
+      // Sender will skip anything ≤ this, drastically reducing QR chunk count after first sync.
+      const [cats, mems, buds, gls, recs] = await Promise.all([
+        db.categories.where((c) => c.groupId === activeGroupId),
+        db.members.where((m) => m.groupId === activeGroupId),
+        db.budgets.where((b) => b.groupId === activeGroupId),
+        db.goals.where((g) => g.groupId === activeGroupId),
+        db.recurrences.where((r) => r.groupId === activeGroupId),
+      ])
+      const since = Math.max(
+        0,
+        ...cats.map((c) => c.createdAt),
+        ...mems.map((m) => m.updatedAt),
+        ...buds.map((b) => b.updatedAt),
+        ...gls.map((g) => g.updatedAt),
+        ...recs.map((r) => r.createdAt),
+      )
+
+      const clockQR = encodeClockQR(activeGroupId, grp.vectorClock, since)
+      setQRBatch({ step: 'receiver-show-clock', clockQR })
+    } catch (e) {
+      setQRBatch({ step: 'error', message: friendlyError(e) })
+    }
+  }
+
+  function handleQRReceiverScanStart() {
+    collectedRef.current = new Map()
+    setQRBatch({ step: 'receiver-scanning', collected: new Map(), total: null })
+  }
+
+  const handleQRChunkScan = useCallback(
+    async (scanned: string) => {
+      if (!activeGroupId || !currentUserId || !group) return
+      if (!isChunk(scanned)) return
+      try {
+        const envelope = decodeChunk(scanned)
+        // Mutate the ref synchronously — no stale closure even when chunks arrive fast
+        collectedRef.current.set(envelope.index, envelope)
+        const total = envelope.total
+        const reassembled = reassembleChunks(collectedRef.current, total)
+        if (reassembled) {
+          // Close scanner immediately — synchronous state update before any await.
+          // Without this, the scanner stays visible during applyDelta, user taps X
+          // (onReset → idle), then applyDelta resolves and sets done — confusing.
+          setQRBatch({ step: 'receiver-processing' })
+          const transportKey = await deriveTransportKey(group.groupSecret)
+          const delta = await decryptPayload<SyncDelta>(reassembled, transportKey)
+          const syncId = crypto.randomUUID()
+          const result = await applyDelta(delta, activeGroupId, syncId, 'qr', currentUserId)
+          setQRBatch({ step: 'done', applied: result.recordsApplied })
+        } else {
+          // Snapshot ref into state for UI rendering only
+          setQRBatch({ step: 'receiver-scanning', collected: new Map(collectedRef.current), total })
+        }
+      } catch (e) {
+        setQRBatch({ step: 'error', message: friendlyError(e) })
+      }
+    },
+    [activeGroupId, currentUserId, group],
+  )
+
   function handleQRPrevChunk() {
-    if (qrBatch.step !== 'exporting' || qrBatch.chunkIndex === 0) return
+    if (qrBatch.step !== 'sender-show-data' || qrBatch.chunkIndex === 0) return
     setQRBatch({ ...qrBatch, chunkIndex: qrBatch.chunkIndex - 1 })
   }
 
   function handleQRNextChunk() {
-    if (qrBatch.step !== 'exporting' || qrBatch.chunkIndex >= qrBatch.chunks.length - 1) return
+    if (qrBatch.step !== 'sender-show-data' || qrBatch.chunkIndex >= qrBatch.chunks.length - 1)
+      return
     setQRBatch({ ...qrBatch, chunkIndex: qrBatch.chunkIndex + 1 })
   }
 
@@ -267,7 +368,20 @@ export default function SyncSheet({ open, onClose }: Props) {
 
         <SheetHeader className="px-4 pb-3 text-left">
           <SheetTitle className="text-lg font-bold text-text-primary">Sync</SheetTitle>
-          {group && <p className="text-xs text-text-tertiary">{group.name}</p>}
+          <p className="text-xs text-text-tertiary">
+            {group?.name}
+            {lastSync && (
+              <>
+                {' · '}last synced{' '}
+                {new Date(lastSync.syncedAt).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </>
+            )}
+          </p>
         </SheetHeader>
 
         {/* Tabs */}
@@ -301,12 +415,17 @@ export default function SyncSheet({ open, onClose }: Props) {
           {tab === 'qr' && (
             <QRBatchTab
               state={qrBatch}
-              onExport={handleQRExport}
-              onScanStart={handleQRScanStart}
+              onSenderStart={handleQRSenderStart}
+              onClockScan={handleQRClockScan}
+              onReceiverStart={handleQRReceiverStart}
+              onReceiverScanStart={handleQRReceiverScanStart}
               onChunkScan={handleQRChunkScan}
               onPrevChunk={handleQRPrevChunk}
               onNextChunk={handleQRNextChunk}
-              onReset={() => setQRBatch({ step: 'idle' })}
+              onReset={() => {
+                collectedRef.current = new Map()
+                setQRBatch({ step: 'idle' })
+              }}
             />
           )}
           {tab === 'history' && <HistoryTab events={syncHistory ?? []} />}
@@ -553,7 +672,8 @@ function WiFiTab({
               : `${state.applied} record${state.applied !== 1 ? 's' : ''} synced`}
             {state.conflicts > 0 && (
               <span className="text-warning">
-                {' '}· {state.conflicts} conflict{state.conflicts > 1 ? 's' : ''} need attention
+                {' '}
+                · {state.conflicts} conflict{state.conflicts > 1 ? 's' : ''} need attention
               </span>
             )}
           </p>
@@ -586,16 +706,20 @@ function WiFiTab({
 
 function QRBatchTab({
   state,
-  onExport,
-  onScanStart,
+  onSenderStart,
+  onClockScan,
+  onReceiverStart,
+  onReceiverScanStart,
   onChunkScan,
   onPrevChunk,
   onNextChunk,
   onReset,
 }: {
   state: QRBatchState
-  onExport: () => void
-  onScanStart: () => void
+  onSenderStart: () => void
+  onClockScan: (s: string) => void
+  onReceiverStart: () => void
+  onReceiverScanStart: () => void
   onChunkScan: (s: string) => void
   onPrevChunk: () => void
   onNextChunk: () => void
@@ -604,15 +728,14 @@ function QRBatchTab({
   if (state.step === 'idle') {
     return (
       <div className="flex flex-col gap-4">
-        {/* Method hint */}
         <div className="rounded-xl bg-surface-2 border border-border px-4 py-3">
           <div className="flex items-center gap-2 mb-1">
             <QrCode size={13} className="text-accent" />
             <p className="text-xs font-semibold text-text-primary">Works without WiFi</p>
           </div>
           <p className="text-xs text-text-secondary leading-relaxed">
-            One device exports data as a series of QR codes. The other device scans each one.
-            One-way only — repeat in reverse to sync back.
+            Receiver shows their sync state first so only missing data is transferred. One-way —
+            repeat in reverse to sync back.
           </p>
         </div>
 
@@ -622,7 +745,7 @@ function QRBatchTab({
 
         <button
           type="button"
-          onClick={onExport}
+          onClick={onSenderStart}
           className="w-full p-4 rounded-2xl border border-border bg-surface
                      flex items-start gap-4 text-left active:bg-surface-2 transition-colors"
         >
@@ -632,14 +755,14 @@ function QRBatchTab({
           <div>
             <p className="font-semibold text-text-primary">Send my data</p>
             <p className="text-sm text-text-secondary mt-0.5">
-              Show QR codes for the other device to scan.
+              Scan the other device's QR, then show them yours.
             </p>
           </div>
         </button>
 
         <button
           type="button"
-          onClick={onScanStart}
+          onClick={onReceiverStart}
           className="w-full p-4 rounded-2xl border border-border bg-surface
                      flex items-start gap-4 text-left active:bg-surface-2 transition-colors"
         >
@@ -649,7 +772,7 @@ function QRBatchTab({
           <div>
             <p className="font-semibold text-text-primary">Receive data</p>
             <p className="text-sm text-text-secondary mt-0.5">
-              Scan QR codes shown on the other device.
+              Show your sync state, then scan the other device's QRs.
             </p>
           </div>
         </button>
@@ -657,20 +780,39 @@ function QRBatchTab({
     )
   }
 
-  if (state.step === 'exporting') {
-    const { chunks, chunkIndex } = state
+  // ── Sender: scan receiver's clock ────────────────────────────────────────────
+  if (state.step === 'sender-scan-clock') {
+    return (
+      <div className="flex flex-col gap-3">
+        <StepDots current={0} total={2} />
+        <InstructionCard
+          thisDevice="Scan the QR code showing on the other device's screen."
+          otherDevice='Other device: should have tapped "Receive data" and is showing a QR.'
+        />
+        <QRScanner onScan={onClockScan} onClose={onReset} />
+      </div>
+    )
+  }
+
+  // ── Sender: show delta chunks ────────────────────────────────────────────────
+  if (state.step === 'sender-show-data') {
+    const { chunks, chunkIndex, recordCount } = state
     const total = chunks.length
     return (
-      <div className="flex flex-col gap-0">
-        <StepDots current={chunkIndex} total={total} />
+      <div className="flex flex-col gap-3">
+        <StepDots current={1} total={2} />
         <InstructionCard
           thisDevice={`Show QR ${chunkIndex + 1} of ${total} to the other device.`}
           otherDevice={
             total > 1
-              ? 'After scanning each QR, tap the arrow to move to the next one.'
-              : 'Scan this QR on the other device to receive the data.'
+              ? 'Scan each QR in order. Tap arrow to advance after each scan.'
+              : 'Scan this QR to receive the data.'
           }
         />
+        <div className="text-center text-xs text-text-tertiary -mt-1 mb-1">
+          {recordCount} record{recordCount !== 1 ? 's' : ''} to transfer · {total} QR
+          {total !== 1 ? 's' : ''}
+        </div>
         <QRDisplay
           value={chunks[chunkIndex] ?? ''}
           label={`QR ${chunkIndex + 1} of ${total}`}
@@ -681,42 +823,73 @@ function QRBatchTab({
     )
   }
 
-  if (state.step === 'scanning') {
-    const { collected, total } = state
-    const scanned = collected.size
+  // ── Sender: receiver already up to date ─────────────────────────────────────
+  if (state.step === 'sender-up-to-date') {
     return (
-      <div className="flex flex-col gap-4">
-        <StepDots current={scanned} total={total ?? Math.max(scanned + 1, 1)} />
-        <InstructionCard
-          thisDevice={
-            total !== null
-              ? `Scanned ${scanned} of ${total} QR codes. Keep going.`
-              : 'Point your camera at the QR codes on the other device.'
-          }
-          otherDevice={
-            total !== null && total > 1
-              ? 'The other device should advance to the next QR after you scan each one.'
-              : undefined
-          }
-        />
-
-        {total !== null && (
-          <div className="flex gap-1.5 justify-center">
-            {Array.from({ length: total }, (_, i) => (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: stable chunk order
-                key={i}
-                className={`rounded-full transition-all ${
-                  collected.has(i) ? 'w-6 h-2 bg-success' : 'w-2 h-2 bg-surface-3'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
-        <QRScanner onScan={onChunkScan} onClose={onReset} />
+      <div className="flex flex-col items-center gap-4 py-10">
+        <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
+          <Check size={30} className="text-success" />
+        </div>
+        <div className="text-center">
+          <p className="text-base font-semibold text-text-primary">Already up to date</p>
+          <p className="text-sm text-text-secondary mt-1">
+            The other device has all your data. Nothing to send.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={onReset}>
+          Done
+        </Button>
       </div>
     )
+  }
+
+  // ── Receiver: show own clock QR ──────────────────────────────────────────────
+  if (state.step === 'receiver-show-clock') {
+    return (
+      <div className="flex flex-col gap-3">
+        <StepDots current={0} total={2} />
+        <InstructionCard
+          thisDevice="Show this QR to the sender so they know what you already have."
+          otherDevice='Sender: tap "Send my data" → scan this QR → they will show you data QRs.'
+        />
+        <QRDisplay
+          value={state.clockQR}
+          label="Your sync state"
+          onClose={onReset}
+          action={{ label: 'Ready to scan their QRs →', onClick: onReceiverScanStart }}
+        />
+        <p className="text-xs text-text-tertiary text-center px-2">
+          Tap the button once the sender's screen shows data QR codes.
+        </p>
+      </div>
+    )
+  }
+
+  // ── Receiver: all chunks in, applying ───────────────────────────────────────
+  if (state.step === 'receiver-processing') {
+    return (
+      <div className="flex flex-col items-center gap-4 py-10">
+        <Loader2 size={32} className="animate-spin text-accent" />
+        <p className="text-sm font-medium text-text-primary">Applying data…</p>
+      </div>
+    )
+  }
+
+  // ── Receiver: scan data chunks ───────────────────────────────────────────────
+  if (state.step === 'receiver-scanning') {
+    const { collected, total } = state
+    const scanned = collected.size
+    const missing = total
+      ? Array.from({ length: total }, (_, i) => i).filter((i) => !collected.has(i))
+      : []
+    const nextNeeded = missing[0] ?? null
+
+    const scanProgress: ScanProgress | undefined =
+      total !== null
+        ? { scanned, total, collected: new Set(collected.keys()), nextNeeded }
+        : undefined
+
+    return <QRScanner onScan={onChunkScan} onClose={onReset} progress={scanProgress} />
   }
 
   if (state.step === 'done') {
@@ -726,11 +899,11 @@ function QRBatchTab({
           <Check size={30} className="text-success" />
         </div>
         <div className="text-center">
-          <p className="text-base font-semibold text-text-primary">Import complete</p>
+          <p className="text-base font-semibold text-text-primary">Sync complete</p>
           <p className="text-sm text-text-secondary mt-1">
             {state.applied === 0
               ? 'Everything was already up to date.'
-              : `${state.applied} record${state.applied !== 1 ? 's' : ''} imported`}
+              : `${state.applied} record${state.applied !== 1 ? 's' : ''} applied`}
           </p>
         </div>
         <Button variant="secondary" onClick={onReset}>
@@ -744,7 +917,7 @@ function QRBatchTab({
     return (
       <div className="flex flex-col gap-4 py-4">
         <div className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3">
-          <p className="text-xs font-semibold text-danger mb-1">Import failed</p>
+          <p className="text-xs font-semibold text-danger mb-1">Sync failed</p>
           <p className="text-sm text-text-primary leading-snug">{state.message}</p>
         </div>
         <Button variant="secondary" onClick={onReset} className="w-full">
@@ -764,9 +937,7 @@ function HistoryTab({ events }: { events: import('@/db/schema').SyncEvent[] }) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center">
         <p className="text-sm text-text-secondary">No sync history yet.</p>
-        <p className="text-xs text-text-tertiary">
-          Sync logs appear here after a successful sync.
-        </p>
+        <p className="text-xs text-text-tertiary">Sync logs appear here after a successful sync.</p>
       </div>
     )
   }

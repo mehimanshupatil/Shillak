@@ -122,7 +122,6 @@ Think: monochrome base with a single warm accent, generous whitespace, sharp typ
   /* Finance-specific aliases (maps to semantic, prevents call-site drift) */
   --color-income: var(--color-success);   /* #22c55e — green amounts */
   --color-expense: var(--color-danger);   /* #ef4444 — red amounts */
-  --color-transfer: var(--color-info);    /* #3b82f6 — neutral transfers */
   --color-budget-ok: var(--color-success);
   --color-budget-warn: var(--color-warning);   /* 80–99% of limit */
   --color-budget-over: var(--color-danger);    /* ≥100% of limit */
@@ -319,7 +318,7 @@ interface Category {
   name: string
   icon: string
   color: string
-  type: 'expense' | 'income' | 'transfer'
+  type: 'expense' | 'income' 
   sort_order: number
   is_default: boolean
   created_by: string
@@ -337,7 +336,7 @@ interface Transaction {
   owner_id: string         // user_id — who logged it (immutable after creation)
   author_seq: number       // group.vector_clock[owner_id] at write time — for sync delta
   category_id: string
-  type: 'expense' | 'income' | 'transfer'
+  type: 'expense' | 'income' 
   amount: number           // INTEGER — smallest currency unit (paise for INR, cents for USD)
                            // NEVER store decimal rupees. 1 INR = 100 stored as 100, not 1.0
   currency: string

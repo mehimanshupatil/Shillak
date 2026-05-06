@@ -9,7 +9,6 @@ import { db } from '@/db/db'
 import type { Category } from '@/db/schema'
 import useAppStore from '@/stores/app.store'
 
-
 export default function CategoriesPage() {
   const navigate = useNavigate()
   const activeGroupId = useAppStore((s) => s.activeGroupId)
@@ -25,11 +24,24 @@ export default function CategoriesPage() {
   )
 
   async function handleDeleteCategory(cat: Category) {
-    const txns = await db.transactions.where(
-      (t) => t.groupId === activeGroupId && t.categoryId === cat.categoryId && t.deletedAt === null,
-    )
+    const [txns, budgets, goals] = await Promise.all([
+      db.transactions.where(
+        (t) =>
+          t.groupId === activeGroupId && t.categoryId === cat.categoryId && t.deletedAt === null,
+      ),
+      db.budgets.where((b) => b.groupId === activeGroupId && b.categoryId === cat.categoryId),
+      db.goals.where((g) => g.groupId === activeGroupId && g.categoryId === cat.categoryId),
+    ])
     if (txns.length > 0) {
       alert(`Cannot delete — ${txns.length} transaction(s) use this category.`)
+      return
+    }
+    if (budgets.length > 0) {
+      alert(`Cannot delete — this category has an active budget. Remove the budget first.`)
+      return
+    }
+    if (goals.length > 0) {
+      alert(`Cannot delete — ${goals.length} savings goal(s) are linked to this category.`)
       return
     }
     await db.categories.delete(cat.categoryId)

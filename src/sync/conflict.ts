@@ -78,9 +78,19 @@ export async function applyDelta(
   }
 
   // ── Categories ────────────────────────────────────────────────────────────
+  // Build name+type index to avoid creating duplicates when both devices seeded defaults.
+  const existingCats = await db.categories.where((c) => c.groupId === groupId)
+  const existingByNameType = new Map(existingCats.map((c) => [`${c.name}|${c.type}`, c.categoryId]))
+
   for (const incoming of delta.categories) {
     const existing = await db.categories.get(incoming.categoryId)
-    if (!existing || incoming.createdAt >= existing.createdAt) {
+    if (!existing) {
+      // Skip if another category with the same name+type already exists (duplicate seed)
+      if (existingByNameType.has(`${incoming.name}|${incoming.type}`)) continue
+      await db.categories.put(incoming)
+      existingByNameType.set(`${incoming.name}|${incoming.type}`, incoming.categoryId)
+      applied++
+    } else if (incoming.createdAt >= existing.createdAt) {
       await db.categories.put(incoming)
       applied++
     }
@@ -138,16 +148,6 @@ export async function applyDelta(
     }
   }
 
-  // ── Splits ────────────────────────────────────────────────────────────────
-  for (const incoming of delta.splits) {
-    const existing = await db.splits.get(incoming.splitId)
-    if (!existing) {
-      await db.splits.put(incoming)
-      applied++
-    }
-    // Splits are immutable once created — skip if exists
-  }
-
   // ── Recurrences ───────────────────────────────────────────────────────────
   for (const incoming of delta.recurrences) {
     const existing = await db.recurrences.get(incoming.recurrenceId)
@@ -160,11 +160,38 @@ export async function applyDelta(
     }
   }
 
-  // ── Merge vector clocks ───────────────────────────────────────────────────
+  // ── Accounts ──────────────────────────────────────────────────────────────
+  for (const incoming of delta.accounts ?? []) {
+    const existing = await db.accounts.get(incoming.accountId)
+    if (!existing) {
+      await db.accounts.put(incoming)
+      applied++
+    } else if (incoming.updatedAt > existing.updatedAt) {
+      await db.accounts.put(incoming)
+      applied++
+    }
+  }
+
+  // ── Merge vector clocks + apply space settings ────────────────────────────
   const group = await db.groups.get(groupId)
   if (group) {
     const merged = mergeClock(group.vectorClock, delta.vectorClock)
-    await db.groups.update(groupId, { vectorClock: merged, updatedAt: Date.now() })
+    if (delta.group && delta.group.updatedAt > group.updatedAt) {
+      // Accept remote space settings (LWW), but keep local secrets and clocks
+      await db.groups.update(groupId, {
+        name: delta.group.name,
+        avatarColor: delta.group.avatarColor,
+        avatarIcon: delta.group.avatarIcon,
+        currency: delta.group.currency,
+        fiscalYearStart: delta.group.fiscalYearStart,
+        visibility: delta.group.visibility,
+        status: delta.group.status,
+        vectorClock: merged,
+        updatedAt: delta.group.updatedAt,
+      })
+    } else {
+      await db.groups.update(groupId, { vectorClock: merged, updatedAt: Date.now() })
+    }
   }
 
   // ── Admin invariant ───────────────────────────────────────────────────────

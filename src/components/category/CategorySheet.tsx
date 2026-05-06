@@ -30,7 +30,6 @@ const COLOR_OPTIONS = [
 const TYPE_LABELS: Record<TransactionType, string> = {
   expense: 'Expense',
   income: 'Income',
-  transfer: 'Transfer',
 }
 
 interface Props {

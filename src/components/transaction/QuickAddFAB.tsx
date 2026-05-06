@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pin, Plus, RefreshCw, ScanLine } from 'lucide-react'
+import { Clipboard, Pin, Plus, RefreshCw, ScanLine } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
@@ -74,6 +74,10 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrProgress, setOcrProgress] = useState(0)
+  const [ocrRawText, setOcrRawText] = useState('')
+  const [ocrDebugOpen, setOcrDebugOpen] = useState(false)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const categories = useLiveQuery(
@@ -119,6 +123,8 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
     setOcrProgress(0)
     try {
       const text = await extractTextFromImage(file, setOcrProgress)
+      setOcrRawText(text)
+      setOcrDebugOpen(true)
       const parsed = parseReceiptText(text)
       if (parsed.amount != null) setAmountStr(String(parsed.amount))
       if (parsed.note) setNote(parsed.note)
@@ -128,6 +134,24 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       setOcrLoading(false)
       setOcrProgress(0)
     }
+  }
+
+  async function handleClipboardPaste() {
+    try {
+      const text = await navigator.clipboard.readText()
+      applyParsedText(text)
+    } catch {
+      // Permission denied or API unavailable — fall back to manual textarea
+      setPasteOpen(true)
+    }
+  }
+
+  function applyParsedText(text: string) {
+    const parsed = parseReceiptText(text)
+    if (parsed.amount != null) setAmountStr(String(parsed.amount))
+    if (parsed.note) setNote(parsed.note)
+    setPasteOpen(false)
+    setPasteText('')
   }
 
   async function handleSubmit() {
@@ -234,6 +258,17 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={handleClipboardPaste}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-2
+                       text-text-secondary hover:text-text-primary hover:bg-surface-3
+                       transition-colors"
+            title="Paste transaction text"
+          >
+            <Clipboard size={14} />
+            <span className="text-xs">Paste</span>
+          </button>
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={ocrLoading}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-2
@@ -284,6 +319,67 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
               className="h-full rounded-full bg-accent transition-all"
               style={{ width: `${ocrProgress}%` }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* OCR raw text — debug panel (auto-opens after scan) */}
+      {ocrRawText && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setOcrDebugOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2
+                       bg-surface-2 hover:bg-surface-3 transition-colors"
+          >
+            <span className="text-[11px] font-medium text-text-secondary">OCR extracted text</span>
+            <span className="text-[10px] text-text-tertiary">
+              {ocrDebugOpen ? '▲ hide' : '▼ show'}
+            </span>
+          </button>
+          {ocrDebugOpen && (
+            <pre
+              className="px-3 py-2 text-[10px] text-text-tertiary font-mono whitespace-pre-wrap
+                            break-words bg-surface max-h-36 overflow-y-auto leading-relaxed"
+            >
+              {ocrRawText}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* Manual paste fallback */}
+      {pasteOpen && (
+        <div className="flex flex-col gap-2 p-3 rounded-xl bg-surface-2 border border-border">
+          <p className="text-xs text-text-secondary">Paste SMS or UPI text below:</p>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="e.g. Rs.850 debited from A/c XX1234 at Swiggy"
+            rows={3}
+            className="w-full rounded-lg bg-surface-3 border border-border px-3 py-2
+                       text-sm text-text-primary placeholder:text-text-tertiary
+                       focus:outline-none focus:border-accent resize-none"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPasteOpen(false)
+                setPasteText('')
+              }}
+              className="flex-1 py-1.5 rounded-lg bg-surface-3 text-xs text-text-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => applyParsedText(pasteText)}
+              disabled={!pasteText.trim()}
+              className="flex-1 py-1.5 rounded-lg bg-accent text-xs font-medium text-black disabled:opacity-40"
+            >
+              Parse
+            </button>
           </div>
         </div>
       )}

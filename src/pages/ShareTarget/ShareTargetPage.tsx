@@ -57,6 +57,8 @@ export default function ShareTargetPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [ocrProgress, setOcrProgress] = useState(0)
+  const [ocrRawText, setOcrRawText] = useState('')
+  const [ocrDebugOpen, setOcrDebugOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -107,6 +109,7 @@ export default function ShareTargetPage() {
         setPreviewUrl(url)
         await cache.delete('/pending-share')
         const text = await extractTextFromImage(blob, setOcrProgress)
+        setOcrRawText(text)
         const parsed = parseReceiptText(text)
         setAmountStr(parsed.amount != null ? String(parsed.amount) : '')
         setNote(parsed.note)
@@ -224,6 +227,31 @@ export default function ShareTargetPage() {
             alt="Receipt"
             className="w-full h-full object-contain bg-surface-2"
           />
+        </div>
+      )}
+
+      {/* OCR raw text — debug panel */}
+      {ocrRawText && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setOcrDebugOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2
+                       bg-surface-2 hover:bg-surface-3 transition-colors"
+          >
+            <span className="text-[11px] font-medium text-text-secondary">OCR extracted text</span>
+            <span className="text-[10px] text-text-tertiary">
+              {ocrDebugOpen ? '▲ hide' : '▼ show'}
+            </span>
+          </button>
+          {ocrDebugOpen && (
+            <pre
+              className="px-3 py-2 text-[10px] text-text-tertiary font-mono whitespace-pre-wrap
+                            break-words bg-surface max-h-40 overflow-y-auto leading-relaxed"
+            >
+              {ocrRawText}
+            </pre>
+          )}
         </div>
       )}
 

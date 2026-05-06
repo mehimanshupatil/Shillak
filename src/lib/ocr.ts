@@ -70,7 +70,7 @@ function extractAmount(text: string): number | null {
   // biome-ignore lint/suspicious/noAssignInExpressions: regex exec loop
   while ((m = AMOUNT_RE.exec(flat)) !== null) {
     const label = m[1]?.trim() ?? ''
-    const raw = m[2].replace(/,/g, '')
+    const raw = (m[2] ?? '').replace(/,/g, '')
     const value = parseFloat(raw)
     if (Number.isNaN(value) || value <= 0) continue
     let score = 20
@@ -190,7 +190,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   {
     re: /\b(\d{4})[\/\-](\d{2})[\/\-](\d{2})\b/,
     parse: (m) => {
-      const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3])
+      const y = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), d = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
       return Date.UTC(y, mo - 1, d)
     },
@@ -199,7 +199,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   {
     re: /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})\b/,
     parse: (m) => {
-      const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3])
+      const d = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), y = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
       return Date.UTC(y, mo - 1, d)
     },
@@ -208,20 +208,20 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   {
     re: /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,.\s]+(\d{2,4})\b/i,
     parse: (m) => {
-      const mo = MONTH_MAP[m[2].toLowerCase().slice(0, 3)]
+      const mo = MONTH_MAP[(m[2] ?? '').toLowerCase().slice(0, 3)]
       if (mo === undefined) return null
-      const y = expandYear(Number(m[3]))
-      return Date.UTC(y, mo, Number(m[1]))
+      const y = expandYear(Number(m[3] ?? 0))
+      return Date.UTC(y, mo, Number(m[1] ?? 0))
     },
   },
   // "May 5, 2025" or "May 05 26"
   {
     re: /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?[,.\s]+(\d{2,4})\b/i,
     parse: (m) => {
-      const mo = MONTH_MAP[m[1].toLowerCase().slice(0, 3)]
+      const mo = MONTH_MAP[(m[1] ?? '').toLowerCase().slice(0, 3)]
       if (mo === undefined) return null
-      const y = expandYear(Number(m[3]))
-      return Date.UTC(y, mo, Number(m[2]))
+      const y = expandYear(Number(m[3] ?? 0))
+      return Date.UTC(y, mo, Number(m[2] ?? 0))
     },
   },
 ]

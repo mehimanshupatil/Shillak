@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm create:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm outdated:*)",
+      "Bash(ls /Users/himanshupatil/github/Shillak/eslint.config*)",
+      "Bash(pnpm biome:*)",
+      "Bash(pnpm lint:fix)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(grep -oh 'bg-[a-z-]*\\\\|text-[a-z-]*\\\\|border-[a-z-]*\\\\|ring-[a-z-]*\\\\|focus-visible:[a-z:-]*\\\\|aria-invalid:[a-z:-]*' /Users/himanshupatil/github/Shillak/src/components/ui/*.tsxson)",
+      "Bash(pnpm remove:*)",
+      "Bash(printf \"y\\\\nn\\\\n\")",
+      "Bash(printf \"y\\\\ny\\\\n\")",
+      "Bash(pkill -f \"shadcn\")",
+      "Bash(node:*)",
+      "Bash(npx biome:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx tsc:*)",
+      "Bash(npx knip:*)",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__select_page",
+      "mcp__chrome-devtools__resize_page",
+      "Bash(python3:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(xargs cat:*)"
+    ]
+  }
+}

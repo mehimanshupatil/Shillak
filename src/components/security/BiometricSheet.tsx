@@ -1,4 +1,4 @@
-import { Fingerprint } from 'lucide-react'
+import { FingerprintIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -63,7 +63,7 @@ export default function BiometricSheet({ open, onClose, userId }: Props) {
 
         <SheetHeader className="mb-6 text-left px-0">
           <SheetTitle className="flex items-center gap-2 text-lg font-bold text-text-primary">
-            <Fingerprint size={20} className="text-accent" />
+            <FingerprintIcon size={20} className="text-accent" />
             Enable biometric unlock
           </SheetTitle>
           <p className="text-sm text-text-secondary mt-1">

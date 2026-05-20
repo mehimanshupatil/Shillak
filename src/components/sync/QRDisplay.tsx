@@ -2,7 +2,7 @@
  * Full-screen QR code display for easy scanning by another device.
  * White background, maximum size, optional action button and chunk navigation.
  */
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { CaretLeftIcon, CaretRightIcon, XIcon } from '@phosphor-icons/react'
 import QRCode from 'qrcode'
 import { useEffect, useState } from 'react'
 
@@ -49,7 +49,7 @@ export default function QRDisplay({ value, label, onClose, action, chunkNav }: P
           onClick={onClose}
           className="absolute top-12 right-4 w-10 h-10 rounded-full bg-black/10 flex items-center justify-center"
         >
-          <X size={20} className="text-black" />
+          <XIcon size={20} className="text-black" />
         </button>
       )}
 
@@ -82,7 +82,7 @@ export default function QRDisplay({ value, label, onClose, action, chunkNav }: P
             disabled={chunkNav.index === 0}
             className="w-12 h-12 rounded-full bg-black/10 flex items-center justify-center disabled:opacity-30"
           >
-            <ChevronLeft size={22} className="text-black" />
+            <CaretLeftIcon size={22} className="text-black" />
           </button>
           <span className="text-base font-semibold text-black">
             {chunkNav.index + 1} / {chunkNav.total}
@@ -93,7 +93,7 @@ export default function QRDisplay({ value, label, onClose, action, chunkNav }: P
             disabled={chunkNav.index === chunkNav.total - 1}
             className="w-12 h-12 rounded-full bg-black/10 flex items-center justify-center disabled:opacity-30"
           >
-            <ChevronRight size={22} className="text-black" />
+            <CaretRightIcon size={22} className="text-black" />
           </button>
         </div>
       )}

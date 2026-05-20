@@ -96,9 +96,9 @@ export async function extractTextFromImage(
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ParsedReceipt {
-  amount: number | null      // rupees (float), not paise
-  note: string               // merchant name, normalized
-  date: number | null        // unix ms midnight UTC, or null if not found
+  amount: number | null // rupees (float), not paise
+  note: string // merchant name, normalized
+  date: number | null // unix ms midnight UTC, or null if not found
   categoryHint: string | null // category name suggestion, or null
 }
 
@@ -106,7 +106,7 @@ export interface ParsedReceipt {
 
 interface CandidateAmount {
   value: number
-  score: number  // higher = more likely the correct total
+  score: number // higher = more likely the correct total
 }
 
 /**
@@ -127,10 +127,12 @@ function extractAmount(text: string): number | null {
   // Preserve newlines for line-context matching
   const lined = text
 
-  const HIGH_TOTAL = /total\s*amount|grand\s*total|net\s*payable|amount\s*payable|total\s*bill|bill\s*total|final\s*amount|payable\s*amount/i
+  const HIGH_TOTAL =
+    /total\s*amount|grand\s*total|net\s*payable|amount\s*payable|total\s*bill|bill\s*total|final\s*amount|payable\s*amount/i
   const MED_TOTAL = /\btotal\b|bill\s*amount|net\s*amount|\bpayable\b/i
   const LOW_LABEL = /\bamount\b|\bpaid\b|\bdebited\b|\bsent\b|\bspent\b|\bcharged\b/i
-  const NOISE_LABEL = /subtotal|tax\b|gst|sgst|cgst|igst|discount|tip\b|delivery\s*fee|convenience\s*fee|platform\s*fee|handling\s*fee/i
+  const NOISE_LABEL =
+    /subtotal|tax\b|gst|sgst|cgst|igst|discount|tip\b|delivery\s*fee|convenience\s*fee|platform\s*fee|handling\s*fee/i
 
   const candidates: CandidateAmount[] = []
 
@@ -218,14 +220,14 @@ function normalizeMerchant(raw: string): string {
   // UPI VPA: take part before @
   name = name.replace(/@[A-Za-z0-9]+$/, '').trim()
   // Strip legal suffixes
-  name = name.replace(/\b(pvt\.?\s*ltd\.?|private\s+limited|limited|llp|inc\.?|corp\.?)\b/gi, '').trim()
+  name = name
+    .replace(/\b(pvt\.?\s*ltd\.?|private\s+limited|limited|llp|inc\.?|corp\.?)\b/gi, '')
+    .trim()
   // Strip trailing punctuation
   name = name.replace(/[.,\-|:;]+$/, '').trim()
   // Title-case if all-caps
   if (name === name.toUpperCase() && name.length > 2) {
-    name = name
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase())
+    name = name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
   }
   return name
 }
@@ -246,8 +248,18 @@ function extractMerchant(rawText: string): string {
 // ─── Date extraction ──────────────────────────────────────────────────────────
 
 const MONTH_MAP: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
 }
 
 /** Expand a year that might be 2-digit (e.g. "26" → 2026). */
@@ -262,7 +274,9 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   {
     re: /\b(\d{4})[/-](\d{2})[/-](\d{2})\b/,
     parse: (m) => {
-      const y = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), d = Number(m[3] ?? 0)
+      const y = Number(m[1] ?? 0),
+        mo = Number(m[2] ?? 0),
+        d = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
       return Date.UTC(y, mo - 1, d)
     },
@@ -271,7 +285,9 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
   {
     re: /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/,
     parse: (m) => {
-      const d = Number(m[1] ?? 0), mo = Number(m[2] ?? 0), y = Number(m[3] ?? 0)
+      const d = Number(m[1] ?? 0),
+        mo = Number(m[2] ?? 0),
+        y = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
       return Date.UTC(y, mo - 1, d)
     },
@@ -324,20 +340,224 @@ function inferCategoryHint(merchant: string, rawText: string): string | null {
   const ctx = `${merchant} ${rawText}`.toLowerCase()
 
   const rules: Array<{ keywords: string[]; category: string }> = [
-    { keywords: ['swiggy', 'zomato', 'eatsure', 'foodpanda', 'restaurant', 'cafe', 'dhaba', 'hotel food', 'biryani', 'pizza', 'burger', 'kfc', 'mcdonald', 'domino', 'subway', 'starbucks'], category: 'Dining' },
-    { keywords: ['bigbasket', 'blinkit', 'grofers', 'jiomart', 'dmart', 'reliance fresh', 'more supermarket', 'grocery', 'vegetables', 'fruits', 'kirana'], category: 'Groceries' },
-    { keywords: ['uber', 'ola', 'rapido', 'metro', 'irctc', 'railway', 'bus ticket', 'airport', 'flight', 'indigo', 'airindia', 'spicejet', 'toll', 'fuel', 'petrol', 'diesel'], category: 'Transport' },
-    { keywords: ['petrol', 'diesel', 'hpcl', 'bpcl', 'iocl', 'indian oil', 'shell', 'fuel station', 'gas station'], category: 'Fuel' },
-    { keywords: ['amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'snapdeal', 'clothing', 'apparel', 'fashion', 'shoes', 'shopping mall', 'retail'], category: 'Shopping' },
-    { keywords: ['doctor', 'hospital', 'clinic', 'pharmacy', 'medplus', 'apollo pharmacy', 'netmeds', '1mg', 'pharmeasy', 'diagnostic', 'lab test', 'pathology', 'medicine'], category: 'Health' },
-    { keywords: ['netflix', 'hotstar', 'prime video', 'spotify', 'youtube premium', 'bookmyshow', 'pvr', 'inox', 'cinema', 'movie', 'concert', 'game'], category: 'Entertainment' },
-    { keywords: ['electricity', 'bescom', 'msedcl', 'tata power', 'adani electricity', 'water bill', 'gas bill', 'broadband', 'jio', 'airtel', 'bsnl', 'vi ', 'vodafone', 'recharge', 'mobile bill', 'wifi'], category: 'Utilities' },
-    { keywords: ['emi', 'loan', 'home loan', 'car loan', 'personal loan', 'credit card bill', 'credit card payment', 'iciciprulife', 'hdfc loan'], category: 'EMI' },
-    { keywords: ['lic', 'insurance premium', 'term plan', 'health insurance', 'general insurance', 'star health', 'bajaj allianz', 'icici lombard'], category: 'Insurance' },
-    { keywords: ['school fee', 'college fee', 'tuition', 'coaching', 'udemy', 'coursera', 'byju', 'unacademy', 'books', 'stationery'], category: 'Education' },
-    { keywords: ['salon', 'spa', 'parlour', 'parlor', 'haircut', 'beauty', 'grooming', 'personal care'], category: 'Personal Care' },
-    { keywords: ['rent', 'house rent', 'flat rent', 'apartment', 'pg rent', 'hostel rent'], category: 'Rent' },
-    { keywords: ['plumber', 'electrician', 'carpenter', 'maid', 'cook', 'repair', 'maintenance', 'housekeeping'], category: 'Household' },
+    {
+      keywords: [
+        'swiggy',
+        'zomato',
+        'eatsure',
+        'foodpanda',
+        'restaurant',
+        'cafe',
+        'dhaba',
+        'hotel food',
+        'biryani',
+        'pizza',
+        'burger',
+        'kfc',
+        'mcdonald',
+        'domino',
+        'subway',
+        'starbucks',
+      ],
+      category: 'Dining',
+    },
+    {
+      keywords: [
+        'bigbasket',
+        'blinkit',
+        'grofers',
+        'jiomart',
+        'dmart',
+        'reliance fresh',
+        'more supermarket',
+        'grocery',
+        'vegetables',
+        'fruits',
+        'kirana',
+      ],
+      category: 'Groceries',
+    },
+    {
+      keywords: [
+        'uber',
+        'ola',
+        'rapido',
+        'metro',
+        'irctc',
+        'railway',
+        'bus ticket',
+        'airport',
+        'flight',
+        'indigo',
+        'airindia',
+        'spicejet',
+        'toll',
+        'fuel',
+        'petrol',
+        'diesel',
+      ],
+      category: 'Transport',
+    },
+    {
+      keywords: [
+        'petrol',
+        'diesel',
+        'hpcl',
+        'bpcl',
+        'iocl',
+        'indian oil',
+        'shell',
+        'fuel station',
+        'gas station',
+      ],
+      category: 'Fuel',
+    },
+    {
+      keywords: [
+        'amazon',
+        'flipkart',
+        'myntra',
+        'ajio',
+        'nykaa',
+        'meesho',
+        'snapdeal',
+        'clothing',
+        'apparel',
+        'fashion',
+        'shoes',
+        'shopping mall',
+        'retail',
+      ],
+      category: 'Shopping',
+    },
+    {
+      keywords: [
+        'doctor',
+        'hospital',
+        'clinic',
+        'pharmacy',
+        'medplus',
+        'apollo pharmacy',
+        'netmeds',
+        '1mg',
+        'pharmeasy',
+        'diagnostic',
+        'lab test',
+        'pathology',
+        'medicine',
+      ],
+      category: 'Health',
+    },
+    {
+      keywords: [
+        'netflix',
+        'hotstar',
+        'prime video',
+        'spotify',
+        'youtube premium',
+        'bookmyshow',
+        'pvr',
+        'inox',
+        'cinema',
+        'movie',
+        'concert',
+        'game',
+      ],
+      category: 'Entertainment',
+    },
+    {
+      keywords: [
+        'electricity',
+        'bescom',
+        'msedcl',
+        'tata power',
+        'adani electricity',
+        'water bill',
+        'gas bill',
+        'broadband',
+        'jio',
+        'airtel',
+        'bsnl',
+        'vi ',
+        'vodafone',
+        'recharge',
+        'mobile bill',
+        'wifi',
+      ],
+      category: 'Utilities',
+    },
+    {
+      keywords: [
+        'emi',
+        'loan',
+        'home loan',
+        'car loan',
+        'personal loan',
+        'credit card bill',
+        'credit card payment',
+        'iciciprulife',
+        'hdfc loan',
+      ],
+      category: 'EMI',
+    },
+    {
+      keywords: [
+        'lic',
+        'insurance premium',
+        'term plan',
+        'health insurance',
+        'general insurance',
+        'star health',
+        'bajaj allianz',
+        'icici lombard',
+      ],
+      category: 'Insurance',
+    },
+    {
+      keywords: [
+        'school fee',
+        'college fee',
+        'tuition',
+        'coaching',
+        'udemy',
+        'coursera',
+        'byju',
+        'unacademy',
+        'books',
+        'stationery',
+      ],
+      category: 'Education',
+    },
+    {
+      keywords: [
+        'salon',
+        'spa',
+        'parlour',
+        'parlor',
+        'haircut',
+        'beauty',
+        'grooming',
+        'personal care',
+      ],
+      category: 'Personal Care',
+    },
+    {
+      keywords: ['rent', 'house rent', 'flat rent', 'apartment', 'pg rent', 'hostel rent'],
+      category: 'Rent',
+    },
+    {
+      keywords: [
+        'plumber',
+        'electrician',
+        'carpenter',
+        'maid',
+        'cook',
+        'repair',
+        'maintenance',
+        'housekeeping',
+      ],
+      category: 'Household',
+    },
   ]
 
   for (const { keywords, category } of rules) {

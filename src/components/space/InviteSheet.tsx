@@ -4,7 +4,7 @@
  * QR contains space info + group_secret + HMAC signature.
  * Valid for 24 hours.
  */
-import { QrCode } from 'lucide-react'
+import { QrCodeIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import QRDisplay from '@/components/sync/QRDisplay'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -90,7 +90,7 @@ export default function InviteSheet({ open, onClose, groupId, userId }: Props) {
                          bg-white border border-border active:opacity-80 transition-opacity"
             >
               {/* Mini QR preview — tapping opens full-screen */}
-              <QrCode size={80} className="text-black" />
+              <QrCodeIcon size={80} className="text-black" />
               <p className="text-xs text-text-tertiary">Tap to show full-screen QR</p>
             </button>
           )}

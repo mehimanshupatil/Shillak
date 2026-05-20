@@ -1,5 +1,5 @@
+import { CircleNotchIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -202,7 +202,7 @@ export default function ShareTargetPage() {
       {ocrStatus === 'loading' && (
         <div className="rounded-xl bg-surface-2 border border-border p-4 flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <Loader2 size={14} className="text-accent animate-spin" />
+            <CircleNotchIcon size={14} className="text-accent animate-spin" />
             <span className="text-xs text-text-secondary">Scanning receipt with OCR…</span>
           </div>
           <div className="h-1.5 rounded-full bg-surface-3">

@@ -256,5 +256,4 @@ pnpm lint      # biome lint
 ## Status
 
 Phases 1–4 complete. Remaining:
-- ⬜ Space sync key rotation (Settings → Security → "Rotate sync key")
 - ⬜ Biometric unlock (WebAuthn as PIN shortcut)

@@ -91,7 +91,6 @@ export async function unlockWithBiometric(ks: KeystoreRecord): Promise<CryptoKey
 
   const challenge = crypto.getRandomValues(new Uint8Array(32))
 
-  // biome-ignore lint/suspicious/noExplicitAny: PRF extension not yet in TS DOM types
   const assertion = (await navigator.credentials.get({
     publicKey: {
       challenge,

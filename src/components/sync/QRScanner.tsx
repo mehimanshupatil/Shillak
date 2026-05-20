@@ -1,5 +1,5 @@
 /**
- * Camera QR scanner — getUserMedia + jsQR.
+ * CameraIcon QR scanner — getUserMedia + jsQR.
  * Full control over video element; no library injecting DOM or fighting CSS.
  * Calls onScan(result) once per unique decoded value (2 s debounce).
  * Calls onError if camera permission denied or getUserMedia unavailable.
@@ -7,8 +7,9 @@
  * Also renders a "Paste code" fallback input for when the in-app camera
  * can't scan but the device's native camera app can.
  */
+
+import { CheckIcon, ClipboardTextIcon, XIcon } from '@phosphor-icons/react'
 import jsQR from 'jsqr'
-import { Check, ClipboardPaste, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 export interface ScanProgress {
@@ -135,7 +136,7 @@ export default function QRScanner({ onScan, onError, onClose, active = true, pro
         </div>
       )}
 
-      {/* Scan zone — corner brackets */}
+      {/* ScanIcon zone — corner brackets */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative w-52 h-52">
           <span className="absolute top-0 left-0 w-10 h-10 border-t-[3px] border-l-[3px] border-accent rounded-tl" />
@@ -187,7 +188,7 @@ export default function QRScanner({ onScan, onError, onClose, active = true, pro
                         : 'bg-white/10 text-white/50'
                   }`}
                 >
-                  {progress.collected.has(i) ? <Check size={13} /> : i + 1}
+                  {progress.collected.has(i) ? <CheckIcon size={13} /> : i + 1}
                 </div>
               ))}
             </div>
@@ -205,14 +206,14 @@ export default function QRScanner({ onScan, onError, onClose, active = true, pro
               onClick={() => setShowPaste(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/80 text-xs"
             >
-              <ClipboardPaste size={14} />
+              <ClipboardTextIcon size={14} />
               Paste code manually
             </button>
           </>
         ) : (
           <div className="w-full flex flex-col gap-2">
             <p className="text-xs text-white/60 text-center">
-              Scan QR with your camera app, copy the text, paste here
+              ScanIcon QR with your camera app, copy the text, paste here
             </p>
             <div className="flex gap-2">
               <textarea
@@ -266,7 +267,7 @@ export default function QRScanner({ onScan, onError, onClose, active = true, pro
           onClick={onClose}
           className="absolute top-12 right-4 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white"
         >
-          <X size={20} />
+          <XIcon size={20} />
         </button>
       )}
     </div>

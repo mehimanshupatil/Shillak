@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Group } from '@/db/schema'
 import { CURRENCIES, MONTHS } from '@/lib/constants'
@@ -19,6 +20,7 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
   const [avatarIcon, setAvatarIcon] = useState<string | undefined>(group.avatarIcon)
   const [currency, setCurrency] = useState(group.currency)
   const [fiscalMonth, setFiscalMonth] = useState(group.fiscalYearStart)
+  const [totalsOnly, setTotalsOnly] = useState(group.visibility === 'totals_only')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -28,6 +30,7 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
       setAvatarIcon(group.avatarIcon)
       setCurrency(group.currency)
       setFiscalMonth(group.fiscalYearStart)
+      setTotalsOnly(group.visibility === 'totals_only')
       setError('')
     }
   }, [open, group])
@@ -45,6 +48,7 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
         avatarIcon,
         currency,
         fiscalYearStart: fiscalMonth,
+        visibility: totalsOnly ? 'totals_only' : 'full',
         updatedAt: Date.now(),
       })
       onClose()
@@ -139,6 +143,21 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Visibility */}
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Totals-only mode</p>
+              <p className="text-xs text-text-tertiary mt-0.5">
+                Members see household totals only, not each other's individual transactions
+              </p>
+            </div>
+            <Switch
+              checked={totalsOnly}
+              onCheckedChange={setTotalsOnly}
+              aria-label="Totals-only mode"
+            />
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

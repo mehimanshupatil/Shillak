@@ -1,19 +1,43 @@
+import { PaperclipIcon, XIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
-import { parseDateStr, toPaise } from '@/lib/utils'
+import { generateId, parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+import { incrementVectorClock } from '@/sync/vector-clock'
 
 interface Props {
   open: boolean
   onClose: () => void
   transaction: Transaction | null
   currency: string
+}
+
+type PendingAttachment = { mimeType: string; data: string; sizeBytes: number }
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function checkQuota(): Promise<{ blocked: boolean; warn: boolean }> {
+  try {
+    const { usage, quota } = await navigator.storage.estimate()
+    if (!quota || quota === 0) return { blocked: false, warn: false }
+    const pct = (usage ?? 0) / quota
+    return { blocked: pct >= 0.9, warn: pct >= 0.8 }
+  } catch {
+    return { blocked: false, warn: false }
+  }
 }
 
 export default function TransactionEditSheet({ open, onClose, transaction, currency }: Props) {
@@ -26,8 +50,14 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [paidBy, setPaidBy] = useState<string | null>(null)
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
+  const [toDelete, setToDelete] = useState<string[]>([])
+  const [newAttachments, setNewAttachments] = useState<PendingAttachment[]>([])
+  const [attachmentWarn, setAttachmentWarn] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
 
   const categories = useLiveQuery(
     () =>
@@ -59,6 +89,11 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
     )
   }, [members])
 
+  const existingAttachments = useLiveQuery(
+    () => (transaction ? db.attachments.where((a) => a.txnId === transaction.txnId) : []),
+    [transaction?.txnId],
+  )
+
   useEffect(() => {
     if (open && transaction) {
       setAmountStr((transaction.amount / 100).toFixed(2))
@@ -66,6 +101,11 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       setSelectedCatId(transaction.categoryId)
       setSelectedAccountId(transaction.accountId ?? null)
       setPaidBy(transaction.paidBy ?? null)
+      setTags(transaction.tags ?? [])
+      setTagInput('')
+      setToDelete([])
+      setNewAttachments([])
+      setAttachmentWarn('')
       setError('')
       const d = new Date(transaction.date)
       setDateStr(
@@ -73,6 +113,43 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       )
     }
   }, [open, transaction])
+
+  function addTag() {
+    const t = tagInput
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '')
+    if (t && !tags.includes(t) && tags.length < 10) setTags([...tags, t])
+    setTagInput('')
+  }
+
+  async function handleAttachmentPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length) return
+
+    setAttachmentWarn('')
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Attachment too large (max 5 MB each)')
+        return
+      }
+    }
+
+    const { blocked, warn } = await checkQuota()
+    if (blocked) {
+      setError('Storage above 90% — attachment uploads blocked.')
+      return
+    }
+    if (warn) setAttachmentWarn('Storage above 80% — uploading anyway.')
+
+    const newAtts: PendingAttachment[] = []
+    for (const file of files) {
+      const data = await fileToBase64(file)
+      newAtts.push({ mimeType: file.type, data, sizeBytes: file.size })
+    }
+    setNewAttachments((prev) => [...prev, ...newAtts])
+  }
 
   async function handleSave() {
     if (!transaction) return
@@ -89,6 +166,36 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
     setError('')
     try {
       const date = parseDateStr(dateStr)
+
+      // Delete removed attachments
+      for (const id of toDelete) {
+        await db.attachments.delete(id)
+      }
+
+      // Save new attachments
+      const newIds: string[] = []
+      for (const att of newAttachments) {
+        const attachmentId = generateId()
+        await db.attachments.put({
+          attachmentId,
+          groupId: transaction.groupId,
+          txnId: transaction.txnId,
+          mimeType: att.mimeType,
+          data: att.data,
+          sizeBytes: att.sizeBytes,
+          createdAt: Date.now(),
+        })
+        newIds.push(attachmentId)
+      }
+
+      const remainingIds = (existingAttachments ?? [])
+        .filter((a) => !toDelete.includes(a.attachmentId))
+        .map((a) => a.attachmentId)
+
+      const newSeq =
+        activeGroupId && currentUserId
+          ? await incrementVectorClock(activeGroupId, currentUserId)
+          : undefined
       await db.transactions.update(transaction.txnId, {
         amount: toPaise(amount),
         categoryId: selectedCatId,
@@ -96,7 +203,10 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
         date,
         accountId: selectedAccountId,
         paidBy: paidBy ?? currentUserId,
+        tags,
+        attachmentIds: [...remainingIds, ...newIds],
         updatedAt: Date.now(),
+        ...(newSeq !== undefined && { authorSeq: newSeq }),
       })
       onClose()
     } catch (e) {
@@ -107,6 +217,10 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
   }
 
   const currencySymbol = currency === 'INR' ? '₹' : currency
+
+  const visibleExisting = (existingAttachments ?? []).filter(
+    (a) => !toDelete.includes(a.attachmentId),
+  )
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -200,6 +314,126 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                        text-text-primary placeholder:text-text-tertiary
                        focus-visible:border-accent focus-visible:ring-accent/20"
           />
+
+          {/* Tags */}
+          <div>
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+              Tags
+            </p>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-2
+                               text-xs text-text-secondary"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => setTags(tags.filter((t) => t !== tag))}
+                      aria-label={`Remove ${tag}`}
+                    >
+                      <XIcon size={9} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <Input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault()
+                  addTag()
+                }
+              }}
+              onBlur={addTag}
+              placeholder="Add tag, press Enter"
+              className="h-9 rounded-xl bg-surface-2 border-border text-sm
+                         text-text-primary placeholder:text-text-tertiary
+                         focus-visible:border-accent focus-visible:ring-accent/20"
+            />
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Attachments
+              </p>
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                className="flex items-center gap-1 text-xs text-accent"
+              >
+                <PaperclipIcon size={11} />
+                Add
+              </button>
+            </div>
+            {(visibleExisting.length > 0 || newAttachments.length > 0) && (
+              <div className="flex gap-2 flex-wrap">
+                {visibleExisting.map((att) => (
+                  <div
+                    key={att.attachmentId}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden bg-surface-2 border border-border"
+                  >
+                    {att.mimeType.startsWith('image/') ? (
+                      <img
+                        src={`data:${att.mimeType};base64,${att.data}`}
+                        alt="attachment"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <PaperclipIcon size={20} className="text-text-tertiary" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setToDelete((prev) => [...prev, att.attachmentId])}
+                      className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
+                                 flex items-center justify-center"
+                    >
+                      <XIcon size={8} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+                {newAttachments.map((att, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: append-only list, index is stable
+                    key={i}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden bg-surface-2 border border-border"
+                  >
+                    {att.mimeType.startsWith('image/') ? (
+                      <img
+                        src={`data:${att.mimeType};base64,${att.data}`}
+                        alt="new attachment"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <PaperclipIcon size={20} className="text-text-tertiary" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                      className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
+                                 flex items-center justify-center"
+                    >
+                      <XIcon size={8} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachmentWarn && <p className="text-xs text-warning mt-1">{attachmentWarn}</p>}
+          </div>
 
           {/* Paid by — only when multiple members */}
           {(members ?? []).length > 1 && (
@@ -296,6 +530,15 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
           </Button>
         </div>
       </SheetContent>
+
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        onChange={handleAttachmentPick}
+        className="hidden"
+      />
     </Sheet>
   )
 }

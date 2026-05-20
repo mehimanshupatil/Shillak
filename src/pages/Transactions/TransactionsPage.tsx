@@ -1,5 +1,12 @@
+import {
+  EyeSlashIcon,
+  MagnifyingGlassIcon,
+  PencilIcon,
+  SlidersHorizontalIcon,
+  TrashIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pencil, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import QuickAddFAB from '@/components/transaction/QuickAddFAB'
 import TransactionEditSheet from '@/components/transaction/TransactionEditSheet'
@@ -10,6 +17,7 @@ import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
 import { formatCurrency, relativeDate } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+import { incrementVectorClock } from '@/sync/vector-clock'
 
 type TypeFilter = 'all' | 'expense' | 'income'
 
@@ -17,12 +25,14 @@ const SWIPE_THRESHOLD = 72 // px
 
 export default function TransactionsPage() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
+  const currentUserId = useAppStore((s) => s.currentUserId)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [memberFilter, setMemberFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editTxn, setEditTxn] = useState<Transaction | null>(null)
   const [editSheetOpen, setEditSheetOpen] = useState(false)
@@ -68,6 +78,8 @@ export default function TransactionsPage() {
     return m
   }, [users])
 
+  const totalsOnly = (group?.visibility ?? 'full') === 'totals_only'
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     const fromMs = dateFrom ? new Date(dateFrom).getTime() : null
@@ -75,11 +87,13 @@ export default function TransactionsPage() {
 
     return (transactions ?? [])
       .filter((t) => {
+        if (totalsOnly && t.ownerId !== currentUserId) return false
         if (typeFilter !== 'all' && t.type !== typeFilter) return false
         if (categoryFilter && t.categoryId !== categoryFilter) return false
         if (memberFilter && t.ownerId !== memberFilter) return false
         if (fromMs !== null && t.date < fromMs) return false
         if (toMs !== null && t.date > toMs) return false
+        if (tagFilter && !t.tags.includes(tagFilter.toLowerCase())) return false
         if (q) {
           const cat = catMap[t.categoryId]
           if (!t.note.toLowerCase().includes(q) && !(cat?.name.toLowerCase().includes(q) ?? false))
@@ -88,7 +102,19 @@ export default function TransactionsPage() {
         return true
       })
       .sort((a, b) => b.date - a.date)
-  }, [transactions, search, typeFilter, categoryFilter, memberFilter, dateFrom, dateTo, catMap])
+  }, [
+    transactions,
+    search,
+    typeFilter,
+    categoryFilter,
+    memberFilter,
+    dateFrom,
+    dateTo,
+    catMap,
+    totalsOnly,
+    currentUserId,
+    tagFilter,
+  ])
 
   const grouped = useMemo(() => {
     const groups: Record<string, Transaction[]> = {}
@@ -103,7 +129,12 @@ export default function TransactionsPage() {
   const currency = group?.currency ?? 'INR'
 
   const hasActiveFilters =
-    !!categoryFilter || !!memberFilter || !!dateFrom || !!dateTo || typeFilter !== 'all'
+    !!categoryFilter ||
+    !!memberFilter ||
+    !!dateFrom ||
+    !!dateTo ||
+    typeFilter !== 'all' ||
+    !!tagFilter
 
   function clearFilters() {
     setCategoryFilter('')
@@ -111,10 +142,17 @@ export default function TransactionsPage() {
     setDateFrom('')
     setDateTo('')
     setTypeFilter('all')
+    setTagFilter('')
   }
 
   async function handleSoftDelete(txnId: string) {
-    await db.transactions.update(txnId, { deletedAt: Date.now(), updatedAt: Date.now() })
+    if (!activeGroupId || !currentUserId) return
+    const newSeq = await incrementVectorClock(activeGroupId, currentUserId)
+    await db.transactions.update(txnId, {
+      deletedAt: Date.now(),
+      updatedAt: Date.now(),
+      authorSeq: newSeq,
+    })
   }
 
   function openEdit(txn: Transaction) {
@@ -135,7 +173,7 @@ export default function TransactionsPage() {
               hasActiveFilters ? 'bg-accent text-black' : 'bg-surface text-text-secondary'
             }`}
           >
-            <SlidersHorizontal size={12} />
+            <SlidersHorizontalIcon size={12} />
             Filter
             {hasActiveFilters && (
               <span className="ml-0.5 w-4 h-4 rounded-full bg-black/20 flex items-center justify-center text-[10px]">
@@ -148,7 +186,7 @@ export default function TransactionsPage() {
 
         {/* Search */}
         <div className="relative">
-          <Search
+          <MagnifyingGlassIcon
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary z-10"
           />
@@ -190,7 +228,7 @@ export default function TransactionsPage() {
               onClick={clearFilters}
               className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-danger bg-danger/10"
             >
-              <X size={10} />
+              <XIcon size={10} />
               Clear
             </button>
           )}
@@ -244,6 +282,19 @@ export default function TransactionsPage() {
               </div>
             )}
 
+            {/* Tag */}
+            <div>
+              <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">Tag</p>
+              <Input
+                type="text"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value.toLowerCase())}
+                placeholder="Filter by tag"
+                className="h-9 px-3 rounded-lg bg-surface-2 border border-border
+                           text-sm text-text-primary focus-visible:border-accent focus-visible:ring-accent/20"
+              />
+            </div>
+
             {/* Date range */}
             <div className="flex gap-2">
               <div className="flex-1">
@@ -272,6 +323,16 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
+
+      {/* Totals-only notice */}
+      {totalsOnly && (
+        <div className="mx-4 mb-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
+          <EyeSlashIcon size={13} className="text-text-tertiary shrink-0" />
+          <p className="text-xs text-text-tertiary">
+            Totals-only mode — showing your transactions only
+          </p>
+        </div>
+      )}
 
       {/* Count */}
       {filtered.length > 0 && (
@@ -315,6 +376,18 @@ export default function TransactionsPage() {
                           {txn.note && (
                             <p className="text-xs text-text-tertiary truncate">{txn.note}</p>
                           )}
+                          {txn.tags.length > 0 && (
+                            <div className="flex gap-1 mt-0.5 flex-wrap">
+                              {txn.tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-[10px] text-text-tertiary bg-surface-2 px-1.5 rounded-full"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <span
                           className={`text-sm font-mono font-semibold shrink-0 ${
@@ -330,7 +403,7 @@ export default function TransactionsPage() {
                           onClick={() => openEdit(txn)}
                           className="text-text-tertiary hover:text-text-primary shrink-0"
                         >
-                          <Pencil size={13} />
+                          <PencilIcon size={13} />
                         </Button>
                         <Button
                           variant="ghost"
@@ -338,7 +411,7 @@ export default function TransactionsPage() {
                           onClick={() => handleSoftDelete(txn.txnId)}
                           className="text-text-tertiary hover:text-danger hover:bg-danger/10 shrink-0"
                         >
-                          <Trash2 size={13} />
+                          <TrashIcon size={13} />
                         </Button>
                       </div>
                     </SwipeCard>
@@ -416,7 +489,7 @@ function SwipeCard({
         className="absolute inset-y-0 right-0 flex items-center justify-end px-4 rounded-xl bg-danger/15"
         style={{ width: Math.abs(Math.min(dx, 0)) || (showDelete ? 1 : 0) }}
       >
-        <Trash2 size={16} className="text-danger" />
+        <TrashIcon size={16} className="text-danger" />
       </div>
 
       {/* Edit hint (right swipe reveals left side) */}
@@ -424,7 +497,7 @@ function SwipeCard({
         className="absolute inset-y-0 left-0 flex items-center justify-start px-4 rounded-xl bg-accent/15"
         style={{ width: Math.max(dx, 0) || (showEdit ? 1 : 0) }}
       >
-        <Pencil size={16} className="text-accent" />
+        <PencilIcon size={16} className="text-accent" />
       </div>
 
       {/* Card content */}

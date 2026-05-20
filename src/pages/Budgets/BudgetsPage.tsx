@@ -1,13 +1,13 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Plus,
-  Target,
-  Trash2,
-} from 'lucide-react'
+  CaretLeftIcon,
+  CaretRightIcon,
+  PencilIcon,
+  PlusIcon,
+  TargetIcon,
+  Trash,
+  WarningIcon,
+} from '@phosphor-icons/react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import BudgetSheet from '@/components/budget/BudgetSheet'
 import GoalSheet from '@/components/budget/GoalSheet'
@@ -270,7 +270,7 @@ export default function BudgetsPage() {
             onClick={prevPeriod}
             className="text-text-secondary"
           >
-            <ChevronLeft size={18} />
+            <CaretLeftIcon size={18} />
           </Button>
           <span className="flex-1 text-center text-sm font-medium text-text-primary">
             {periodLabel}
@@ -282,7 +282,7 @@ export default function BudgetsPage() {
             disabled={isNavAtCurrent}
             className="text-text-secondary"
           >
-            <ChevronRight size={18} />
+            <CaretRightIcon size={18} />
           </Button>
         </div>
       </div>
@@ -328,7 +328,7 @@ export default function BudgetsPage() {
                   over ? 'bg-danger/10' : 'bg-warning/10'
                 }`}
               >
-                <AlertTriangle size={13} className={over ? 'text-danger' : 'text-warning'} />
+                <WarningIcon size={13} className={over ? 'text-danger' : 'text-warning'} />
                 <span className={`text-xs flex-1 ${over ? 'text-danger' : 'text-warning'}`}>
                   {cat?.name ?? 'Unknown'} —{' '}
                   {over
@@ -356,7 +356,7 @@ export default function BudgetsPage() {
             }}
             className="h-7 rounded-full"
           >
-            <Plus size={12} />
+            <PlusIcon size={12} />
             Add
           </Button>
         </div>
@@ -402,7 +402,7 @@ export default function BudgetsPage() {
                       }}
                       className="text-text-tertiary hover:text-text-primary"
                     >
-                      <Pencil size={13} />
+                      <PencilIcon size={13} />
                     </Button>
                     <Button
                       variant="ghost"
@@ -410,7 +410,7 @@ export default function BudgetsPage() {
                       onClick={() => handleDeleteBudget(budget.budgetId)}
                       className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                     >
-                      <Trash2 size={13} />
+                      <Trash size={13} />
                     </Button>
                   </div>
                   <div className="h-1.5 rounded-full bg-surface-2">
@@ -460,7 +460,7 @@ export default function BudgetsPage() {
             }}
             className="h-7 rounded-full"
           >
-            <Plus size={12} />
+            <PlusIcon size={12} />
             Add
           </Button>
         </div>
@@ -479,7 +479,7 @@ export default function BudgetsPage() {
 
         {(goals ?? []).length === 0 ? (
           <div className="py-8 text-center">
-            <Target size={32} className="mx-auto text-text-tertiary mb-2" />
+            <TargetIcon size={32} className="mx-auto text-text-tertiary mb-2" />
             <p className="text-sm text-text-tertiary">No savings goals yet.</p>
             <p className="text-xs text-text-tertiary mt-1">Set a target and track your progress.</p>
           </div>
@@ -519,7 +519,7 @@ export default function BudgetsPage() {
                         }}
                         className="text-text-tertiary hover:text-text-primary"
                       >
-                        <Pencil size={13} />
+                        <PencilIcon size={13} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -527,7 +527,7 @@ export default function BudgetsPage() {
                         onClick={() => handleDeleteGoal(goal.goalId)}
                         className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                       >
-                        <Trash2 size={13} />
+                        <Trash size={13} />
                       </Button>
                     </div>
                   </div>

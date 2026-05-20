@@ -1,5 +1,5 @@
+import { PlusIcon, QrCodeIcon, UsersIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Plus, QrCode, Users } from 'lucide-react'
 import { useState } from 'react'
 import QRScanner from '@/components/sync/QRScanner'
 import { Avatar } from '@/components/ui/Avatar'
@@ -95,7 +95,7 @@ export default function SpaceSwitcher() {
           className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full
                      bg-surface-2 text-text-secondary"
         >
-          <Plus size={14} />
+          <PlusIcon size={14} />
         </button>
       </div>
 
@@ -139,7 +139,7 @@ export default function SpaceSwitcher() {
                              flex items-start gap-4 text-left"
                 >
                   <div className="w-10 h-10 rounded-xl bg-accent-subtle flex items-center justify-center shrink-0">
-                    <Users size={20} className="text-accent" />
+                    <UsersIcon size={20} className="text-accent" />
                   </div>
                   <div>
                     <p className="font-semibold text-text-primary">Create new space</p>
@@ -160,12 +160,12 @@ export default function SpaceSwitcher() {
                              flex items-start gap-4 text-left"
                 >
                   <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
-                    <QrCode size={20} className="text-text-secondary" />
+                    <QrCodeIcon size={20} className="text-text-secondary" />
                   </div>
                   <div>
                     <p className="font-semibold text-text-primary">Join existing space</p>
                     <p className="text-sm text-text-secondary mt-0.5">
-                      Scan an invite QR from the space admin.
+                      ScanIcon an invite QR from the space admin.
                     </p>
                   </div>
                 </Button>

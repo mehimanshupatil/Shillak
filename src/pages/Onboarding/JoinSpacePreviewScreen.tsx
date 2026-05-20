@@ -1,4 +1,4 @@
-import { ArrowLeft, Users } from 'lucide-react'
+import { ArrowLeftIcon, UsersIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { type InvitePayload, joinGroupFromInvite } from '@/sync/invite'
@@ -33,7 +33,7 @@ export default function JoinSpacePreviewScreen({ invite, userId, onComplete, onB
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm text-text-secondary -ml-1 w-fit"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeftIcon size={16} />
         Back
       </button>
 
@@ -48,7 +48,7 @@ export default function JoinSpacePreviewScreen({ invite, userId, onComplete, onB
           className="w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center"
           style={{ backgroundColor: invite.groupColor }}
         >
-          <Users size={24} className="text-white" />
+          <UsersIcon size={24} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-lg font-bold text-text-primary truncate">{invite.groupName}</p>

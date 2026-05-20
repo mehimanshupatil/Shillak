@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { CheckIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import CategoryIcon, { ICON_OPTIONS } from '@/components/ui/CategoryIcon'
@@ -165,7 +165,7 @@ export default function CategorySheet({
                     transform: color === c ? 'scale(1.25)' : 'scale(1)',
                   }}
                 >
-                  {color === c && <Check size={12} className="text-white drop-shadow" />}
+                  {color === c && <CheckIcon size={12} className="text-white drop-shadow" />}
                 </button>
               ))}
             </div>

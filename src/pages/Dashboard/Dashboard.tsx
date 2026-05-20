@@ -1,5 +1,13 @@
+import {
+  ArrowClockwiseIcon,
+  CaretDownIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  CaretUpIcon,
+  EyeSlashIcon,
+  PushPinIcon,
+} from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pin, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import MonthlyBar from '@/components/charts/MonthlyBar'
 import SpendingDonut from '@/components/charts/SpendingDonut'
@@ -7,9 +15,11 @@ import ThisMonthSummary from '@/components/charts/ThisMonthSummary'
 import Logo from '@/components/layout/Logo'
 import SpaceSwitcher from '@/components/layout/SpaceSwitcher'
 import QuickAddFAB from '@/components/transaction/QuickAddFAB'
+import RecurrenceSheet from '@/components/transaction/RecurrenceSheet'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { db } from '@/db/db'
+import type { Recurrence } from '@/db/schema'
 import { formatCurrency, relativeDate, toBaseCurrency, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
@@ -199,8 +209,12 @@ export default function Dashboard() {
     } else setMonth((m) => m + 1)
   }
 
+  const [editRecurrence, setEditRecurrence] = useState<Recurrence | null>(null)
+  const [recurrenceSheetOpen, setRecurrenceSheetOpen] = useState(false)
+
   const monthLabel = `${MONTHS_SHORT[month]} ${year}`
   const isCurrent = year === now.getFullYear() && month === now.getMonth()
+  const totalsOnly = group?.visibility === 'totals_only'
 
   return (
     <div className="flex flex-col gap-0 pb-24">
@@ -218,7 +232,7 @@ export default function Dashboard() {
             onClick={prevMonth}
             className="text-text-secondary"
           >
-            <ChevronLeft size={18} />
+            <CaretLeftIcon size={18} />
           </Button>
           <span className="flex-1 text-center text-sm font-medium text-text-primary">
             {monthLabel}
@@ -230,7 +244,7 @@ export default function Dashboard() {
             disabled={isCurrent}
             className="text-text-secondary"
           >
-            <ChevronRight size={18} />
+            <CaretRightIcon size={18} />
           </Button>
         </div>
       </div>
@@ -325,9 +339,14 @@ export default function Dashboard() {
                 const cat = catMap[rec.template.categoryId]
                 const daysUntil = Math.round((rec.nextDue - today()) / 86_400_000)
                 return (
-                  <div
+                  <button
                     key={rec.recurrenceId}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface"
+                    type="button"
+                    onClick={() => {
+                      setEditRecurrence(rec)
+                      setRecurrenceSheetOpen(true)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-surface text-left active:opacity-80 transition-opacity"
                   >
                     <CategoryIcon
                       icon={cat?.icon ?? 'CircleDot'}
@@ -344,12 +363,12 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <RefreshCw size={10} className="text-text-tertiary" />
+                      <ArrowClockwiseIcon size={10} className="text-text-tertiary" />
                       <span className="text-sm font-mono font-medium text-text-primary">
                         {formatCurrency(rec.template.amount, currency)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
           </div>
@@ -358,16 +377,30 @@ export default function Dashboard() {
 
       {/* Recent transactions */}
       <div className="mt-6 px-4">
-        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
-          Recent
-        </p>
-        {(recentTransactions ?? []).length === 0 ? (
+        <div className="flex items-center gap-2 mb-3">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider flex-1">
+            Recent
+          </p>
+          {totalsOnly && (
+            <div className="flex items-center gap-1">
+              <EyeSlashIcon size={11} className="text-text-tertiary" />
+              <span className="text-[10px] text-text-tertiary">yours only</span>
+            </div>
+          )}
+        </div>
+        {(totalsOnly
+          ? (recentTransactions ?? []).filter((t) => t.ownerId === currentUserId)
+          : (recentTransactions ?? [])
+        ).length === 0 ? (
           <p className="text-sm text-text-tertiary text-center py-8">
             No transactions yet. Tap + to add one.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            {(recentTransactions ?? []).map((txn) => {
+            {(totalsOnly
+              ? (recentTransactions ?? []).filter((t) => t.ownerId === currentUserId)
+              : (recentTransactions ?? [])
+            ).map((txn) => {
               const cat = catMap[txn.categoryId]
               return (
                 <div key={txn.txnId} className="flex items-center gap-3 p-3 rounded-xl bg-surface">
@@ -400,6 +433,16 @@ export default function Dashboard() {
       </div>
 
       <QuickAddFAB />
+
+      <RecurrenceSheet
+        open={recurrenceSheetOpen}
+        onClose={() => {
+          setRecurrenceSheetOpen(false)
+          setEditRecurrence(null)
+        }}
+        recurrence={editRecurrence}
+        currency={currency}
+      />
     </div>
   )
 }
@@ -438,15 +481,15 @@ function FixedOutflowsCard({
         className="w-full flex items-center justify-between px-4 py-3"
       >
         <div className="flex items-center gap-2">
-          <Pin size={13} className="text-accent" />
+          <PushPinIcon size={13} className="text-accent" />
           <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">
             Fixed outflows
           </span>
         </div>
         {expanded ? (
-          <ChevronUp size={14} className="text-text-tertiary" />
+          <CaretUpIcon size={14} className="text-text-tertiary" />
         ) : (
-          <ChevronDown size={14} className="text-text-tertiary" />
+          <CaretDownIcon size={14} className="text-text-tertiary" />
         )}
       </button>
 

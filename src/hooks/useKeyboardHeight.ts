@@ -10,9 +10,10 @@ export function useKeyboardHeight() {
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
+    const viewport = vv // capture non-null ref for closure
 
     function update() {
-      const h = Math.max(0, window.innerHeight - vv!.height - vv!.offsetTop)
+      const h = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
       document.documentElement.style.setProperty('--keyboard-h', `${h}px`)
     }
 

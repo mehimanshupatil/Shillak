@@ -179,7 +179,7 @@ export async function createAnswer(encodedOffer: string): Promise<WebRTCAnswerSe
 // ─── Message protocol helpers ─────────────────────────────────────────────────
 
 type SyncMessage =
-  | { type: 'clock'; clock: Record<string, number> }
+  | { type: 'clock'; clock: Record<string, number>; since?: number }
   | { type: 'delta'; payload: string }
   | { type: 'ack' }
   | { type: 'done' }

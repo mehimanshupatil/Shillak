@@ -1,4 +1,4 @@
-import { Fingerprint } from 'lucide-react'
+import { FingerprintIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import Logo from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
@@ -145,7 +145,7 @@ export default function PinScreen({ onUnlocked }: Props) {
                        text-sm text-text-secondary active:bg-surface-2
                        transition-colors disabled:opacity-50"
           >
-            <Fingerprint size={18} className="text-accent" />
+            <FingerprintIcon size={18} className="text-accent" />
             Use biometric
           </button>
         )}

@@ -1,5 +1,5 @@
+import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
@@ -43,7 +43,7 @@ export default function AccountsPage() {
                      bg-surface-2 text-text-secondary active:bg-surface-3 transition-colors"
           aria-label="Back"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeftIcon size={16} />
         </button>
         <h1 className="text-xl font-bold text-text-primary flex-1">Accounts</h1>
         <Button
@@ -53,7 +53,7 @@ export default function AccountsPage() {
             setSheetOpen(true)
           }}
         >
-          <Plus size={12} />
+          <PlusIcon size={12} />
           Add
         </Button>
       </div>
@@ -90,7 +90,7 @@ export default function AccountsPage() {
                 }}
                 className="text-text-tertiary hover:text-text-primary"
               >
-                <Pencil size={13} />
+                <PencilIcon size={13} />
               </Button>
               {!acc.isDefault && (
                 <Button
@@ -99,7 +99,7 @@ export default function AccountsPage() {
                   onClick={() => handleDelete(acc)}
                   className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                 >
-                  <Trash2 size={13} />
+                  <Trash size={13} />
                 </Button>
               )}
             </div>

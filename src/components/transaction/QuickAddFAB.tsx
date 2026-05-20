@@ -1,5 +1,13 @@
+import {
+  ArrowClockwiseIcon,
+  ClipboardIcon,
+  PaperclipIcon,
+  PlusIcon,
+  PushPinIcon,
+  ScanIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Clipboard, Pin, Plus, RefreshCw, ScanLine } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
@@ -19,6 +27,28 @@ const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   yearly: 'Yearly',
 }
 
+type PendingAttachment = { mimeType: string; data: string; sizeBytes: number }
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function checkQuota(): Promise<{ blocked: boolean; warn: boolean }> {
+  try {
+    const { usage, quota } = await navigator.storage.estimate()
+    if (!quota || quota === 0) return { blocked: false, warn: false }
+    const pct = (usage ?? 0) / quota
+    return { blocked: pct >= 0.9, warn: pct >= 0.8 }
+  } catch {
+    return { blocked: false, warn: false }
+  }
+}
+
 export default function QuickAddFAB() {
   const [open, setOpen] = useState(false)
 
@@ -32,7 +62,7 @@ export default function QuickAddFAB() {
                    active:scale-95 transition-transform"
         aria-label="Add transaction"
       >
-        <Plus size={24} className="text-black" strokeWidth={2.5} />
+        <PlusIcon size={24} className="text-black" strokeWidth={2.5} />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -68,8 +98,12 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   })
   const [repeat, setRepeat] = useState(false)
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
-  const [interval, setInterval] = useState(1)
+  const [every, setEvery] = useState(1)
   const [isFixed, setIsFixed] = useState(false)
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [attachmentWarn, setAttachmentWarn] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [ocrLoading, setOcrLoading] = useState(false)
@@ -79,6 +113,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
 
   const categories = useLiveQuery(
     () =>
@@ -115,6 +150,47 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
     )
   }, [members])
 
+  function addTag() {
+    const t = tagInput
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '')
+    if (t && !tags.includes(t) && tags.length < 10) setTags([...tags, t])
+    setTagInput('')
+  }
+
+  function removeTag(tag: string) {
+    setTags(tags.filter((t) => t !== tag))
+  }
+
+  async function handleAttachmentPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length) return
+
+    setAttachmentWarn('')
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Attachment too large (max 5 MB each)')
+        return
+      }
+    }
+
+    const { blocked, warn } = await checkQuota()
+    if (blocked) {
+      setError('Storage above 90% — attachment uploads blocked.')
+      return
+    }
+    if (warn) setAttachmentWarn('Storage above 80% — uploading anyway.')
+
+    const newAtts: PendingAttachment[] = []
+    for (const file of files) {
+      const data = await fileToBase64(file)
+      newAtts.push({ mimeType: file.type, data, sizeBytes: file.size })
+    }
+    setPendingAttachments((prev) => [...prev, ...newAtts])
+  }
+
   async function handleImageOCR(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -141,7 +217,6 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       const text = await navigator.clipboard.readText()
       applyParsedText(text)
     } catch {
-      // Permission denied or API unavailable — fall back to manual textarea
       setPasteOpen(true)
     }
   }
@@ -180,6 +255,22 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       const txnDate = parseDateStr(dateStr)
       const txnId = generateId()
 
+      // Save attachments first
+      const attachmentIds: string[] = []
+      for (const att of pendingAttachments) {
+        const attachmentId = generateId()
+        await db.attachments.put({
+          attachmentId,
+          groupId: activeGroupId,
+          txnId,
+          mimeType: att.mimeType,
+          data: att.data,
+          sizeBytes: att.sizeBytes,
+          createdAt: Date.now(),
+        })
+        attachmentIds.push(attachmentId)
+      }
+
       let recurrenceId: string | null = null
 
       if (repeat) {
@@ -198,14 +289,14 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             fxRate: null,
             originalAmount: null,
             note: note.trim(),
-            tags: [],
+            tags,
             attachmentIds: [],
             accountId: selectedAccountId,
             paidBy: paidBy ?? currentUserId,
           },
           frequency,
-          interval,
-          nextDue: advanceDate(txnDate, frequency, interval),
+          interval: every,
+          nextDue: advanceDate(txnDate, frequency, every),
           lastGeneratedAt: txnDate,
           endDate: null,
           active: true,
@@ -226,9 +317,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         fxRate: null,
         originalAmount: null,
         note: note.trim(),
-        tags: [],
+        tags,
         date: txnDate,
-        attachmentIds: [],
+        attachmentIds,
         recurrenceId,
         accountId: selectedAccountId,
         paidBy: paidBy ?? currentUserId,
@@ -264,7 +355,17 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                        transition-colors"
             title="Paste transaction text"
           >
-            <Clipboard size={14} />
+            <ClipboardIcon size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => attachmentInputRef.current?.click()}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-2
+                       text-text-secondary hover:text-text-primary hover:bg-surface-3
+                       transition-colors"
+            title="Attach file"
+          >
+            <PaperclipIcon size={14} />
           </button>
           <button
             type="button"
@@ -278,7 +379,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             {ocrLoading ? (
               <div className="w-3.5 h-3.5 border border-accent border-t-transparent rounded-full animate-spin" />
             ) : (
-              <ScanLine size={14} />
+              <ScanIcon size={14} />
             )}
           </button>
         </div>
@@ -325,7 +426,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* OCR raw text — debug panel (auto-opens after scan) */}
+      {/* OCR raw text */}
       {ocrRawText && (
         <div className="rounded-xl border border-border overflow-hidden">
           <button
@@ -383,6 +484,47 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
               Parse
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Pending attachments */}
+      {pendingAttachments.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+            Attachments
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {pendingAttachments.map((att, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only list, index is stable
+                key={i}
+                className="relative w-16 h-16 rounded-lg overflow-hidden bg-surface-2 border border-border"
+              >
+                {att.mimeType.startsWith('image/') ? (
+                  <img
+                    src={`data:${att.mimeType};base64,${att.data}`}
+                    alt="attachment"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <PaperclipIcon size={20} className="text-text-tertiary" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPendingAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
+                             flex items-center justify-center"
+                >
+                  <XIcon size={8} className="text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {attachmentWarn && <p className="text-xs text-warning mt-1">{attachmentWarn}</p>}
         </div>
       )}
 
@@ -456,6 +598,45 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                    text-text-primary placeholder:text-text-tertiary
                    focus-visible:border-accent focus-visible:ring-accent/20"
       />
+
+      {/* Tags */}
+      <div>
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+          Tags
+        </p>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-2
+                           text-xs text-text-secondary"
+              >
+                #{tag}
+                <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
+                  <XIcon size={9} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <Input
+          type="text"
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault()
+              addTag()
+            }
+          }}
+          onBlur={addTag}
+          placeholder="Add tag, press Enter"
+          className="h-9 rounded-xl bg-surface-2 border-border text-sm
+                     text-text-primary placeholder:text-text-tertiary
+                     focus-visible:border-accent focus-visible:ring-accent/20"
+        />
+      </div>
 
       {/* Paid by — only when multiple members */}
       {(members ?? []).length > 1 && (
@@ -538,7 +719,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       {/* Repeat toggle */}
       <div className="flex items-center justify-between py-1">
         <div className="flex items-center gap-2">
-          <RefreshCw size={14} className="text-text-secondary" />
+          <ArrowClockwiseIcon size={14} className="text-text-secondary" />
           <span className="text-sm font-medium text-text-primary">Repeat</span>
         </div>
         <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
@@ -566,17 +747,17 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setInterval((i) => Math.max(1, i - 1))}
+                onClick={() => setEvery((i) => Math.max(1, i - 1))}
                 className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
               >
                 −
               </button>
               <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
-                {interval}
+                {every}
               </span>
               <button
                 type="button"
-                onClick={() => setInterval((i) => Math.min(99, i + 1))}
+                onClick={() => setEvery((i) => Math.min(99, i + 1))}
                 className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
               >
                 +
@@ -596,7 +777,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           {txnType === 'expense' && (
             <div className="flex items-center justify-between pt-1 border-t border-border/50">
               <div className="flex items-center gap-2">
-                <Pin size={13} className={isFixed ? 'text-accent' : 'text-text-tertiary'} />
+                <PushPinIcon size={13} className={isFixed ? 'text-accent' : 'text-text-tertiary'} />
                 <div>
                   <span className="text-xs font-medium text-text-primary">Fixed outflow</span>
                   <p className="text-[10px] text-text-tertiary">
@@ -625,14 +806,23 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             : 'bg-accent text-black hover:bg-accent-hover'
         }`}
       >
-        {loading ? 'Saving…' : repeat ? `Add & repeat` : `Add ${txnType}`}
+        {loading ? 'Saving…' : repeat ? 'Add & repeat' : `Add ${txnType}`}
       </Button>
 
+      {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleImageOCR}
+        className="hidden"
+      />
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        onChange={handleAttachmentPick}
         className="hidden"
       />
     </div>

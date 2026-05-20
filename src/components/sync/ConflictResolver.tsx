@@ -2,13 +2,15 @@
  * Displays pending ConflictLog entries and lets the user resolve them.
  * Shown as a sheet or inline section when conflicts > 0.
  */
+
+import { WarningIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/db'
 import type { ConflictLog } from '@/db/schema'
 import { formatCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+import { incrementVectorClock } from '@/sync/vector-clock'
 
 interface Props {
   groupId: string
@@ -27,10 +29,19 @@ export default function ConflictResolver({ groupId }: Props) {
   async function resolve(conflict: ConflictLog, resolution: 'local' | 'remote') {
     if (!currentUserId) return
 
-    // Apply chosen value to the DB
-    const chosen = resolution === 'local' ? conflict.localValue : conflict.remoteValue
+    // Stamp resolution time so this version is unambiguously newest.
+    // On next sync the other device receives it and applies via LWW without re-raising conflict.
+    const resolvedAt = Date.now()
+    const chosen = {
+      ...(resolution === 'local' ? conflict.localValue : conflict.remoteValue),
+      updatedAt: resolvedAt,
+    }
 
     if (conflict.entityType === 'transaction') {
+      if (groupId) {
+        const newSeq = await incrementVectorClock(groupId, currentUserId)
+        ;(chosen as Record<string, unknown>).authorSeq = newSeq
+      }
       await db.transactions.put(chosen as unknown as Parameters<typeof db.transactions.put>[0])
     } else if (conflict.entityType === 'budget') {
       await db.budgets.put(chosen as unknown as Parameters<typeof db.budgets.put>[0])
@@ -41,14 +52,14 @@ export default function ConflictResolver({ groupId }: Props) {
     await db.conflicts.update(conflict.conflictId, {
       resolution,
       resolvedBy: currentUserId,
-      resolvedAt: Date.now(),
+      resolvedAt,
     })
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <AlertTriangle size={14} className="text-warning" />
+        <WarningIcon size={14} className="text-warning" />
         <p className="text-xs font-medium text-warning uppercase tracking-wider">
           {pending.length} conflict{pending.length > 1 ? 's' : ''} need your review
         </p>

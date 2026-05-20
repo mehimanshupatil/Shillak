@@ -1,5 +1,5 @@
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { Download, RefreshCw, WifiOff, X } from 'lucide-react'
+import { ArrowClockwiseIcon, DownloadSimpleIcon, WifiSlashIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 
@@ -47,7 +47,7 @@ export default function PWAManager() {
                        bg-surface-2 border-b border-border
                        text-text-secondary text-xs"
           >
-            <WifiOff size={12} />
+            <WifiSlashIcon size={12} />
             <span>You're offline — data still available</span>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function PWAManager() {
                        bg-surface-2 border border-accent
                        rounded-2xl shadow-lg text-sm"
           >
-            <RefreshCw size={16} className="text-accent shrink-0" />
+            <ArrowClockwiseIcon size={16} className="text-accent shrink-0" />
             <span className="flex-1 text-text-primary">New version available</span>
             <button
               type="button"
@@ -76,7 +76,7 @@ export default function PWAManager() {
               className="text-text-tertiary"
               aria-label="Dismiss update"
             >
-              <X size={14} />
+              <XIcon size={14} />
             </button>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function PWAManager() {
                        bg-surface-2 border border-border
                        rounded-2xl shadow-lg text-sm"
           >
-            <Download size={16} className="text-accent shrink-0" />
+            <DownloadSimpleIcon size={16} className="text-accent shrink-0" />
             <span className="flex-1 text-text-primary">Add Shillak to home screen</span>
             <button
               type="button"
@@ -105,7 +105,7 @@ export default function PWAManager() {
               className="text-text-tertiary"
               aria-label="Dismiss install prompt"
             >
-              <X size={14} />
+              <XIcon size={14} />
             </button>
           </div>
         </div>

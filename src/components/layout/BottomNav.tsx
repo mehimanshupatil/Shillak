@@ -1,12 +1,17 @@
-import { ArrowLeftRight, LayoutDashboard, PiggyBank, Settings } from 'lucide-react'
+import {
+  ArrowsLeftRightIcon,
+  GearIcon,
+  PiggyBankIcon,
+  SquaresFourIcon,
+} from '@phosphor-icons/react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { to: '/', label: 'Home', Icon: LayoutDashboard },
-  { to: '/transactions', label: 'Txns', Icon: ArrowLeftRight },
-  { to: '/budgets', label: 'Budgets', Icon: PiggyBank },
-  { to: '/settings', label: 'Settings', Icon: Settings },
+  { to: '/', label: 'Home', Icon: SquaresFourIcon },
+  { to: '/transactions', label: 'Txns', Icon: ArrowsLeftRightIcon },
+  { to: '/budgets', label: 'Budgets', Icon: PiggyBankIcon },
+  { to: '/settings', label: 'Settings', Icon: GearIcon },
 ]
 
 export default function BottomNav() {

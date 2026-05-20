@@ -1,5 +1,11 @@
-import type { LucideProps } from 'lucide-react'
-import { Building2, CreditCard, Landmark, Smartphone, Wallet } from 'lucide-react'
+import type { IconProps } from '@phosphor-icons/react'
+import {
+  BankIcon,
+  BuildingsIcon,
+  CreditCardIcon,
+  DeviceMobileIcon,
+  WalletIcon,
+} from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +20,7 @@ export const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> 
   { value: 'current', label: 'Current' },
   { value: 'credit', label: 'Credit Card' },
   { value: 'cash', label: 'Cash' },
-  { value: 'upi', label: 'UPI / Wallet' },
+  { value: 'upi', label: 'UPI / WalletIcon' },
 ]
 
 const TYPE_COLORS: Record<AccountType, string> = {
@@ -25,24 +31,24 @@ const TYPE_COLORS: Record<AccountType, string> = {
   upi: '#8b5cf6',
 }
 
-type LucideIcon = React.ForwardRefExoticComponent<
-  Omit<LucideProps, 'ref'> & React.RefAttributes<SVGSVGElement>
+type PhosphorIcon = React.ForwardRefExoticComponent<
+  Omit<IconProps, 'ref'> & React.RefAttributes<SVGSVGElement>
 >
 
 const TYPE_ICONS: Record<AccountType, string> = {
-  savings: 'Building2',
-  current: 'Landmark',
-  credit: 'CreditCard',
-  cash: 'Wallet',
-  upi: 'Smartphone',
+  savings: 'BuildingsIcon',
+  current: 'BankIcon',
+  credit: 'CreditCardIcon',
+  cash: 'WalletIcon',
+  upi: 'DeviceMobileIcon',
 }
 
-export const ICON_MAP: Record<string, LucideIcon> = {
-  Building2,
-  Landmark,
-  CreditCard,
-  Wallet,
-  Smartphone,
+export const ICON_MAP: Record<string, PhosphorIcon> = {
+  BuildingsIcon,
+  BankIcon,
+  CreditCardIcon,
+  WalletIcon,
+  DeviceMobileIcon,
 }
 
 interface Props {

@@ -1,4 +1,4 @@
-import { QrCode, RotateCcw, Users } from 'lucide-react'
+import { ArrowCounterClockwiseIcon, QrCodeIcon, UsersIcon } from '@phosphor-icons/react'
 import { useRef, useState } from 'react'
 import QRScanner from '@/components/sync/QRScanner'
 import { Button } from '@/components/ui/button'
@@ -84,7 +84,7 @@ export default function SpaceChoiceScreen({
                      flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-accent-subtle flex items-center justify-center shrink-0">
-            <Users size={20} className="text-accent" />
+            <UsersIcon size={20} className="text-accent" />
           </div>
           <div>
             <p className="font-semibold text-text-primary">Create a new space</p>
@@ -105,12 +105,12 @@ export default function SpaceChoiceScreen({
                      flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
-            <QrCode size={20} className="text-text-secondary" />
+            <QrCodeIcon size={20} className="text-text-secondary" />
           </div>
           <div>
             <p className="font-semibold text-text-primary">Join existing space</p>
             <p className="text-sm text-text-secondary mt-0.5">
-              Scan an invite QR from the space admin.
+              ScanIcon an invite QR from the space admin.
             </p>
           </div>
         </Button>
@@ -124,7 +124,7 @@ export default function SpaceChoiceScreen({
                      flex items-start gap-4 text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
-            <RotateCcw size={20} className="text-text-secondary" />
+            <ArrowCounterClockwiseIcon size={20} className="text-text-secondary" />
           </div>
           <div>
             <p className="font-semibold text-text-primary">Restore from backup</p>

@@ -38,20 +38,27 @@ export async function applyDelta(
       continue
     }
 
-    // Delete/edit conflict: one side deleted, other edited
+    // Delete/edit conflict: one side deleted, other edited.
+    // If incoming is clearly newer it may be a propagated resolution — apply LWW.
+    // Only raise a conflict when local is newer or same age (ambiguous intent).
     if (
       (existing.deletedAt !== null && incoming.deletedAt === null) ||
       (existing.deletedAt === null && incoming.deletedAt !== null)
     ) {
-      await logConflict(
-        groupId,
-        syncId,
-        'transaction',
-        incoming.txnId,
-        existing as unknown as Record<string, unknown>,
-        incoming as unknown as Record<string, unknown>,
-      )
-      conflicts++
+      if (incoming.updatedAt > existing.updatedAt) {
+        await db.transactions.put(incoming)
+        applied++
+      } else {
+        await logConflict(
+          groupId,
+          syncId,
+          'transaction',
+          incoming.txnId,
+          existing as unknown as Record<string, unknown>,
+          incoming as unknown as Record<string, unknown>,
+        )
+        conflicts++
+      }
       continue
     }
 

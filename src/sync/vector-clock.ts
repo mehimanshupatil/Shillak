@@ -67,6 +67,29 @@ export function mergeClock(
 }
 
 /**
+ * Compute the max updatedAt/createdAt timestamp across all non-transaction
+ * entities for a group. Used as `since` in computeDelta to let the peer skip
+ * records they already have.
+ */
+export async function computeSince(groupId: string): Promise<number> {
+  const [cats, mems, buds, gls, recs] = await Promise.all([
+    db.categories.where((c) => c.groupId === groupId),
+    db.members.where((m) => m.groupId === groupId),
+    db.budgets.where((b) => b.groupId === groupId),
+    db.goals.where((g) => g.groupId === groupId),
+    db.recurrences.where((r) => r.groupId === groupId),
+  ])
+  return Math.max(
+    0,
+    ...cats.map((c) => c.createdAt),
+    ...mems.map((m) => m.updatedAt),
+    ...buds.map((b) => b.updatedAt),
+    ...gls.map((g) => g.updatedAt),
+    ...recs.map((r) => r.createdAt),
+  )
+}
+
+/**
  * Compute what to send to a peer.
  *
  * @param theirClock  - peer's vector clock (filters transactions by authorSeq)
@@ -85,16 +108,19 @@ export async function computeDelta(
   const group = await db.groups.get(groupId)
   if (!group) throw new Error('Group not found')
 
-  // Transactions: filter by authorSeq — always precise regardless of `since`
+  // Transactions: primary filter by authorSeq (owner-scoped clock).
+  // Fallback: include if updatedAt > since to catch edits/deletes by non-owners
+  // where authorSeq was stamped with the editor's clock, not the owner's.
   const allTxns = await db.transactions.where((t) => t.groupId === groupId)
+  const ts = since ?? 0
   const transactions = allTxns.filter((t) => {
     const knownSeq = theirClock[t.ownerId] ?? 0
-    return t.authorSeq > knownSeq
+    if (t.authorSeq > knownSeq) return true
+    return ts > 0 && t.updatedAt > ts
   })
 
   // Non-transaction entities: skip anything the peer already has (timestamp ≤ since).
   // Category has no updatedAt so we use createdAt; members/budgets/goals use updatedAt.
-  const ts = since ?? 0
   const [allCategories, allMembers, allBudgets, allGoals, allRecurrences, allAccounts] =
     await Promise.all([
       db.categories.where((c) => c.groupId === groupId),

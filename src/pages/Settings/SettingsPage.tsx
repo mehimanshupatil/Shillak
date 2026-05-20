@@ -1,16 +1,17 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  ChevronRight,
-  Crown,
-  Download,
-  Fingerprint,
-  MonitorDown,
-  Pencil,
-  Plus,
-  Upload,
-} from 'lucide-react'
+  ArrowCircleDownIcon,
+  CaretRightIcon,
+  CrownIcon,
+  DownloadSimpleIcon,
+  FingerprintIcon,
+  PencilIcon,
+  PlusIcon,
+  UploadSimpleIcon,
+} from '@phosphor-icons/react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ConflictSeeder from '@/components/dev/ConflictSeeder'
 import BiometricSheet from '@/components/security/BiometricSheet'
 import ChangePinSheet from '@/components/security/ChangePinSheet'
 import EditProfileSheet from '@/components/space/EditProfileSheet'
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   const [syncSheetOpen, setSyncSheetOpen] = useState(false)
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
+  const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
   const [storageUsedPct, setStorageUsedPct] = useState<number | null>(null)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [biometricEnrolled, setBiometricEnrolled] = useState(false)
@@ -125,6 +127,39 @@ export default function SettingsPage() {
     })
   }, [])
 
+  async function handlePromote(memberId: string, _userId: string) {
+    if (!activeGroupId) return
+    await db.members.update(memberId, { role: 'admin', updatedAt: Date.now() })
+    setMemberActionsFor(null)
+  }
+
+  async function handleDemote(memberId: string, _userId: string) {
+    if (!activeGroupId) return
+    const admins = (members ?? []).filter((m) => m.role === 'admin')
+    if (admins.length <= 1) {
+      alert('Cannot demote — space must have at least one admin.')
+      return
+    }
+    await db.members.update(memberId, { role: 'member', updatedAt: Date.now() })
+    setMemberActionsFor(null)
+  }
+
+  async function handleRemoveMember(memberId: string, _userId: string) {
+    if (!activeGroupId) return
+    const target = (members ?? []).find((m) => m.id === memberId)
+    if (!target) return
+    if (target.role === 'admin') {
+      const admins = (members ?? []).filter((m) => m.role === 'admin')
+      if (admins.length <= 1) {
+        alert('Cannot remove last admin. Promote another member first.')
+        return
+      }
+    }
+    if (!confirm(`Remove this member from the space? They will lose access.`)) return
+    await db.members.update(memberId, { status: 'left', leftAt: Date.now(), updatedAt: Date.now() })
+    setMemberActionsFor(null)
+  }
+
   function handleLock() {
     clearKey()
     broadcastLock()
@@ -140,7 +175,7 @@ export default function SettingsPage() {
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Space</p>
           {group && isAdmin && (
             <Button variant="link" onClick={() => setGroupSheetOpen(true)}>
-              <Pencil size={11} />
+              <PencilIcon size={11} />
               Edit
             </Button>
           )}
@@ -183,7 +218,7 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
           >
             <span className="text-sm text-text-primary">Manage categories</span>
-            <ChevronRight size={16} className="text-text-tertiary" />
+            <CaretRightIcon size={16} className="text-text-tertiary" />
           </button>
           <button
             type="button"
@@ -191,7 +226,7 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
           >
             <span className="text-sm text-text-primary">Manage accounts</span>
-            <ChevronRight size={16} className="text-text-tertiary" />
+            <CaretRightIcon size={16} className="text-text-tertiary" />
           </button>
         </div>
       </section>
@@ -204,58 +239,102 @@ export default function SettingsPage() {
           </p>
           {activeGroupId && currentUserId && isAdmin && (
             <Button variant="link" onClick={() => setInviteSheetOpen(true)}>
-              <Plus size={12} />
+              <PlusIcon size={12} />
               Invite
             </Button>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          {(members ?? []).map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface border border-border"
-            >
-              <Avatar
-                color={memberUsers?.[member.userId]?.avatarColor ?? '#888'}
-                name={memberUsers?.[member.userId]?.displayName ?? member.userId}
-                icon={memberUsers?.[member.userId]?.avatarIcon}
-                size={32}
-                rounded="full"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-text-primary">
-                  {member.userId === currentUserId
-                    ? (user?.displayName ?? 'You')
-                    : (memberUsers?.[member.userId]?.displayName ?? member.userId)}
-                  {member.userId === currentUserId && (
-                    <span className="text-text-tertiary"> (you)</span>
-                  )}
-                </p>
-                {member.monthlyIncome != null && member.monthlyIncome > 0 && (
-                  <p className="text-xs text-text-tertiary">
-                    {new Intl.NumberFormat('en-IN', {
-                      style: 'currency',
-                      currency: member.incomeCurrency ?? 'INR',
-                      maximumFractionDigits: 0,
-                    }).format(member.monthlyIncome / 100)}
-                    /mo
-                  </p>
+          {(members ?? []).map((member) => {
+            const isMe = member.userId === currentUserId
+            const actionsOpen = memberActionsFor === member.id
+            return (
+              <div
+                key={member.id}
+                className="flex flex-col rounded-xl bg-surface border border-border overflow-hidden"
+              >
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  <Avatar
+                    color={memberUsers?.[member.userId]?.avatarColor ?? '#888'}
+                    name={memberUsers?.[member.userId]?.displayName ?? member.userId}
+                    icon={memberUsers?.[member.userId]?.avatarIcon}
+                    size={32}
+                    rounded="full"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">
+                      {isMe
+                        ? (user?.displayName ?? 'You')
+                        : (memberUsers?.[member.userId]?.displayName ?? member.userId)}
+                      {isMe && <span className="text-text-tertiary"> (you)</span>}
+                    </p>
+                    {member.monthlyIncome != null && member.monthlyIncome > 0 && (
+                      <p className="text-xs text-text-tertiary">
+                        {new Intl.NumberFormat('en-IN', {
+                          style: 'currency',
+                          currency: member.incomeCurrency ?? 'INR',
+                          maximumFractionDigits: 0,
+                        }).format(member.monthlyIncome / 100)}
+                        /mo
+                      </p>
+                    )}
+                  </div>
+                  {member.role === 'admin' && <CrownIcon size={13} className="text-accent" />}
+                  <span className="text-xs text-text-tertiary capitalize">{member.role}</span>
+                  {isMe ? (
+                    <button
+                      type="button"
+                      onClick={() => setIncomeSheetOpen(true)}
+                      className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-surface-2 transition-colors"
+                      aria-label="Edit income"
+                    >
+                      <PencilIcon size={12} />
+                    </button>
+                  ) : isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => setMemberActionsFor(actionsOpen ? null : member.id)}
+                      className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-surface-2 transition-colors"
+                      aria-label="Member actions"
+                    >
+                      <CaretRightIcon
+                        size={12}
+                        className={`transition-transform ${actionsOpen ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                  ) : null}
+                </div>
+                {actionsOpen && isAdmin && (
+                  <div className="flex gap-1.5 px-3 pb-2.5 border-t border-border/50 pt-2">
+                    {member.role === 'member' ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePromote(member.id, member.userId)}
+                        className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium"
+                      >
+                        Make admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDemote(member.id, member.userId)}
+                        className="px-3 py-1.5 rounded-lg bg-surface-2 text-text-secondary text-xs font-medium"
+                      >
+                        Remove admin
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(member.id, member.userId)}
+                      className="px-3 py-1.5 rounded-lg bg-danger/10 text-danger text-xs font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </div>
-              {member.userId === currentUserId && (
-                <button
-                  type="button"
-                  onClick={() => setIncomeSheetOpen(true)}
-                  className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-surface-2 transition-colors"
-                  aria-label="Edit income"
-                >
-                  <Pencil size={12} />
-                </button>
-              )}
-              {member.role === 'admin' && <Crown size={13} className="text-accent" />}
-              <span className="text-xs text-text-tertiary capitalize">{member.role}</span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
@@ -267,7 +346,7 @@ export default function SettingsPage() {
           </p>
           {user && (
             <Button variant="link" onClick={() => setProfileSheetOpen(true)}>
-              <Pencil size={11} />
+              <PencilIcon size={11} />
               Edit
             </Button>
           )}
@@ -307,7 +386,7 @@ export default function SettingsPage() {
             <span className="text-sm text-text-primary">
               {exportLoading ? 'Exporting…' : 'Export snapshot'}
             </span>
-            <Download size={16} className="text-text-tertiary" />
+            <DownloadSimpleIcon size={16} className="text-text-tertiary" />
           </button>
 
           <button
@@ -317,7 +396,7 @@ export default function SettingsPage() {
                        hover:bg-surface-2"
           >
             <span className="text-sm text-text-primary">Import snapshot</span>
-            <Upload size={16} className="text-text-tertiary" />
+            <UploadSimpleIcon size={16} className="text-text-tertiary" />
           </button>
           <button
             type="button"
@@ -344,7 +423,7 @@ export default function SettingsPage() {
                 <p className="text-[11px] text-text-tertiary mt-0.5">Never synced</p>
               )}
             </div>
-            <ChevronRight size={16} className="text-text-tertiary" />
+            <CaretRightIcon size={16} className="text-text-tertiary" />
           </button>
         </div>
         <input
@@ -401,7 +480,7 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
           >
             <span className="text-sm text-text-primary">Change PIN</span>
-            <ChevronRight size={16} className="text-text-tertiary" />
+            <CaretRightIcon size={16} className="text-text-tertiary" />
           </button>
           {biometricAvailable && (
             <button
@@ -417,13 +496,13 @@ export default function SettingsPage() {
               className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
             >
               <span className="text-sm text-text-primary flex items-center gap-2">
-                <Fingerprint
+                <FingerprintIcon
                   size={15}
                   className={biometricEnrolled ? 'text-success' : 'text-text-tertiary'}
                 />
                 {biometricEnrolled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
               </span>
-              <ChevronRight size={16} className="text-text-tertiary" />
+              <CaretRightIcon size={16} className="text-text-tertiary" />
             </button>
           )}
           <button
@@ -435,7 +514,7 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
             <span className="text-sm text-text-primary">Export identity backup</span>
-            <Download size={16} className="text-text-tertiary" />
+            <DownloadSimpleIcon size={16} className="text-text-tertiary" />
           </button>
         </div>
       </section>
@@ -448,10 +527,13 @@ export default function SettingsPage() {
           onClick={install}
           className="w-full rounded-2xl gap-2"
         >
-          <MonitorDown size={16} />
+          <ArrowCircleDownIcon size={16} />
           Install app
         </Button>
       )}
+
+      {/* ── Dev tools ── */}
+      {import.meta.env.DEV && <ConflictSeeder />}
 
       {/* ── Lock ── */}
       <Button variant="destructive" size="lg" onClick={handleLock} className="w-full rounded-2xl">

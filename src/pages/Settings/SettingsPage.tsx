@@ -165,6 +165,84 @@ export default function SettingsPage() {
     broadcastLock()
   }
 
+  async function handleClearSpaceData() {
+    if (!activeGroupId) return
+    if (
+      !confirm(
+        'Delete all transactions, budgets, and goals in this space?\nSpace settings, categories, and members are kept.',
+      )
+    )
+      return
+    if (!confirm('This cannot be undone. Continue?')) return
+
+    const [txns, budgets, goals, attachments, recurrences, syncEvents, conflicts] =
+      await Promise.all([
+        db.transactions.where((t) => t.groupId === activeGroupId),
+        db.budgets.where((b) => b.groupId === activeGroupId),
+        db.goals.where((g) => g.groupId === activeGroupId),
+        db.attachments.where((a) => a.groupId === activeGroupId),
+        db.recurrences.where((r) => r.groupId === activeGroupId),
+        db.syncEvents.where((e) => e.groupId === activeGroupId),
+        db.conflicts.where((c) => c.groupId === activeGroupId),
+      ])
+
+    await Promise.all([
+      ...txns.map((t) => db.transactions.delete(t.txnId)),
+      ...budgets.map((b) => db.budgets.delete(b.budgetId)),
+      ...goals.map((g) => db.goals.delete(g.goalId)),
+      ...attachments.map((a) => db.attachments.delete(a.attachmentId)),
+      ...recurrences.map((r) => db.recurrences.delete(r.recurrenceId)),
+      ...syncEvents.map((e) => db.syncEvents.delete(e.syncId)),
+      ...conflicts.map((c) => db.conflicts.delete(c.conflictId)),
+    ])
+  }
+
+  async function handleDeleteSpace() {
+    if (!activeGroupId) return
+    const spaceName = group?.name ?? 'this space'
+    if (!confirm(`Delete "${spaceName}" and all its data?\nThis cannot be undone.`)) return
+    if (!confirm(`Last chance — permanently delete "${spaceName}"?`)) return
+
+    const [txns, budgets, goals, attachments, recurrences, syncEvents, conflicts, mems, cats, accs, invitesList] =
+      await Promise.all([
+        db.transactions.where((t) => t.groupId === activeGroupId),
+        db.budgets.where((b) => b.groupId === activeGroupId),
+        db.goals.where((g) => g.groupId === activeGroupId),
+        db.attachments.where((a) => a.groupId === activeGroupId),
+        db.recurrences.where((r) => r.groupId === activeGroupId),
+        db.syncEvents.where((e) => e.groupId === activeGroupId),
+        db.conflicts.where((c) => c.groupId === activeGroupId),
+        db.members.where((m) => m.groupId === activeGroupId),
+        db.categories.where((c) => c.groupId === activeGroupId),
+        db.accounts.where((a) => a.groupId === activeGroupId),
+        db.invites.where((i) => i.groupId === activeGroupId),
+      ])
+
+    await Promise.all([
+      ...txns.map((t) => db.transactions.delete(t.txnId)),
+      ...budgets.map((b) => db.budgets.delete(b.budgetId)),
+      ...goals.map((g) => db.goals.delete(g.goalId)),
+      ...attachments.map((a) => db.attachments.delete(a.attachmentId)),
+      ...recurrences.map((r) => db.recurrences.delete(r.recurrenceId)),
+      ...syncEvents.map((e) => db.syncEvents.delete(e.syncId)),
+      ...conflicts.map((c) => db.conflicts.delete(c.conflictId)),
+      ...mems.map((m) => db.members.delete(m.id)),
+      ...cats.map((c) => db.categories.delete(c.categoryId)),
+      ...accs.map((a) => db.accounts.delete(a.accountId)),
+      ...invitesList.map((i) => db.invites.delete(i.inviteId)),
+    ])
+    await db.groups.delete(activeGroupId)
+
+    const remaining = await db.groups.toArray()
+    if (remaining.length > 0) {
+      useAppStore.getState().setActiveGroupId(remaining[0]!.groupId)
+      navigate('/dashboard')
+    } else {
+      localStorage.removeItem('shillak_group_id')
+      navigate('/onboarding')
+    }
+  }
+
   return (
     <div className="px-4 pt-6 pb-24 flex flex-col gap-6">
       <h1 className="text-xl font-bold text-text-primary">Settings</h1>
@@ -531,6 +609,43 @@ export default function SettingsPage() {
           Install app
         </Button>
       )}
+
+      {/* ── Danger zone ── */}
+      <section>
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+          Danger zone
+        </p>
+        <div className="rounded-2xl bg-surface border border-danger/30 divide-y divide-danger/20 overflow-hidden">
+          <button
+            type="button"
+            onClick={handleClearSpaceData}
+            disabled={!activeGroupId}
+            className="w-full flex items-center justify-between px-4 py-3 transition-colors
+                       hover:bg-danger/5 disabled:opacity-50"
+          >
+            <div className="flex flex-col items-start">
+              <span className="text-sm text-danger">Clear space data</span>
+              <span className="text-xs text-text-tertiary mt-0.5">
+                Deletes all transactions, budgets & goals. Keeps space settings.
+              </span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteSpace}
+            disabled={!activeGroupId}
+            className="w-full flex items-center justify-between px-4 py-3 transition-colors
+                       hover:bg-danger/5 disabled:opacity-50"
+          >
+            <div className="flex flex-col items-start">
+              <span className="text-sm text-danger">Delete this space</span>
+              <span className="text-xs text-text-tertiary mt-0.5">
+                Permanently removes all data for this space.
+              </span>
+            </div>
+          </button>
+        </div>
+      </section>
 
       {/* ── Dev tools ── */}
       {import.meta.env.DEV && <ConflictSeeder />}

@@ -1,4 +1,4 @@
-import type { Account, Category, TransactionType } from './schema'
+import type { Account, Category, CategoryType } from './schema'
 
 const EXPENSE_SEEDS: Array<{ name: string; icon: string; color: string }> = [
   { name: 'Groceries', icon: 'ShoppingCart', color: '#22c55e' },
@@ -29,7 +29,7 @@ export function createDefaultCategories(groupId: string, userId: string): Catego
   const now = Date.now()
   const make = (
     seed: (typeof EXPENSE_SEEDS)[number],
-    type: TransactionType,
+    type: CategoryType,
     i: number,
   ): Category => ({
     categoryId: crypto.randomUUID(),

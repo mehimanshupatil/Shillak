@@ -296,7 +296,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           template: {
             groupId: activeGroupId,
             ownerId: currentUserId,
-            categoryId: selectedCatId,
+            categoryId: selectedCatId ?? '',
             type: txnType,
             amount: toPaise(amount),
             currency: grp.currency,

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
-import type { Category, TransactionType } from '@/db/schema'
+import type { Category, CategoryType } from '@/db/schema'
 import { generateId } from '@/lib/utils'
 
 const COLOR_OPTIONS = [
@@ -27,7 +27,7 @@ const COLOR_OPTIONS = [
   '#888888',
 ]
 
-const TYPE_LABELS: Record<TransactionType, string> = {
+const TYPE_LABELS: Record<CategoryType, string> = {
   expense: 'Expense',
   income: 'Income',
 }
@@ -51,7 +51,7 @@ export default function CategorySheet({
 }: Props) {
   const isEdit = !!category
   const [name, setName] = useState('')
-  const [type, setType] = useState<TransactionType>('expense')
+  const [type, setType] = useState<CategoryType>('expense')
   const [icon, setIcon] = useState('CircleDot')
   const [color, setColor] = useState('#888888')
   const [loading, setLoading] = useState(false)
@@ -119,7 +119,7 @@ export default function CategorySheet({
 
           {/* Type selector */}
           <div className="flex gap-2">
-            {(['expense', 'income'] as TransactionType[]).map((t) => (
+            {(['expense', 'income'] as CategoryType[]).map((t) => (
               <button
                 key={t}
                 type="button"

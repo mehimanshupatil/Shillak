@@ -56,7 +56,7 @@ export function toBaseCurrency(
 /** Strip time — returns midnight UTC unix ms for a given date. */
 function toDateOnly(date: Date | number): number {
   const d = typeof date === 'number' ? new Date(date) : date
-  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
 }
 
 /** Today at midnight UTC. */

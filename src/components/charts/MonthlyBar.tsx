@@ -4,7 +4,7 @@ import { Bar, BarChart, Cell, Tooltip, XAxis } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toBaseCurrency } from '@/lib/utils'
 
 const MONTHS_SHORT = [
   'Jan',
@@ -60,11 +60,11 @@ export default function MonthlyBar({ groupId, currency }: Props) {
       const monthsAgo = (NOW_YEAR - d.getUTCFullYear()) * 12 + (NOW_MONTH - d.getUTCMonth())
       if (monthsAgo >= 0 && monthsAgo <= 5) {
         const bucket = buckets[5 - monthsAgo]
-        if (bucket) bucket.amount += txn.amount
+        if (bucket) bucket.amount += toBaseCurrency(txn, currency)
       }
     }
     return buckets
-  }, [transactions])
+  }, [transactions, currency])
 
   if (data.filter((b) => b.amount > 0).length < 2) return null
 

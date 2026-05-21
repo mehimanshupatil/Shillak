@@ -242,6 +242,18 @@ db.open() → throws → StorageErrorScreen (dead end)
 
 ---
 
+## Finance correctness checklist
+
+Before shipping any code that touches amounts, dates, filters, or totals, verify:
+
+1. **Amounts use `toPaise()`** — every user-input path calls `toPaise()` immediately; no raw float stored.
+2. **Totals use `toBaseCurrency()`** — every sum/aggregation of `txn.amount` uses `toBaseCurrency(txn, currency)` not `txn.amount` directly. Applies to charts, budgets, goal tracking, account balances.
+3. **Transfers excluded from expense/income totals** — any filter or aggregate that counts "expenses" or "income" must guard with `t.type !== 'transfer'`. Budget spend, summary cards, category breakdowns all apply.
+4. **Date display is UTC-aware** — display helpers use `getUTCFullYear/Month/Date`; never `getFullYear/Month/Date` on UTC-midnight timestamps. Use `toDateOnly()` (in `utils.ts`) as the canonical conversion.
+5. **Schema fields are live, not decorative** — if a schema field is added (e.g. `openingBalance`, `toAccountId`), verify the read path uses it. A field written but never read is a silent data loss.
+
+---
+
 ## Build commands
 
 ```bash

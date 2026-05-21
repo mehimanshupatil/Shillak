@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { Account, AccountType } from '@/db/schema'
-import { generateId } from '@/lib/utils'
+import { generateId, toPaise } from '@/lib/utils'
 
 export const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> = [
   { value: 'savings', label: 'Savings' },
@@ -63,6 +63,7 @@ export default function AccountSheet({ open, onClose, groupId, account, nextSort
   const isEdit = !!account
   const [name, setName] = useState('')
   const [type, setType] = useState<AccountType>('savings')
+  const [openingBalanceStr, setOpeningBalanceStr] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -70,6 +71,7 @@ export default function AccountSheet({ open, onClose, groupId, account, nextSort
     if (open) {
       setName(account?.name ?? '')
       setType(account?.type ?? 'savings')
+      setOpeningBalanceStr(account?.openingBalance ? String(account.openingBalance / 100) : '')
       setError('')
     }
   }, [open, account])
@@ -83,12 +85,14 @@ export default function AccountSheet({ open, onClose, groupId, account, nextSort
     setError('')
     try {
       const now = Date.now()
+      const openingBalance = openingBalanceStr ? toPaise(parseFloat(openingBalanceStr)) : 0
       if (isEdit && account) {
         await db.accounts.update(account.accountId, {
           name: name.trim(),
           type,
           color: TYPE_COLORS[type],
           icon: TYPE_ICONS[type],
+          openingBalance,
           updatedAt: now,
         })
       } else {
@@ -101,6 +105,7 @@ export default function AccountSheet({ open, onClose, groupId, account, nextSort
           icon: TYPE_ICONS[type],
           sortOrder: nextSortOrder,
           isDefault: false,
+          openingBalance,
           createdAt: now,
           updatedAt: now,
         })
@@ -171,6 +176,26 @@ export default function AccountSheet({ open, onClose, groupId, account, nextSort
                 )
               })}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+              Opening balance (optional)
+            </Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={openingBalanceStr}
+              onChange={(e) => setOpeningBalanceStr(e.target.value)}
+              placeholder="0.00"
+              className="h-11 rounded-xl bg-surface-2 border-border
+                         text-text-primary placeholder:text-text-tertiary
+                         focus-visible:border-accent focus-visible:ring-accent/20"
+            />
+            <p className="text-[10px] text-text-tertiary">
+              Balance before your first tracked transaction in this account.
+            </p>
           </div>
 
           {/* Preview */}

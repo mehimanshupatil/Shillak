@@ -1,4 +1,5 @@
 import {
+  ArrowsLeftRightIcon,
   EyeSlashIcon,
   MagnifyingGlassIcon,
   PencilIcon,
@@ -129,12 +130,7 @@ export default function TransactionsPage() {
   const currency = group?.currency ?? 'INR'
 
   const hasActiveFilters =
-    !!categoryFilter ||
-    !!memberFilter ||
-    !!dateFrom ||
-    !!dateTo ||
-    typeFilter !== 'all' ||
-    !!tagFilter
+    !!categoryFilter || !!memberFilter || !!dateFrom || !!dateTo || !!tagFilter
 
   function clearFilters() {
     setCategoryFilter('')
@@ -177,8 +173,10 @@ export default function TransactionsPage() {
             Filter
             {hasActiveFilters && (
               <span className="ml-0.5 w-4 h-4 rounded-full bg-black/20 flex items-center justify-center text-[10px]">
-                {[categoryFilter, memberFilter, dateFrom || dateTo].filter(Boolean).length +
-                  (typeFilter !== 'all' ? 1 : 0)}
+                {
+                  [categoryFilter, memberFilter, dateFrom || dateTo, tagFilter].filter(Boolean)
+                    .length
+                }
               </span>
             )}
           </button>
@@ -363,15 +361,21 @@ export default function TransactionsPage() {
                       onSwipeRight={() => openEdit(txn)}
                     >
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-surface">
-                        <CategoryIcon
-                          icon={cat?.icon ?? 'CircleDot'}
-                          color={cat?.color ?? '#888'}
-                          size={16}
-                          containerSize={36}
-                        />
+                        {txn.type === 'transfer' ? (
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-accent/15 shrink-0">
+                            <ArrowsLeftRightIcon size={16} className="text-accent" />
+                          </div>
+                        ) : (
+                          <CategoryIcon
+                            icon={cat?.icon ?? 'CircleDot'}
+                            color={cat?.color ?? '#888'}
+                            size={16}
+                            containerSize={36}
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-text-primary truncate">
-                            {cat?.name ?? 'Unknown'}
+                            {txn.type === 'transfer' ? 'Transfer' : (cat?.name ?? 'Unknown')}
                           </p>
                           {txn.note && (
                             <p className="text-xs text-text-tertiary truncate">{txn.note}</p>
@@ -391,10 +395,14 @@ export default function TransactionsPage() {
                         </div>
                         <span
                           className={`text-sm font-mono font-semibold shrink-0 ${
-                            txn.type === 'income' ? 'text-income' : 'text-text-primary'
+                            txn.type === 'income'
+                              ? 'text-income'
+                              : txn.type === 'transfer'
+                                ? 'text-text-secondary'
+                                : 'text-text-primary'
                           }`}
                         >
-                          {txn.type === 'income' ? '+' : '-'}
+                          {txn.type === 'income' ? '+' : txn.type === 'transfer' ? '↔' : '-'}
                           {formatCurrency(txn.amount, currency)}
                         </span>
                         <Button

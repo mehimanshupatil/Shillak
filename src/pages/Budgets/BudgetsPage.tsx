@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
-import { formatCurrency, toBaseCurrency } from '@/lib/utils'
+import { formatCompact, formatCurrency, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const MONTHS_SHORT = [
@@ -210,6 +210,40 @@ export default function BudgetsPage() {
 
   const overallPct = totalBudget > 0 ? Math.min((totalSpend / totalBudget) * 100, 100) : 0
 
+  // Deadline pace status per goal
+  const goalPaceStatuses = useMemo(() => {
+    const nowMs = Date.now()
+    const statuses: Record<
+      string,
+      { status: 'done' | 'overdue' | 'behind' | 'on-track'; monthlyNeeded: number | null }
+    > = {}
+    for (const goal of goals ?? []) {
+      const effectiveSaved = goalSavedMap[goal.goalId] ?? goal.saved
+      if (effectiveSaved >= goal.target) {
+        statuses[goal.goalId] = { status: 'done', monthlyNeeded: null }
+        continue
+      }
+      if (!goal.deadline) continue
+      if (nowMs > goal.deadline) {
+        statuses[goal.goalId] = { status: 'overdue', monthlyNeeded: null }
+        continue
+      }
+      const msRemaining = goal.deadline - nowMs
+      const monthsRemaining = msRemaining / (30.44 * 86_400_000)
+      const monthlyNeeded =
+        monthsRemaining > 0 ? Math.ceil((goal.target - effectiveSaved) / monthsRemaining) : null
+      const totalDuration = goal.deadline - goal.createdAt
+      const elapsed = nowMs - goal.createdAt
+      const timeProgress = totalDuration > 0 ? elapsed / totalDuration : 0
+      const amountProgress = goal.target > 0 ? effectiveSaved / goal.target : 0
+      statuses[goal.goalId] = {
+        status: amountProgress >= timeProgress - 0.05 ? 'on-track' : 'behind',
+        monthlyNeeded,
+      }
+    }
+    return statuses
+  }, [goals, goalSavedMap])
+
   // Per-category spend per month over last 6 months [oldest → newest]
   const sparkData = useMemo(() => {
     if (activePeriod === 'yearly') return {}
@@ -223,11 +257,11 @@ export default function BudgetsPage() {
         if (t.date < mStart || t.date > mEnd) continue
         if (!data[t.categoryId]) data[t.categoryId] = Array(6).fill(0)
         const row = data[t.categoryId]
-        if (row) row[i] = (row[i] ?? 0) + t.amount
+        if (row) row[i] = (row[i] ?? 0) + toBaseCurrency(t, currency)
       }
     }
     return data
-  }, [historicTxns, month, year, activePeriod])
+  }, [historicTxns, month, year, activePeriod, currency])
 
   const alerts = useMemo(() => {
     return activeBudgets
@@ -548,6 +582,34 @@ export default function BudgetsPage() {
                       {formatCurrency(goal.target, currency)} · {Math.round(gpct)}%
                     </span>
                   </div>
+                  {(() => {
+                    const pace = goalPaceStatuses[goal.goalId]
+                    if (!pace) return null
+                    if (pace.status === 'done') return null
+                    if (pace.status === 'overdue')
+                      return (
+                        <p className="text-[10px] text-danger mt-1">
+                          Deadline passed — goal not reached
+                        </p>
+                      )
+                    if (pace.status === 'behind')
+                      return (
+                        <p className="text-[10px] text-warning mt-1">
+                          Behind pace
+                          {pace.monthlyNeeded
+                            ? ` — need ${formatCompact(pace.monthlyNeeded, currency)}/mo`
+                            : ''}
+                        </p>
+                      )
+                    return (
+                      <p className="text-[10px] text-success mt-1">
+                        On track
+                        {pace.monthlyNeeded
+                          ? ` — ${formatCompact(pace.monthlyNeeded, currency)}/mo to go`
+                          : ''}
+                      </p>
+                    )
+                  })()}
                 </div>
               )
             })}

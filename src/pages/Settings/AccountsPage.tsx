@@ -1,11 +1,12 @@
 import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/db'
 import type { Account } from '@/db/schema'
+import { formatCurrency, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function AccountsPage() {
@@ -20,6 +21,41 @@ export default function AccountsPage() {
     [activeGroupId],
   )
 
+  const group = useLiveQuery(
+    () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),
+    [activeGroupId],
+  )
+
+  const allTxns = useLiveQuery(
+    () =>
+      activeGroupId
+        ? db.transactions.where((t) => t.groupId === activeGroupId && t.deletedAt === null)
+        : [],
+    [activeGroupId],
+  )
+
+  const currency = group?.currency ?? 'INR'
+  const sorted = (accounts ?? []).sort((a, b) => a.sortOrder - b.sortOrder)
+
+  const accountBalances = useMemo(() => {
+    const balances: Record<string, number> = {}
+    for (const acc of sorted) {
+      let balance = acc.openingBalance ?? 0
+      for (const t of allTxns ?? []) {
+        if (t.accountId === acc.accountId) {
+          if (t.type === 'income') balance += toBaseCurrency(t, currency)
+          else if (t.type === 'expense') balance -= toBaseCurrency(t, currency)
+          else if (t.type === 'transfer') balance -= toBaseCurrency(t, currency)
+        }
+        if (t.toAccountId === acc.accountId && t.type === 'transfer') {
+          balance += toBaseCurrency(t, currency)
+        }
+      }
+      balances[acc.accountId] = balance
+    }
+    return balances
+  }, [sorted, allTxns, currency])
+
   async function handleDelete(acc: Account) {
     const txns = await db.transactions.where(
       (t) => t.groupId === activeGroupId && t.accountId === acc.accountId && t.deletedAt === null,
@@ -30,8 +66,6 @@ export default function AccountsPage() {
     }
     await db.accounts.delete(acc.accountId)
   }
-
-  const sorted = (accounts ?? []).sort((a, b) => a.sortOrder - b.sortOrder)
 
   return (
     <div className="px-4 pt-4 pb-24 flex flex-col gap-4">
@@ -76,6 +110,15 @@ export default function AccountsPage() {
                 <p className="text-sm text-text-primary">{acc.name}</p>
                 <p className="text-[10px] text-text-tertiary capitalize">{acc.type}</p>
               </div>
+              {accountBalances[acc.accountId] !== undefined && (
+                <span
+                  className={`text-sm font-mono font-medium shrink-0 ${
+                    (accountBalances[acc.accountId] ?? 0) < 0 ? 'text-danger' : 'text-text-primary'
+                  }`}
+                >
+                  {formatCurrency(accountBalances[acc.accountId] ?? 0, currency)}
+                </span>
+              )}
               {acc.isDefault && (
                 <span className="text-[10px] text-text-tertiary bg-surface-2 px-1.5 py-0.5 rounded">
                   default

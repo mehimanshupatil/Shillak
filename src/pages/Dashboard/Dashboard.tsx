@@ -82,10 +82,16 @@ export default function Dashboard() {
     () =>
       activeGroupId
         ? db.transactions
-            .where((t) => t.groupId === activeGroupId && t.deletedAt === null)
+            .where(
+              (t) =>
+                t.groupId === activeGroupId &&
+                t.deletedAt === null &&
+                t.date >= startOfMonth &&
+                t.date <= endOfMonth,
+            )
             .then((txns) => txns.sort((a, b) => b.date - a.date).slice(0, 5))
         : [],
-    [activeGroupId],
+    [activeGroupId, startOfMonth, endOfMonth],
   )
 
   const members = useLiveQuery(

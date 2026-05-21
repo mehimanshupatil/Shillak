@@ -28,47 +28,6 @@ export async function applyDelta(
   let applied = 0
   let conflicts = 0
 
-  // ── Transactions ──────────────────────────────────────────────────────────
-  for (const incoming of delta.transactions) {
-    const existing = await db.transactions.get(incoming.txnId)
-
-    if (!existing) {
-      await db.transactions.put(incoming)
-      applied++
-      continue
-    }
-
-    // Delete/edit conflict: one side deleted, other edited.
-    // If incoming is clearly newer it may be a propagated resolution — apply LWW.
-    // Only raise a conflict when local is newer or same age (ambiguous intent).
-    if (
-      (existing.deletedAt !== null && incoming.deletedAt === null) ||
-      (existing.deletedAt === null && incoming.deletedAt !== null)
-    ) {
-      if (incoming.updatedAt > existing.updatedAt) {
-        await db.transactions.put(incoming)
-        applied++
-      } else {
-        await logConflict(
-          groupId,
-          syncId,
-          'transaction',
-          incoming.txnId,
-          existing as unknown as Record<string, unknown>,
-          incoming as unknown as Record<string, unknown>,
-        )
-        conflicts++
-      }
-      continue
-    }
-
-    // LWW by updatedAt
-    if (incoming.updatedAt > existing.updatedAt) {
-      await db.transactions.put(incoming)
-      applied++
-    }
-  }
-
   // ── Users ─────────────────────────────────────────────────────────────────
   // Each user is authoritative about their own profile — always accept remote
   // updates for other users. Never overwrite this device's own profile
@@ -84,16 +43,28 @@ export async function applyDelta(
     }
   }
 
-  // ── Categories ────────────────────────────────────────────────────────────
-  // Build name+type index to avoid creating duplicates when both devices seeded defaults.
+  // ── Categories (MUST run before transactions) ─────────────────────────────
+  // Categories are applied first so that when transactions are written and
+  // useLiveQuery fires, every categoryId is already resolvable.
+  //
+  // When both devices seeded defaults they have different UUIDs for the same
+  // category (e.g. "Food/expense"). The dedup skip must record a remap so
+  // incoming transactions that reference the remote UUID can be rewritten to
+  // the local UUID — otherwise those transactions permanently show "Unknown".
   const existingCats = await db.categories.where((c) => c.groupId === groupId)
   const existingByNameType = new Map(existingCats.map((c) => [`${c.name}|${c.type}`, c.categoryId]))
+  // incomingCategoryId → localCategoryId for any skipped-duplicate categories
+  const categoryIdRemap = new Map<string, string>()
 
   for (const incoming of delta.categories) {
     const existing = await db.categories.get(incoming.categoryId)
     if (!existing) {
-      // Skip if another category with the same name+type already exists (duplicate seed)
-      if (existingByNameType.has(`${incoming.name}|${incoming.type}`)) continue
+      const localId = existingByNameType.get(`${incoming.name}|${incoming.type}`)
+      if (localId) {
+        // Duplicate seed — record remap so incoming transactions can resolve
+        categoryIdRemap.set(incoming.categoryId, localId)
+        continue
+      }
       await db.categories.put(incoming)
       existingByNameType.set(`${incoming.name}|${incoming.type}`, incoming.categoryId)
       applied++
@@ -108,6 +79,56 @@ export async function applyDelta(
     const existing = await db.members.get(incoming.id)
     if (!existing || incoming.updatedAt > existing.updatedAt) {
       await db.members.put(incoming)
+      applied++
+    }
+  }
+
+  // ── Transactions (after categories so useLiveQuery sees resolved IDs) ─────
+  for (const incoming of delta.transactions) {
+    // Remap categoryId if it was a deduped category on this device
+    const txn =
+      categoryIdRemap.size > 0 && categoryIdRemap.has(incoming.categoryId)
+        ? {
+            ...incoming,
+            categoryId: categoryIdRemap.get(incoming.categoryId) ?? incoming.categoryId,
+          }
+        : incoming
+
+    const existing = await db.transactions.get(txn.txnId)
+
+    if (!existing) {
+      await db.transactions.put(txn)
+      applied++
+      continue
+    }
+
+    // Delete/edit conflict: one side deleted, other edited.
+    // If incoming is clearly newer it may be a propagated resolution — apply LWW.
+    // Only raise a conflict when local is newer or same age (ambiguous intent).
+    if (
+      (existing.deletedAt !== null && txn.deletedAt === null) ||
+      (existing.deletedAt === null && txn.deletedAt !== null)
+    ) {
+      if (txn.updatedAt > existing.updatedAt) {
+        await db.transactions.put(txn)
+        applied++
+      } else {
+        await logConflict(
+          groupId,
+          syncId,
+          'transaction',
+          txn.txnId,
+          existing as unknown as Record<string, unknown>,
+          txn as unknown as Record<string, unknown>,
+        )
+        conflicts++
+      }
+      continue
+    }
+
+    // LWW by updatedAt
+    if (txn.updatedAt > existing.updatedAt) {
+      await db.transactions.put(txn)
       applied++
     }
   }

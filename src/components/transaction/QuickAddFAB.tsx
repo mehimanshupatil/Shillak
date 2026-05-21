@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
-import type { RecurrenceFrequency } from '@/db/schema'
+import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
 import { advanceDate, generateId, parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
@@ -86,7 +86,8 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
 
-  const [txnType, setTxnType] = useState<'expense' | 'income'>('expense')
+  const [txnType, setTxnType] = useState<TransactionType>('expense')
+  const [toAccountId, setToAccountId] = useState<string | null>(null)
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
@@ -117,7 +118,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
 
   const categories = useLiveQuery(
     () =>
-      activeGroupId
+      activeGroupId && txnType !== 'transfer'
         ? db.categories.where((c) => c.groupId === activeGroupId && c.type === txnType)
         : [],
     [activeGroupId, txnType],
@@ -236,7 +237,20 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       setError('Enter a valid amount')
       return
     }
-    if (!selectedCatId) {
+    if (txnType === 'transfer') {
+      if (!selectedAccountId) {
+        setError('Select source account')
+        return
+      }
+      if (!toAccountId) {
+        setError('Select destination account')
+        return
+      }
+      if (selectedAccountId === toAccountId) {
+        setError('Source and destination must differ')
+        return
+      }
+    } else if (!selectedCatId) {
       setError('Select a category')
       return
     }
@@ -310,7 +324,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         groupId: activeGroupId,
         ownerId: currentUserId,
         authorSeq: newSeq,
-        categoryId: selectedCatId,
+        categoryId: txnType === 'transfer' ? '' : (selectedCatId ?? ''),
         type: txnType,
         amount: toPaise(amount),
         currency: grp.currency,
@@ -322,13 +336,15 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         attachmentIds,
         recurrenceId,
         accountId: selectedAccountId,
-        paidBy: paidBy ?? currentUserId,
+        toAccountId: txnType === 'transfer' ? toAccountId : null,
+        paidBy: txnType === 'transfer' ? null : (paidBy ?? currentUserId),
         createdAt: Date.now(),
         updatedAt: Date.now(),
         deletedAt: null,
       })
 
       setSelectedAccountId(null)
+      setToAccountId(null)
       setPaidBy(null)
       onClose()
     } catch (e) {
@@ -385,9 +401,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         </div>
       </SheetHeader>
 
-      {/* Expense / Income toggle */}
+      {/* Expense / Income / Transfer toggle */}
       <div className="flex gap-2">
-        {(['expense', 'income'] as const).map((t) => (
+        {(['expense', 'income', 'transfer'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -395,13 +411,16 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
               setTxnType(t)
               setSelectedCatId(null)
               setSelectedAccountId(null)
+              setToAccountId(null)
               setPaidBy(null)
             }}
             className={`flex-1 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
               txnType === t
                 ? t === 'income'
                   ? 'bg-income text-black'
-                  : 'bg-expense text-white'
+                  : t === 'transfer'
+                    ? 'bg-accent/80 text-black'
+                    : 'bg-expense text-white'
                 : 'bg-surface-2 text-text-secondary'
             }`}
           >
@@ -550,42 +569,44 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {/* Category pills */}
-      <div>
-        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-          Category
-        </p>
-        {(categories ?? []).length === 0 ? (
-          <p className="text-xs text-text-tertiary py-2">
-            No categories yet — sync with the space admin first.
+      {/* Category pills — hidden for transfers */}
+      {txnType !== 'transfer' && (
+        <div>
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+            Category
           </p>
-        ) : (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {(categories ?? []).map((cat) => {
-              const active = selectedCatId === cat.categoryId
-              return (
-                <button
-                  key={cat.categoryId}
-                  type="button"
-                  onClick={() => setSelectedCatId(cat.categoryId)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    active ? 'text-black' : 'bg-surface-2 text-text-secondary'
-                  }`}
-                  style={active ? { backgroundColor: cat.color } : {}}
-                >
-                  <CategoryIcon
-                    icon={cat.icon}
-                    color={active ? '#000' : cat.color}
-                    size={12}
-                    containerSize={0}
-                  />
-                  {cat.name}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+          {(categories ?? []).length === 0 ? (
+            <p className="text-xs text-text-tertiary py-2">
+              No categories yet — sync with the space admin first.
+            </p>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {(categories ?? []).map((cat) => {
+                const active = selectedCatId === cat.categoryId
+                return (
+                  <button
+                    key={cat.categoryId}
+                    type="button"
+                    onClick={() => setSelectedCatId(cat.categoryId)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                    }`}
+                    style={active ? { backgroundColor: cat.color } : {}}
+                  >
+                    <CategoryIcon
+                      icon={cat.icon}
+                      color={active ? '#000' : cat.color}
+                      size={12}
+                      containerSize={0}
+                    />
+                    {cat.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Note */}
       <Input
@@ -638,8 +659,8 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {/* Paid by — only when multiple members */}
-      {(members ?? []).length > 1 && (
+      {/* Paid by — only for expense/income with multiple members */}
+      {txnType !== 'transfer' && (members ?? []).length > 1 && (
         <div>
           <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
             Paid by
@@ -672,34 +693,85 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* Account */}
-      {(accounts ?? []).length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-            Account (optional)
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {(accounts ?? [])
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((acc) => {
-                const active = selectedAccountId === acc.accountId
-                return (
-                  <button
-                    key={acc.accountId}
-                    type="button"
-                    onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
-                    }`}
-                    style={active ? { backgroundColor: acc.color } : {}}
-                  >
-                    {acc.name}
-                  </button>
-                )
-              })}
+      {/* Account — From/To for transfers, optional single for expense/income */}
+      {(accounts ?? []).length > 0 &&
+        (txnType === 'transfer' ? (
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                From account
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {(accounts ?? [])
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((acc) => {
+                    const active = selectedAccountId === acc.accountId
+                    return (
+                      <button
+                        key={acc.accountId}
+                        type="button"
+                        onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
+                        style={active ? { backgroundColor: acc.color } : {}}
+                      >
+                        {acc.name}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                To account
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {(accounts ?? [])
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .filter((acc) => acc.accountId !== selectedAccountId)
+                  .map((acc) => {
+                    const active = toAccountId === acc.accountId
+                    return (
+                      <button
+                        key={acc.accountId}
+                        type="button"
+                        onClick={() => setToAccountId(active ? null : acc.accountId)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
+                        style={active ? { backgroundColor: acc.color } : {}}
+                      >
+                        {acc.name}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div>
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+              Account (optional)
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {(accounts ?? [])
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .map((acc) => {
+                  const active = selectedAccountId === acc.accountId
+                  return (
+                    <button
+                      key={acc.accountId}
+                      type="button"
+                      onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                      }`}
+                      style={active ? { backgroundColor: acc.color } : {}}
+                    >
+                      {acc.name}
+                    </button>
+                  )
+                })}
+            </div>
+          </div>
+        ))}
 
       {/* Date */}
       <div>
@@ -716,83 +788,89 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {/* Repeat toggle */}
-      <div className="flex items-center justify-between py-1">
-        <div className="flex items-center gap-2">
-          <ArrowClockwiseIcon size={14} className="text-text-secondary" />
-          <span className="text-sm font-medium text-text-primary">Repeat</span>
-        </div>
-        <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
-      </div>
-
-      {/* Repeat options */}
-      {repeat && (
-        <div className="flex flex-col gap-3 p-3 rounded-xl bg-surface-2">
-          <div className="flex gap-1.5">
-            {(Object.keys(FREQ_LABELS) as RecurrenceFrequency[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFrequency(f)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  frequency === f ? 'bg-accent text-black' : 'bg-surface-3 text-text-secondary'
-                }`}
-              >
-                {FREQ_LABELS[f]}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-text-secondary">Every</span>
+      {/* Repeat toggle + options — not available for transfers */}
+      {txnType !== 'transfer' && (
+        <>
+          <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEvery((i) => Math.max(1, i - 1))}
-                className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-              >
-                −
-              </button>
-              <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
-                {every}
-              </span>
-              <button
-                type="button"
-                onClick={() => setEvery((i) => Math.min(99, i + 1))}
-                className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-              >
-                +
-              </button>
+              <ArrowClockwiseIcon size={14} className="text-text-secondary" />
+              <span className="text-sm font-medium text-text-primary">Repeat</span>
             </div>
-            <span className="text-xs text-text-secondary">
-              {frequency === 'daily'
-                ? 'day(s)'
-                : frequency === 'weekly'
-                  ? 'week(s)'
-                  : frequency === 'monthly'
-                    ? 'month(s)'
-                    : 'year(s)'}
-            </span>
+            <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
           </div>
 
-          {txnType === 'expense' && (
-            <div className="flex items-center justify-between pt-1 border-t border-border/50">
-              <div className="flex items-center gap-2">
-                <PushPinIcon size={13} className={isFixed ? 'text-accent' : 'text-text-tertiary'} />
-                <div>
-                  <span className="text-xs font-medium text-text-primary">Fixed outflow</span>
-                  <p className="text-[10px] text-text-tertiary">
-                    EMI, SIP, rent — tracked separately
-                  </p>
-                </div>
+          {repeat && (
+            <div className="flex flex-col gap-3 p-3 rounded-xl bg-surface-2">
+              <div className="flex gap-1.5">
+                {(Object.keys(FREQ_LABELS) as RecurrenceFrequency[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFrequency(f)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      frequency === f ? 'bg-accent text-black' : 'bg-surface-3 text-text-secondary'
+                    }`}
+                  >
+                    {FREQ_LABELS[f]}
+                  </button>
+                ))}
               </div>
-              <Switch
-                checked={isFixed}
-                onCheckedChange={setIsFixed}
-                aria-label="Mark as fixed outflow"
-              />
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-text-secondary">Every</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEvery((i) => Math.max(1, i - 1))}
+                    className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
+                  >
+                    −
+                  </button>
+                  <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
+                    {every}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEvery((i) => Math.min(99, i + 1))}
+                    className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="text-xs text-text-secondary">
+                  {frequency === 'daily'
+                    ? 'day(s)'
+                    : frequency === 'weekly'
+                      ? 'week(s)'
+                      : frequency === 'monthly'
+                        ? 'month(s)'
+                        : 'year(s)'}
+                </span>
+              </div>
+
+              {txnType === 'expense' && (
+                <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <PushPinIcon
+                      size={13}
+                      className={isFixed ? 'text-accent' : 'text-text-tertiary'}
+                    />
+                    <div>
+                      <span className="text-xs font-medium text-text-primary">Fixed outflow</span>
+                      <p className="text-[10px] text-text-tertiary">
+                        EMI, SIP, rent — tracked separately
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isFixed}
+                    onCheckedChange={setIsFixed}
+                    aria-label="Mark as fixed outflow"
+                  />
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {error && <p className="text-sm text-danger -mt-2">{error}</p>}
@@ -806,7 +884,13 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             : 'bg-accent text-black hover:bg-accent-hover'
         }`}
       >
-        {loading ? 'Saving…' : repeat ? 'Add & repeat' : `Add ${txnType}`}
+        {loading
+          ? 'Saving…'
+          : txnType === 'transfer'
+            ? 'Record transfer'
+            : repeat
+              ? 'Add & repeat'
+              : `Add ${txnType}`}
       </Button>
 
       {/* Hidden file inputs */}

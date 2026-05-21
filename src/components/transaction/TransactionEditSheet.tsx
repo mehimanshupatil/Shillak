@@ -49,6 +49,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
   const [dateStr, setDateStr] = useState('')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [toAccountId, setToAccountId] = useState<string | null>(null)
   const [paidBy, setPaidBy] = useState<string | null>(null)
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
@@ -61,7 +62,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
 
   const categories = useLiveQuery(
     () =>
-      activeGroupId && transaction
+      activeGroupId && transaction && transaction.type !== 'transfer'
         ? db.categories.where((c) => c.groupId === activeGroupId && c.type === transaction.type)
         : [],
     [activeGroupId, transaction?.type],
@@ -98,8 +99,9 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
     if (open && transaction) {
       setAmountStr((transaction.amount / 100).toFixed(2))
       setNote(transaction.note)
-      setSelectedCatId(transaction.categoryId)
+      setSelectedCatId(transaction.categoryId || null)
       setSelectedAccountId(transaction.accountId ?? null)
+      setToAccountId(transaction.toAccountId ?? null)
       setPaidBy(transaction.paidBy ?? null)
       setTags(transaction.tags ?? [])
       setTagInput('')
@@ -158,7 +160,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       setError('Enter a valid amount')
       return
     }
-    if (!selectedCatId) {
+    if (transaction.type !== 'transfer' && !selectedCatId) {
       setError('Select a category')
       return
     }
@@ -198,11 +200,12 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
           : undefined
       await db.transactions.update(transaction.txnId, {
         amount: toPaise(amount),
-        categoryId: selectedCatId,
+        categoryId: transaction.type === 'transfer' ? '' : (selectedCatId ?? ''),
         note: note.trim(),
         date,
         accountId: selectedAccountId,
-        paidBy: paidBy ?? currentUserId,
+        toAccountId: transaction.type === 'transfer' ? toAccountId : null,
+        paidBy: transaction.type === 'transfer' ? null : (paidBy ?? currentUserId),
         tags,
         attachmentIds: [...remainingIds, ...newIds],
         updatedAt: Date.now(),
@@ -243,7 +246,9 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                   transaction.type === 'income'
                     ? 'bg-income/20 text-income'
-                    : 'bg-expense/20 text-expense'
+                    : transaction.type === 'transfer'
+                      ? 'bg-accent/20 text-accent'
+                      : 'bg-expense/20 text-expense'
                 }`}
               >
                 {transaction.type}
@@ -273,36 +278,38 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             />
           </div>
 
-          {/* Category */}
-          <div>
-            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-              Category
-            </p>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {(categories ?? []).map((cat) => {
-                const active = selectedCatId === cat.categoryId
-                return (
-                  <button
-                    key={cat.categoryId}
-                    type="button"
-                    onClick={() => setSelectedCatId(cat.categoryId)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      active ? 'text-black' : 'bg-surface-2 text-text-secondary'
-                    }`}
-                    style={active ? { backgroundColor: cat.color } : {}}
-                  >
-                    <CategoryIcon
-                      icon={cat.icon}
-                      color={active ? '#000' : cat.color}
-                      size={12}
-                      containerSize={0}
-                    />
-                    {cat.name}
-                  </button>
-                )
-              })}
+          {/* Category — hidden for transfers */}
+          {transaction?.type !== 'transfer' && (
+            <div>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                Category
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {(categories ?? []).map((cat) => {
+                  const active = selectedCatId === cat.categoryId
+                  return (
+                    <button
+                      key={cat.categoryId}
+                      type="button"
+                      onClick={() => setSelectedCatId(cat.categoryId)}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                      }`}
+                      style={active ? { backgroundColor: cat.color } : {}}
+                    >
+                      <CategoryIcon
+                        icon={cat.icon}
+                        color={active ? '#000' : cat.color}
+                        size={12}
+                        containerSize={0}
+                      />
+                      {cat.name}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Note */}
           <Input
@@ -435,8 +442,8 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             {attachmentWarn && <p className="text-xs text-warning mt-1">{attachmentWarn}</p>}
           </div>
 
-          {/* Paid by — only when multiple members */}
-          {(members ?? []).length > 1 && (
+          {/* Paid by — only for expense/income with multiple members */}
+          {transaction?.type !== 'transfer' && (members ?? []).length > 1 && (
             <div>
               <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
                 Paid by
@@ -471,34 +478,85 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             </div>
           )}
 
-          {/* Account */}
-          {(accounts ?? []).length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-                Account (optional)
-              </p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {(accounts ?? [])
-                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((acc) => {
-                    const active = selectedAccountId === acc.accountId
-                    return (
-                      <button
-                        key={acc.accountId}
-                        type="button"
-                        onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                          active ? 'text-black' : 'bg-surface-2 text-text-secondary'
-                        }`}
-                        style={active ? { backgroundColor: acc.color } : {}}
-                      >
-                        {acc.name}
-                      </button>
-                    )
-                  })}
+          {/* Account — From/To for transfers */}
+          {(accounts ?? []).length > 0 &&
+            (transaction?.type === 'transfer' ? (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                    From account
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    {(accounts ?? [])
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((acc) => {
+                        const active = selectedAccountId === acc.accountId
+                        return (
+                          <button
+                            key={acc.accountId}
+                            type="button"
+                            onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
+                            style={active ? { backgroundColor: acc.color } : {}}
+                          >
+                            {acc.name}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                    To account
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    {(accounts ?? [])
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .filter((acc) => acc.accountId !== selectedAccountId)
+                      .map((acc) => {
+                        const active = toAccountId === acc.accountId
+                        return (
+                          <button
+                            key={acc.accountId}
+                            type="button"
+                            onClick={() => setToAccountId(active ? null : acc.accountId)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
+                            style={active ? { backgroundColor: acc.color } : {}}
+                          >
+                            {acc.name}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div>
+                <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                  Account (optional)
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {(accounts ?? [])
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((acc) => {
+                      const active = selectedAccountId === acc.accountId
+                      return (
+                        <button
+                          key={acc.accountId}
+                          type="button"
+                          onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                            active ? 'text-black' : 'bg-surface-2 text-text-secondary'
+                          }`}
+                          style={active ? { backgroundColor: acc.color } : {}}
+                        >
+                          {acc.name}
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            ))}
 
           {/* Date */}
           <div>

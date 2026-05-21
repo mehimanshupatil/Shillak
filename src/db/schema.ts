@@ -70,7 +70,8 @@ export interface GroupInvite {
 }
 
 // ─── Category ─────────────────────────────────────────────────────────────────
-export type TransactionType = 'expense' | 'income'
+export type CategoryType = 'expense' | 'income'
+export type TransactionType = CategoryType | 'transfer'
 
 export interface Category {
   categoryId: string
@@ -78,7 +79,7 @@ export interface Category {
   name: string
   icon: string
   color: string
-  type: TransactionType
+  type: CategoryType
   sortOrder: number
   isDefault: boolean
   createdBy: string
@@ -97,6 +98,7 @@ export interface Account {
   icon: string // lucide icon name
   sortOrder: number
   isDefault: boolean
+  openingBalance?: number // paise — balance before first tracked transaction
   createdAt: number
   updatedAt: number
 }
@@ -118,7 +120,8 @@ export interface Transaction {
   date: number // midnight UTC unix ms
   attachmentIds: string[]
   recurrenceId: string | null
-  accountId: string | null // which account was debited/credited
+  accountId: string | null // which account was debited/credited (source for transfers)
+  toAccountId?: string | null // destination account — only set when type = 'transfer'
   paidBy: string | null // userId — who actually spent (null = unspecified/household)
   createdAt: number
   updatedAt: number

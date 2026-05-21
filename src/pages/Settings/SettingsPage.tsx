@@ -203,20 +203,31 @@ export default function SettingsPage() {
     if (!confirm(`Delete "${spaceName}" and all its data?\nThis cannot be undone.`)) return
     if (!confirm(`Last chance — permanently delete "${spaceName}"?`)) return
 
-    const [txns, budgets, goals, attachments, recurrences, syncEvents, conflicts, mems, cats, accs, invitesList] =
-      await Promise.all([
-        db.transactions.where((t) => t.groupId === activeGroupId),
-        db.budgets.where((b) => b.groupId === activeGroupId),
-        db.goals.where((g) => g.groupId === activeGroupId),
-        db.attachments.where((a) => a.groupId === activeGroupId),
-        db.recurrences.where((r) => r.groupId === activeGroupId),
-        db.syncEvents.where((e) => e.groupId === activeGroupId),
-        db.conflicts.where((c) => c.groupId === activeGroupId),
-        db.members.where((m) => m.groupId === activeGroupId),
-        db.categories.where((c) => c.groupId === activeGroupId),
-        db.accounts.where((a) => a.groupId === activeGroupId),
-        db.invites.where((i) => i.groupId === activeGroupId),
-      ])
+    const [
+      txns,
+      budgets,
+      goals,
+      attachments,
+      recurrences,
+      syncEvents,
+      conflicts,
+      mems,
+      cats,
+      accs,
+      invitesList,
+    ] = await Promise.all([
+      db.transactions.where((t) => t.groupId === activeGroupId),
+      db.budgets.where((b) => b.groupId === activeGroupId),
+      db.goals.where((g) => g.groupId === activeGroupId),
+      db.attachments.where((a) => a.groupId === activeGroupId),
+      db.recurrences.where((r) => r.groupId === activeGroupId),
+      db.syncEvents.where((e) => e.groupId === activeGroupId),
+      db.conflicts.where((c) => c.groupId === activeGroupId),
+      db.members.where((m) => m.groupId === activeGroupId),
+      db.categories.where((c) => c.groupId === activeGroupId),
+      db.accounts.where((a) => a.groupId === activeGroupId),
+      db.invites.where((i) => i.groupId === activeGroupId),
+    ])
 
     await Promise.all([
       ...txns.map((t) => db.transactions.delete(t.txnId)),
@@ -236,11 +247,11 @@ export default function SettingsPage() {
     const remaining = await db.groups.toArray()
     if (remaining.length > 0) {
       useAppStore.getState().setActiveGroupId(remaining[0]!.groupId)
-      navigate('/dashboard')
     } else {
       localStorage.removeItem('shillak_group_id')
-      navigate('/onboarding')
+      useAppStore.setState({ activeGroupId: null })
     }
+    navigate('/')
   }
 
   return (
@@ -625,7 +636,7 @@ export default function SettingsPage() {
           >
             <div className="flex flex-col items-start">
               <span className="text-sm text-danger">Clear space data</span>
-              <span className="text-xs text-text-tertiary mt-0.5">
+              <span className="text-xs text-text-tertiary mt-0.5 ">
                 Deletes all transactions, budgets & goals. Keeps space settings.
               </span>
             </div>

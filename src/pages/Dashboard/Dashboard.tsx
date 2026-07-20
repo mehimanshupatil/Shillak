@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import MonthlyBar from '@/components/charts/MonthlyBar'
 import SpendingDonut from '@/components/charts/SpendingDonut'
 import ThisMonthSummary from '@/components/charts/ThisMonthSummary'
@@ -22,6 +23,11 @@ import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
 import { formatCurrency, relativeDate, toBaseCurrency, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+import {
+  PrototypeSwitcher,
+  UpcomingBillsPrototypeSection,
+  // PROTOTYPE — wayfinder ticket #4, drop this import + mount when resolved
+} from './UpcomingBills.prototype'
 
 const MONTHS_SHORT = [
   'Jan',
@@ -41,6 +47,8 @@ const MONTHS_SHORT = [
 export default function Dashboard() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
+  const [searchParams] = useSearchParams()
+  const showBillsPrototype = searchParams.has('variant')
 
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -264,6 +272,9 @@ export default function Dashboard() {
         incomeBaseline={memberIncomeBaseline}
       />
 
+      {/* PROTOTYPE — wayfinder ticket #4, ?variant=a|b|c */}
+      {showBillsPrototype && <UpcomingBillsPrototypeSection />}
+
       {/* Fixed outflows breakdown */}
       {fixedItems.length > 0 && (
         <FixedOutflowsCard
@@ -439,6 +450,7 @@ export default function Dashboard() {
       </div>
 
       <QuickAddFAB />
+      {showBillsPrototype && <PrototypeSwitcher />}
 
       <RecurrenceSheet
         open={recurrenceSheetOpen}

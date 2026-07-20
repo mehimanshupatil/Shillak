@@ -9,9 +9,11 @@ import {
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
@@ -426,12 +428,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             <div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
             <span className="text-xs text-text-secondary">Reading receipt… {ocrProgress}%</span>
           </div>
-          <div className="h-1 rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${ocrProgress}%` }}
-            />
-          </div>
+          <Progress value={ocrProgress} trackClassName="h-1" indicatorClassName="bg-accent" />
         </div>
       )}
 
@@ -618,16 +615,12 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
             {tags.map((tag) => (
-              <span
-                key={tag}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-2
-                           text-xs text-text-secondary"
-              >
+              <Badge key={tag} className="text-xs py-0.5">
                 #{tag}
                 <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
                   <XIcon size={9} />
                 </button>
-              </span>
+              </Badge>
             ))}
           </div>
         )}

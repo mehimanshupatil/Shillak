@@ -3,6 +3,7 @@
  * or falls back to the first letter of the name when no icon is set.
  */
 
+import { Avatar as AvatarPrimitive } from '@base-ui/react/avatar'
 import {
   BirdIcon,
   BriefcaseIcon,
@@ -119,27 +120,29 @@ export function Avatar({ color, name, icon, size = 36, rounded = 'xl' }: AvatarP
   const iconSize = Math.round(size * 0.48)
 
   return (
-    <div
+    <AvatarPrimitive.Root
       className={`${radiusClass} flex items-center justify-center shrink-0 select-none`}
       style={{ backgroundColor: color, width: size, height: size }}
       role="img"
       aria-label={name}
     >
-      {Icon ? (
-        <Icon size={iconSize} color="white" strokeWidth={2} />
-      ) : (
-        <span
-          style={{
-            fontSize: Math.round(size * 0.42),
-            lineHeight: 1,
-            color: 'white',
-            fontWeight: 600,
-          }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </span>
-      )}
-    </div>
+      <AvatarPrimitive.Fallback className="flex items-center justify-center">
+        {Icon ? (
+          <Icon size={iconSize} color="white" strokeWidth={2} />
+        ) : (
+          <span
+            style={{
+              fontSize: Math.round(size * 0.42),
+              lineHeight: 1,
+              color: 'white',
+              fontWeight: 600,
+            }}
+          >
+            {name.charAt(0).toUpperCase()}
+          </span>
+        )}
+      </AvatarPrimitive.Fallback>
+    </AvatarPrimitive.Root>
   )
 }
 

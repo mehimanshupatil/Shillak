@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
 import { generateId, parseDateStr, toPaise } from '@/lib/utils'
@@ -205,12 +206,11 @@ export default function ShareTargetPage() {
             <CircleNotchIcon size={14} className="text-accent animate-spin" />
             <span className="text-xs text-text-secondary">Scanning receipt with OCR…</span>
           </div>
-          <div className="h-1.5 rounded-full bg-surface-3">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${ocrProgress}%` }}
-            />
-          </div>
+          <Progress
+            value={ocrProgress}
+            trackClassName="bg-surface-3"
+            indicatorClassName="bg-accent"
+          />
           <p className="text-[10px] text-text-tertiary">
             First use downloads ~4 MB OCR engine (cached for offline use after)
           </p>

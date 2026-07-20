@@ -11,6 +11,7 @@
 import { CheckIcon, ClipboardTextIcon, XIcon } from '@phosphor-icons/react'
 import jsQR from 'jsqr'
 import { useEffect, useRef, useState } from 'react'
+import { Progress } from '@/components/ui/progress'
 
 export interface ScanProgress {
   scanned: number
@@ -159,12 +160,12 @@ export default function QRScanner({ onScan, onError, onClose, active = true, pro
                 {Math.round((progress.scanned / progress.total) * 100)}%
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-400 transition-all duration-300"
-                style={{ width: `${(progress.scanned / progress.total) * 100}%` }}
-              />
-            </div>
+            <Progress
+              value={progress.scanned}
+              max={progress.total}
+              trackClassName="bg-white/20"
+              indicatorClassName="bg-amber-400 duration-300"
+            />
             {progress.nextNeeded !== null && (
               <p className="text-xs text-white/70">
                 Ask sender:{' '}

@@ -14,6 +14,7 @@ import GoalSheet from '@/components/budget/GoalSheet'
 import GoalProgress from '@/components/charts/GoalProgress'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
+import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
 import { formatCompact, formatCurrency, toBaseCurrency } from '@/lib/utils'
@@ -332,20 +333,18 @@ export default function BudgetsPage() {
               {formatCurrency(totalSpend, currency)} / {formatCurrency(totalBudget, currency)}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${overallPct}%`,
-                backgroundColor:
-                  overallPct >= 100
-                    ? 'var(--color-danger)'
-                    : overallPct >= 80
-                      ? 'var(--color-warning)'
-                      : 'var(--color-accent)',
-              }}
-            />
-          </div>
+          <Progress
+            value={overallPct}
+            trackClassName="h-2"
+            indicatorStyle={{
+              backgroundColor:
+                overallPct >= 100
+                  ? 'var(--color-danger)'
+                  : overallPct >= 80
+                    ? 'var(--color-warning)'
+                    : 'var(--color-accent)',
+            }}
+          />
         </div>
       )}
 
@@ -447,19 +446,16 @@ export default function BudgetsPage() {
                       <Trash size={13} />
                     </Button>
                   </div>
-                  <div className="h-1.5 rounded-full bg-surface-2">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${bpct}%`,
-                        backgroundColor: over
-                          ? 'var(--color-danger)'
-                          : bpct >= 80
-                            ? 'var(--color-warning)'
-                            : (cat?.color ?? 'var(--color-accent)'),
-                      }}
-                    />
-                  </div>
+                  <Progress
+                    value={bpct}
+                    indicatorStyle={{
+                      backgroundColor: over
+                        ? 'var(--color-danger)'
+                        : bpct >= 80
+                          ? 'var(--color-warning)'
+                          : (cat?.color ?? 'var(--color-accent)'),
+                    }}
+                  />
                   {over && (
                     <p className="text-[10px] text-danger mt-1">
                       Over by {formatCurrency(spent - budget.limit, currency)}
@@ -565,15 +561,14 @@ export default function BudgetsPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="h-2 rounded-full bg-surface-2 mb-2">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${gpct}%`,
-                        backgroundColor: done ? 'var(--color-success)' : 'var(--color-accent)',
-                      }}
-                    />
-                  </div>
+                  <Progress
+                    value={gpct}
+                    className="mb-2"
+                    trackClassName="h-2"
+                    indicatorStyle={{
+                      backgroundColor: done ? 'var(--color-success)' : 'var(--color-accent)',
+                    }}
+                  />
                   <div className="flex justify-between text-xs font-mono">
                     <span className={done ? 'text-success' : 'text-text-secondary'}>
                       {formatCurrency(effectiveSaved, currency)}

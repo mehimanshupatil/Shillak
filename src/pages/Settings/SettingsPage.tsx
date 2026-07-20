@@ -18,7 +18,9 @@ import InviteSheet from '@/components/space/InviteSheet'
 import MemberIncomeSheet from '@/components/space/MemberIncomeSheet'
 import SyncSheet from '@/components/sync/SyncSheet'
 import { Avatar } from '@/components/ui/Avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { broadcastLock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
@@ -493,9 +495,9 @@ export default function SettingsPage() {
               <span className="flex items-center gap-1.5">
                 <span className="text-sm text-text-primary">Sync with another device</span>
                 {pendingConflictsCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-danger/15 text-danger text-[10px] font-medium">
+                  <Badge variant="danger">
                     {pendingConflictsCount} conflict{pendingConflictsCount > 1 ? 's' : ''}
-                  </span>
+                  </Badge>
                 )}
               </span>
               {lastSync ? (
@@ -534,20 +536,17 @@ export default function SettingsPage() {
                 {Math.round(storageUsedPct)}%
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-surface-2">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min(storageUsedPct, 100)}%`,
-                  backgroundColor:
-                    storageUsedPct >= 90
-                      ? 'var(--color-danger)'
-                      : storageUsedPct >= 80
-                        ? 'var(--color-warning)'
-                        : 'var(--color-accent)',
-                }}
-              />
-            </div>
+            <Progress
+              value={storageUsedPct}
+              indicatorStyle={{
+                backgroundColor:
+                  storageUsedPct >= 90
+                    ? 'var(--color-danger)'
+                    : storageUsedPct >= 80
+                      ? 'var(--color-warning)'
+                      : 'var(--color-accent)',
+              }}
+            />
             {storageUsedPct >= 80 && (
               <p className="text-xs text-warning mt-1">
                 {storageUsedPct >= 90

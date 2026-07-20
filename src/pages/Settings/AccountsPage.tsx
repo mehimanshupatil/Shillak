@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Area, AreaChart, Tooltip, XAxis, YAxis } from 'recharts'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
@@ -144,11 +145,7 @@ export default function AccountsPage() {
                   {formatCurrency(accountBalances[acc.accountId] ?? 0, currency)}
                 </span>
               )}
-              {acc.isDefault && (
-                <span className="text-[10px] text-text-tertiary bg-surface-2 px-1.5 py-0.5 rounded">
-                  default
-                </span>
-              )}
+              {acc.isDefault && <Badge>default</Badge>}
               <Button
                 variant="ghost"
                 size="icon-sm"

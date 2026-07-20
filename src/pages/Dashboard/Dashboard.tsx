@@ -20,6 +20,7 @@ import QuickAddFAB from '@/components/transaction/QuickAddFAB'
 import RecurrenceSheet from '@/components/transaction/RecurrenceSheet'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
+import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
 import { useMonthlyRecap } from '@/hooks/useMonthlyRecap'
@@ -368,19 +369,16 @@ export default function Dashboard() {
                         {formatCurrency(spent, currency)} / {formatCurrency(budget.limit, currency)}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-surface-2">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${bpct}%`,
-                          backgroundColor: over
-                            ? 'var(--color-danger)'
-                            : bpct >= 80
-                              ? 'var(--color-warning)'
-                              : (cat?.color ?? 'var(--color-accent)'),
-                        }}
-                      />
-                    </div>
+                    <Progress
+                      value={bpct}
+                      indicatorStyle={{
+                        backgroundColor: over
+                          ? 'var(--color-danger)'
+                          : bpct >= 80
+                            ? 'var(--color-warning)'
+                            : (cat?.color ?? 'var(--color-accent)'),
+                      }}
+                    />
                   </div>
                 )
               })}
@@ -695,17 +693,14 @@ function MonthlyRecapCard({
                               {formatCurrency(b.limit, currency)}
                             </span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-surface-2">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${pct}%`,
-                                backgroundColor: over
-                                  ? 'var(--color-danger)'
-                                  : (cat?.color ?? 'var(--color-accent)'),
-                              }}
-                            />
-                          </div>
+                          <Progress
+                            value={pct}
+                            indicatorStyle={{
+                              backgroundColor: over
+                                ? 'var(--color-danger)'
+                                : (cat?.color ?? 'var(--color-accent)'),
+                            }}
+                          />
                         </div>
                       )
                     })}

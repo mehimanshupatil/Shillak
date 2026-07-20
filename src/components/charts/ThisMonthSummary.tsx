@@ -1,3 +1,4 @@
+import { Progress } from '@/components/ui/progress'
 import { formatCompact, formatCurrency } from '@/lib/utils'
 
 interface Props {
@@ -37,20 +38,18 @@ export default function ThisMonthSummary({
             <p className="text-xs text-text-tertiary mt-0.5">
               of {formatCurrency(totalBudget, currency)} budget
             </p>
-            <div className="mt-3 h-1.5 rounded-full bg-surface-2">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${budgetPct}%`,
-                  backgroundColor:
-                    budgetPct >= 100
-                      ? 'var(--color-danger)'
-                      : budgetPct >= 80
-                        ? 'var(--color-warning)'
-                        : 'var(--color-accent)',
-                }}
-              />
-            </div>
+            <Progress
+              value={budgetPct}
+              className="mt-3"
+              indicatorStyle={{
+                backgroundColor:
+                  budgetPct >= 100
+                    ? 'var(--color-danger)'
+                    : budgetPct >= 80
+                      ? 'var(--color-warning)'
+                      : 'var(--color-accent)',
+              }}
+            />
           </>
         )}
         <p className="text-[10px] text-text-tertiary mt-2">
@@ -128,20 +127,17 @@ export default function ThisMonthSummary({
               {formatCurrency(expenses, currency)} / {formatCurrency(totalBudget, currency)}
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${budgetPct}%`,
-                backgroundColor:
-                  budgetPct >= 100
-                    ? 'var(--color-danger)'
-                    : budgetPct >= 80
-                      ? 'var(--color-warning)'
-                      : 'var(--color-accent)',
-              }}
-            />
-          </div>
+          <Progress
+            value={budgetPct}
+            indicatorStyle={{
+              backgroundColor:
+                budgetPct >= 100
+                  ? 'var(--color-danger)'
+                  : budgetPct >= 80
+                    ? 'var(--color-warning)'
+                    : 'var(--color-accent)',
+            }}
+          />
         </div>
       )}
     </div>

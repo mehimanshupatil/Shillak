@@ -1,6 +1,7 @@
 import { PaperclipIcon, XIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
@@ -232,17 +233,17 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
               Edit transaction
             </SheetTitle>
             {transaction && (
-              <span
-                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              <Badge
+                variant={
                   transaction.type === 'income'
-                    ? 'bg-income/20 text-income'
+                    ? 'success'
                     : transaction.type === 'transfer'
-                      ? 'bg-accent/20 text-accent'
-                      : 'bg-expense/20 text-expense'
-                }`}
+                      ? 'accent'
+                      : 'danger'
+                }
               >
                 {transaction.type}
-              </span>
+              </Badge>
             )}
           </SheetHeader>
 
@@ -320,11 +321,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-2
-                               text-xs text-text-secondary"
-                  >
+                  <Badge key={tag} className="text-xs py-0.5">
                     #{tag}
                     <button
                       type="button"
@@ -333,7 +330,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     >
                       <XIcon size={9} />
                     </button>
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}

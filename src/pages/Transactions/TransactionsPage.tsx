@@ -11,6 +11,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useRef, useState } from 'react'
 import QuickAddFAB from '@/components/transaction/QuickAddFAB'
 import TransactionEditSheet from '@/components/transaction/TransactionEditSheet'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
@@ -383,12 +384,7 @@ export default function TransactionsPage() {
                           {txn.tags.length > 0 && (
                             <div className="flex gap-1 mt-0.5 flex-wrap">
                               {txn.tags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="text-[10px] text-text-tertiary bg-surface-2 px-1.5 rounded-full"
-                                >
-                                  #{tag}
-                                </span>
+                                <Badge key={tag}>#{tag}</Badge>
                               ))}
                             </div>
                           )}

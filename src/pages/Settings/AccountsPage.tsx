@@ -2,12 +2,33 @@ import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/reac
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Area, AreaChart, Tooltip, XAxis, YAxis } from 'recharts'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
 import { Button } from '@/components/ui/button'
+import type { ChartConfig } from '@/components/ui/chart'
+import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
 import type { Account } from '@/db/schema'
+import { useNetWorthTrend } from '@/hooks/useNetWorthTrend'
 import { formatCurrency, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+const netWorthChartConfig = { netWorth: { label: 'Net worth' } } satisfies ChartConfig
 
 export default function AccountsPage() {
   const navigate = useNavigate()
@@ -36,6 +57,8 @@ export default function AccountsPage() {
 
   const currency = group?.currency ?? 'INR'
   const sorted = (accounts ?? []).sort((a, b) => a.sortOrder - b.sortOrder)
+
+  const { data: netWorthTrend } = useNetWorthTrend(activeGroupId, currency)
 
   const accountBalances = useMemo(() => {
     const balances: Record<string, number> = {}
@@ -91,6 +114,8 @@ export default function AccountsPage() {
           Add
         </Button>
       </div>
+
+      {netWorthTrend && <NetWorthTrendCard points={netWorthTrend.points} currency={currency} />}
 
       <div className="flex flex-col gap-1.5">
         {sorted.map((acc) => {
@@ -164,6 +189,79 @@ export default function AccountsPage() {
           account={editAccount}
           nextSortOrder={(accounts ?? []).length}
         />
+      )}
+    </div>
+  )
+}
+
+// ─── Net Worth Trend Card ─────────────────────────────────────────────────────
+
+function NetWorthTrendCard({
+  points,
+  currency,
+}: {
+  points: Array<{ year: number; month: number; netWorth: number }>
+  currency: string
+}) {
+  const latest = points[points.length - 1]?.netWorth ?? 0
+  const chartData = points.map((p) => ({ month: MONTHS_SHORT[p.month], netWorth: p.netWorth }))
+
+  return (
+    <div className="p-4 rounded-2xl bg-surface border border-border">
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+          Net worth trend
+        </p>
+        <span className="text-sm font-mono font-bold text-text-primary">
+          {formatCurrency(latest, currency)}
+        </span>
+      </div>
+
+      {points.length < 2 ? (
+        <p className="text-sm text-text-tertiary text-center py-8">
+          Not enough history yet — net worth trend needs at least 2 months of data.
+        </p>
+      ) : (
+        <ChartContainer config={netWorthChartConfig} className="h-[140px] w-full">
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="nwFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }}
+            />
+            <YAxis hide domain={['dataMin - 500000', 'dataMax + 500000']} />
+            <Tooltip
+              cursor={{ stroke: 'var(--color-border)' }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null
+                const item = payload[0]
+                if (!item) return null
+                return (
+                  <div className="px-2.5 py-1.5 rounded-lg bg-surface-2 border border-border text-xs">
+                    <p className="font-medium text-text-primary">{item.payload.month}</p>
+                    <p className="font-mono text-text-secondary">
+                      {formatCurrency(item.value as number, currency)}
+                    </p>
+                  </div>
+                )
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="netWorth"
+              stroke="var(--color-accent)"
+              strokeWidth={2}
+              fill="url(#nwFill)"
+            />
+          </AreaChart>
+        </ChartContainer>
       )}
     </div>
   )

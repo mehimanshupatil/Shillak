@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
@@ -348,14 +349,7 @@ export default function ShareTargetPage() {
         <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
           Date
         </p>
-        <input
-          type="date"
-          value={dateStr}
-          onChange={(e) => setDateStr(e.target.value)}
-          className="w-full h-11 px-4 rounded-xl bg-surface-2 border border-border
-                     text-sm text-text-primary focus:outline-none focus:border-accent
-                     scheme-dark"
-        />
+        <DatePicker value={dateStr} onChange={setDateStr} className="w-full h-11" />
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

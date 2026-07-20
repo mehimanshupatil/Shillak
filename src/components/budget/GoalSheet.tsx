@@ -1,6 +1,8 @@
+import { XIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -209,14 +211,20 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal, cate
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Deadline (optional)
             </Label>
-            <Input
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              className="h-11 rounded-xl bg-surface-2 border-border
-                         text-text-primary
-                         focus-visible:border-accent focus-visible:ring-accent/20"
-            />
+            <div className="flex items-center gap-2">
+              <DatePicker value={deadline} onChange={setDeadline} className="flex-1 h-11" />
+              {deadline && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setDeadline('')}
+                  aria-label="Clear deadline"
+                >
+                  <XIcon size={14} />
+                </Button>
+              )}
+            </div>
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

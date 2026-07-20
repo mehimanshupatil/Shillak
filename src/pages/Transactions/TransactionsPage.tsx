@@ -14,6 +14,7 @@ import TransactionEditSheet from '@/components/transaction/TransactionEditSheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -305,25 +306,11 @@ export default function TransactionsPage() {
             <div className="flex gap-2">
               <div className="flex-1">
                 <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">From</p>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
-                             text-sm text-text-primary focus:outline-none focus:border-accent
-                             scheme-dark"
-                />
+                <DatePicker value={dateFrom} onChange={setDateFrom} className="w-full h-9" />
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">To</p>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
-                             text-sm text-text-primary focus:outline-none focus:border-accent
-                             scheme-dark"
-                />
+                <DatePicker value={dateTo} onChange={setDateTo} className="w-full h-9" />
               </div>
             </div>
           </div>

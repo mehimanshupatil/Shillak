@@ -137,3 +137,19 @@ describe('db.atomically', () => {
     expect((await db.budgets.get(budget.budgetId))?.limit).toBe(99999)
   })
 })
+
+describe('testKeyAgainstAnyData', () => {
+  it('returns true when the current key can decrypt existing data', async () => {
+    const txn = makeTxn()
+    await db.transactions.put(txn)
+    const currentKey = await deriveKey('0000', new Uint8Array(16))
+    expect(await db.testKeyAgainstAnyData(currentKey)).toBe(true)
+  })
+
+  it('returns false when the key cannot decrypt existing data', async () => {
+    const txn = makeTxn()
+    await db.transactions.put(txn)
+    const wrongKey = await deriveKey('9999', new Uint8Array(16))
+    expect(await db.testKeyAgainstAnyData(wrongKey)).toBe(false)
+  })
+})

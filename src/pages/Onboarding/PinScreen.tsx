@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Logo from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
-import { broadcastUnlock, verifyPin } from '@/crypto/keystore'
+import { broadcastUnlock, resolveUnlock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import type { KeystoreRecord } from '@/db/schema'
 import useKeyStore from '@/stores/key.store'
@@ -34,12 +34,13 @@ export default function PinScreen({ onUnlocked }: Props) {
     try {
       const k = ks ?? (await db.keystoreTable.get(1))
       if (!k) throw new Error('No keystore found')
-      const key = await verifyPin(pinToVerify, k.salt, k.pinCheck)
+      const { key } = await resolveUnlock(pinToVerify, k)
       setKey(key)
       broadcastUnlock()
       onUnlocked()
-    } catch {
-      setError('Wrong PIN. Try again.')
+    } catch (e) {
+      const message = e instanceof Error ? e.message : ''
+      setError(message.startsWith('PIN change') ? message : 'Wrong PIN. Try again.')
       setPin('')
     } finally {
       setLoading(false)

@@ -188,6 +188,25 @@ export class EncryptedTable<T extends Record<string, any>> {
     }
     await this.table.delete(id)
   }
+
+  /**
+   * Tests whether a specific key (not necessarily the currently active one)
+   * can decrypt one existing row, without going through the global key
+   * store. Only used for PIN-change crash recovery — a pinCheck match alone
+   * doesn't prove a key can decrypt real data, since pinCheck is an
+   * independent ciphertext. Returns null if the table is empty (inconclusive).
+   */
+  async canDecryptWithKey(key: CryptoKey): Promise<boolean | null> {
+    const rows = await this.table.limit(1).toArray()
+    const row = rows[0]
+    if (!row) return null
+    try {
+      await decryptRecord(row._data, key)
+      return true
+    } catch {
+      return false
+    }
+  }
 }
 
 // ─── ShillakDB ────────────────────────────────────────────────────────────────
@@ -312,6 +331,21 @@ class ShillakDB extends Dexie {
       for (const replay of replays) await replay()
     })
     return result
+  }
+
+  /**
+   * Tests a candidate key against real data (not just a pinCheck ciphertext)
+   * by trying to decrypt one row from the first non-empty table. Used only
+   * for PIN-change crash recovery, where pinCheck matching a PIN doesn't
+   * prove that PIN's key can actually decrypt the data tables. Returns null
+   * if every table is empty (fresh install — nothing to verify against).
+   */
+  async testKeyAgainstAnyData(key: CryptoKey): Promise<boolean | null> {
+    for (const t of this.encryptedTables()) {
+      const result = await t.canDecryptWithKey(key)
+      if (result !== null) return result
+    }
+    return null
   }
 }
 

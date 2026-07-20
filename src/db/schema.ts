@@ -5,6 +5,11 @@ export interface KeystoreRecord {
   pinCheck: string // base64 AES-GCM ciphertext of "SHILLAK_V1"
   pinChangeInProgress: boolean
   userId?: string // local device owner — set at profile creation, never overwritten by sync
+  // Durable checkpoint for PIN-change crash recovery — set together with
+  // pinChangeInProgress before re-encryption starts, cleared once resolved.
+  // See resolveUnlock() in crypto/keystore.ts.
+  pendingSalt?: string | null
+  pendingPinCheck?: string | null
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────

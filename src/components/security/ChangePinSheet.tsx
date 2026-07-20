@@ -46,19 +46,31 @@ export default function ChangePinSheet({ open, onClose }: Props) {
     }
 
     setLoading(true)
+    let oldKey: CryptoKey | undefined
     try {
-      // 1. Verify current PIN
+      // 1. Verify current PIN — keep the derived key so we can restore it if
+      // anything below fails.
       setProgress('Verifying current PIN…')
       const ks = await db.keystoreTable.get(1)
       if (!ks) throw new Error('Keystore not found')
-      await verifyPin(currentPin, ks.salt, ks.pinCheck)
+      oldKey = await verifyPin(currentPin, ks.salt, ks.pinCheck)
 
       // 2. Generate new keystore data
       setProgress('Generating new key…')
       const { key: newKey, salt: newSalt, pinCheck: newPinCheck } = await createKeystore(newPin)
 
-      // 3. Mark PIN change in progress
-      await db.keystoreTable.put({ ...ks, pinChangeInProgress: true })
+      // 3. Durable checkpoint — old salt/pinCheck stay primary (still fully
+      // valid) but the pending new ones are persisted now, before
+      // re-encryption starts. If the app crashes anywhere after this point,
+      // resolveUnlock() (crypto/keystore.ts) can find both candidates and
+      // figure out — by testing against real data, not just pinCheck —
+      // which one the data actually ended up under.
+      await db.keystoreTable.put({
+        ...ks,
+        pinChangeInProgress: true,
+        pendingSalt: newSalt,
+        pendingPinCheck: newPinCheck,
+      })
 
       // 4. Read all encrypted records (old key still in store)
       setProgress('Reading records…')
@@ -96,36 +108,56 @@ export default function ChangePinSheet({ open, onClose }: Props) {
       setProgress('Re-encrypting…')
       setKey(newKey)
 
-      // 6. Write all records back with new key
-      await Promise.all([
-        users.length > 0 ? db.users.bulkPut(users) : Promise.resolve(),
-        groups.length > 0 ? db.groups.bulkPut(groups) : Promise.resolve(),
-        members.length > 0 ? db.members.bulkPut(members) : Promise.resolve(),
-        invites.length > 0 ? db.invites.bulkPut(invites) : Promise.resolve(),
-        categories.length > 0 ? db.categories.bulkPut(categories) : Promise.resolve(),
-        transactions.length > 0 ? db.transactions.bulkPut(transactions) : Promise.resolve(),
-        recurrences.length > 0 ? db.recurrences.bulkPut(recurrences) : Promise.resolve(),
-        attachments.length > 0 ? db.attachments.bulkPut(attachments) : Promise.resolve(),
-        budgets.length > 0 ? db.budgets.bulkPut(budgets) : Promise.resolve(),
-        goals.length > 0 ? db.goals.bulkPut(goals) : Promise.resolve(),
-        syncEvents.length > 0 ? db.syncEvents.bulkPut(syncEvents) : Promise.resolve(),
-        conflicts.length > 0 ? db.conflicts.bulkPut(conflicts) : Promise.resolve(),
-        accounts.length > 0 ? db.accounts.bulkPut(accounts) : Promise.resolve(),
-      ])
+      // 6. Write all records back with new key — atomic: either every table
+      // re-encrypts or none does, even though each write is async over Web
+      // Crypto (see db.atomically()'s doc comment and docs/adr/0001).
+      await db.atomically(async () => {
+        if (users.length > 0) await db.users.bulkPut(users)
+        if (groups.length > 0) await db.groups.bulkPut(groups)
+        if (members.length > 0) await db.members.bulkPut(members)
+        if (invites.length > 0) await db.invites.bulkPut(invites)
+        if (categories.length > 0) await db.categories.bulkPut(categories)
+        if (transactions.length > 0) await db.transactions.bulkPut(transactions)
+        if (recurrences.length > 0) await db.recurrences.bulkPut(recurrences)
+        if (attachments.length > 0) await db.attachments.bulkPut(attachments)
+        if (budgets.length > 0) await db.budgets.bulkPut(budgets)
+        if (goals.length > 0) await db.goals.bulkPut(goals)
+        if (syncEvents.length > 0) await db.syncEvents.bulkPut(syncEvents)
+        if (conflicts.length > 0) await db.conflicts.bulkPut(conflicts)
+        if (accounts.length > 0) await db.accounts.bulkPut(accounts)
+      })
 
-      // 7. Commit new keystore
+      // 7. Commit new keystore, clearing the pending checkpoint
       await db.keystoreTable.put({
         id: 1,
         salt: newSalt,
         pinCheck: newPinCheck,
         pinChangeInProgress: false,
+        userId: ks.userId,
+        pendingSalt: null,
+        pendingPinCheck: null,
       })
 
       setProgress('')
       onClose()
       reset()
     } catch (e) {
-      // Restore old key if available
+      // Re-encryption is atomic (db.atomically()), so if we got past step 3
+      // the data itself is still fully under the old key regardless of where
+      // this failed — safe to just restore the old key and revert the
+      // checkpoint rather than leave pinChangeInProgress set.
+      if (oldKey) {
+        setKey(oldKey)
+        const ks = await db.keystoreTable.get(1)
+        if (ks?.pinChangeInProgress) {
+          await db.keystoreTable.put({
+            ...ks,
+            pinChangeInProgress: false,
+            pendingSalt: null,
+            pendingPinCheck: null,
+          })
+        }
+      }
       setError(String(e).replace('Error: ', ''))
       setProgress('')
     } finally {

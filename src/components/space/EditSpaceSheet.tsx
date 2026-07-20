@@ -3,6 +3,13 @@ import { Avatar, IconPicker, SPACE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
@@ -113,36 +120,36 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Currency
             </Label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full h-11 rounded-xl px-4 bg-surface-2 border border-border
-                         text-text-primary focus:outline-none focus:border-accent transition-colors text-sm"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.symbol} {c.name}
-                </option>
-              ))}
-            </select>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.symbol} {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Fiscal year starts in
             </Label>
-            <select
-              value={fiscalMonth}
-              onChange={(e) => setFiscalMonth(Number(e.target.value))}
-              className="w-full h-11 rounded-xl px-4 bg-surface-2 border border-border
-                         text-text-primary focus:outline-none focus:border-accent transition-colors text-sm"
-            >
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i + 1}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <Select value={fiscalMonth} onValueChange={setFiscalMonth}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={m} value={i + 1}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Visibility */}

@@ -3,6 +3,13 @@ import { Avatar, IconPicker, SPACE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { db } from '@/db/db'
 import { createDefaultAccounts, createDefaultCategories, pickGroupColor } from '@/db/seeds'
 import { CURRENCIES, MONTHS } from '@/lib/constants'
@@ -137,19 +144,18 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         >
           Currency
         </Label>
-        <select
-          id="space-currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-          className="w-full h-12 rounded-xl px-4 bg-surface border border-border
-                     text-text-primary focus:outline-none focus:border-accent transition-colors"
-        >
-          {CURRENCIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.symbol} {c.name}
-            </option>
-          ))}
-        </select>
+        <Select value={currency} onValueChange={setCurrency}>
+          <SelectTrigger id="space-currency" className="w-full h-12">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.symbol} {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Fiscal year start */}
@@ -160,19 +166,18 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         >
           Fiscal year starts in
         </Label>
-        <select
-          id="space-fiscal"
-          value={fiscalMonth}
-          onChange={(e) => setFiscalMonth(Number(e.target.value))}
-          className="w-full h-12 rounded-xl px-4 bg-surface border border-border
-                     text-text-primary focus:outline-none focus:border-accent transition-colors"
-        >
-          {MONTHS.map((m, i) => (
-            <option key={m} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
+        <Select value={fiscalMonth} onValueChange={setFiscalMonth}>
+          <SelectTrigger id="space-fiscal" className="w-full h-12">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map((m, i) => (
+              <SelectItem key={m} value={i + 1}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

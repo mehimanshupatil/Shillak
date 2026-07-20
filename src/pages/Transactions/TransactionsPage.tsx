@@ -15,6 +15,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
 import { formatCurrency, relativeDate } from '@/lib/utils'
@@ -241,22 +248,22 @@ export default function TransactionsPage() {
               <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                 Category
               </p>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
-                           text-sm text-text-primary focus:outline-none focus:border-accent"
-              >
-                <option value="">All categories</option>
-                {(categories ?? [])
-                  .filter((c) => typeFilter === 'all' || c.type === typeFilter)
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((c) => (
-                    <option key={c.categoryId} value={c.categoryId}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All categories</SelectItem>
+                  {(categories ?? [])
+                    .filter((c) => typeFilter === 'all' || c.type === typeFilter)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((c) => (
+                      <SelectItem key={c.categoryId} value={c.categoryId}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Member */}
@@ -265,19 +272,19 @@ export default function TransactionsPage() {
                 <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                   Person
                 </p>
-                <select
-                  value={memberFilter}
-                  onChange={(e) => setMemberFilter(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border
-                             text-sm text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">All members</option>
-                  {(members ?? []).map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {userMap[m.userId] ?? m.userId}
-                    </option>
-                  ))}
-                </select>
+                <Select value={memberFilter} onValueChange={setMemberFilter}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All members</SelectItem>
+                    {(members ?? []).map((m) => (
+                      <SelectItem key={m.userId} value={m.userId}>
+                        {userMap[m.userId] ?? m.userId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

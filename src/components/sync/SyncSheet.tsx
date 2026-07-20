@@ -19,6 +19,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
+import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
 import useAppStore from '@/stores/app.store'
 import { applyDelta } from '@/sync/conflict'
 import type { QRChunkEnvelope } from '@/sync/qr'
@@ -122,17 +123,7 @@ export default function SyncSheet({ open, onClose }: Props) {
     [activeGroupId],
   )
 
-  const pendingConflictsCount = useLiveQuery(
-    async () => {
-      if (!activeGroupId) return 0
-      const all = await db.conflicts.where(
-        (c) => c.groupId === activeGroupId && c.resolution === 'pending',
-      )
-      return all.length
-    },
-    [activeGroupId],
-    0,
-  )
+  const pendingConflictsCount = usePendingConflictsCount(activeGroupId)
 
   const lastSync = useLiveQuery(async () => {
     if (!activeGroupId) return null

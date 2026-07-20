@@ -25,6 +25,16 @@ export async function applyDelta(
   method: 'webrtc' | 'qr' | 'json',
   initiatedBy: string,
 ): Promise<ApplyResult> {
+  return db.atomically(() => applyDeltaUnguarded(delta, groupId, syncId, method, initiatedBy))
+}
+
+async function applyDeltaUnguarded(
+  delta: SyncDelta,
+  groupId: string,
+  syncId: string,
+  method: 'webrtc' | 'qr' | 'json',
+  initiatedBy: string,
+): Promise<ApplyResult> {
   let applied = 0
   let conflicts = 0
 

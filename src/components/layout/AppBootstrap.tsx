@@ -4,6 +4,7 @@ import { db } from '@/db/db'
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
 import { processRecurrences } from '@/lib/recurrences'
+import { requestPersistentStorage } from '@/lib/storagePersistence'
 import OnboardingFlow from '@/pages/Onboarding/OnboardingFlow'
 import PinScreen from '@/pages/Onboarding/PinScreen'
 import useAppStore from '@/stores/app.store'
@@ -95,6 +96,7 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
   async function handleOnboardingComplete(userId: string, groupId: string) {
     setCurrentUserId(userId)
     setActiveGroupId(groupId)
+    void requestPersistentStorage()
     setBoot({ status: 'ready' })
   }
 

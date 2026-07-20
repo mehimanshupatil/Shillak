@@ -37,22 +37,24 @@ export default function ConflictResolver({ groupId }: Props) {
       updatedAt: resolvedAt,
     }
 
-    if (conflict.entityType === 'transaction') {
-      if (groupId) {
-        const newSeq = await incrementVectorClock(groupId, currentUserId)
-        ;(chosen as Record<string, unknown>).authorSeq = newSeq
+    await db.atomically(async () => {
+      if (conflict.entityType === 'transaction') {
+        if (groupId) {
+          const newSeq = await incrementVectorClock(groupId, currentUserId)
+          ;(chosen as Record<string, unknown>).authorSeq = newSeq
+        }
+        await db.transactions.put(chosen as unknown as Parameters<typeof db.transactions.put>[0])
+      } else if (conflict.entityType === 'budget') {
+        await db.budgets.put(chosen as unknown as Parameters<typeof db.budgets.put>[0])
+      } else if (conflict.entityType === 'goal') {
+        await db.goals.put(chosen as unknown as Parameters<typeof db.goals.put>[0])
       }
-      await db.transactions.put(chosen as unknown as Parameters<typeof db.transactions.put>[0])
-    } else if (conflict.entityType === 'budget') {
-      await db.budgets.put(chosen as unknown as Parameters<typeof db.budgets.put>[0])
-    } else if (conflict.entityType === 'goal') {
-      await db.goals.put(chosen as unknown as Parameters<typeof db.goals.put>[0])
-    }
 
-    await db.conflicts.update(conflict.conflictId, {
-      resolution,
-      resolvedBy: currentUserId,
-      resolvedAt,
+      await db.conflicts.update(conflict.conflictId, {
+        resolution,
+        resolvedBy: currentUserId,
+        resolvedAt,
+      })
     })
   }
 

@@ -193,6 +193,20 @@ class ShillakDB extends Dexie {
       this.accounts = new EncryptedTable<Account>(this._accounts, 'accountId')
     })
   }
+
+  /**
+   * Wraps a multi-table write sequence in a Dexie transaction so a crash or
+   * thrown error partway through rolls back everything, not just some of it.
+   * Scoped to all tables (not a hand-picked subset) — this app is small
+   * enough that the broader lock scope costs nothing, and it means callers
+   * never have to remember to list every table they touch.
+   * Dexie tracks the transaction across the async Web Crypto calls inside
+   * EncryptedTable's encrypt/decrypt (native promises), so this stays atomic
+   * even though every read/write here is asynchronous.
+   */
+  async atomically<T>(fn: () => Promise<T>): Promise<T> {
+    return this.transaction('rw', this.tables, fn)
+  }
 }
 
 export const db = new ShillakDB()

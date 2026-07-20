@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button'
 import { broadcastLock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
+import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
+import { isStoragePersisted } from '@/lib/storagePersistence'
 import useAppStore from '@/stores/app.store'
 import useKeyStore from '@/stores/key.store'
 import { exportIdentityBackup } from '@/sync/identity'
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
   const clearKey = useKeyStore((s) => s.clearKey)
+  const pendingConflictsCount = usePendingConflictsCount(activeGroupId)
 
   const [groupSheetOpen, setGroupSheetOpen] = useState(false)
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
@@ -44,6 +47,7 @@ export default function SettingsPage() {
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
   const [storageUsedPct, setStorageUsedPct] = useState<number | null>(null)
+  const [storagePersisted, setStoragePersisted] = useState<boolean | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const group = useLiveQuery(
@@ -115,6 +119,7 @@ export default function SettingsPage() {
         setStorageUsedPct(((usage ?? 0) / quota) * 100)
       }
     })
+    isStoragePersisted().then(setStoragePersisted)
   }, [])
 
   async function handlePromote(memberId: string, _userId: string) {
@@ -485,7 +490,14 @@ export default function SettingsPage() {
                        hover:bg-surface-2 disabled:opacity-50"
           >
             <div className="flex flex-col items-baseline">
-              <span className="text-sm text-text-primary">Sync with another device</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-sm text-text-primary">Sync with another device</span>
+                {pendingConflictsCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-danger/15 text-danger text-[10px] font-medium">
+                    {pendingConflictsCount} conflict{pendingConflictsCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </span>
               {lastSync ? (
                 <p className="text-[11px] text-text-tertiary mt-0.5">
                   Last synced{' '}
@@ -544,6 +556,19 @@ export default function SettingsPage() {
               </p>
             )}
           </div>
+        )}
+
+        {storagePersisted !== null && (
+          <p className="text-xs px-1 mt-2">
+            {storagePersisted ? (
+              <span className="text-text-tertiary">Storage: protected from eviction</span>
+            ) : (
+              <span className="text-warning">
+                Storage: not protected —{' '}
+                {canInstall ? 'install as app for better protection' : 'browser may evict data under storage pressure'}
+              </span>
+            )}
+          </p>
         )}
       </section>
 

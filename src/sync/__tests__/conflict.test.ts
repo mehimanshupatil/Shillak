@@ -18,6 +18,7 @@ const mockDb = vi.hoisted(() => ({
   conflicts: { put: vi.fn() },
   syncEvents: { put: vi.fn() },
   keystoreTable: { get: vi.fn() },
+  atomically: vi.fn((fn: () => Promise<unknown>) => fn()),
 }))
 
 vi.mock('@/db/db', () => ({ db: mockDb }))

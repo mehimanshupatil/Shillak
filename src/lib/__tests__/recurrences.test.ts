@@ -10,6 +10,7 @@ let transactions: Transaction[] = []
 const mockDb = vi.hoisted(() => ({
   recurrences: { where: vi.fn(), update: vi.fn() },
   transactions: { where: vi.fn(), put: vi.fn() },
+  atomically: vi.fn((fn: () => Promise<unknown>) => fn()),
 }))
 
 vi.mock('@/db/db', () => ({ db: mockDb }))

@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Budget, Category, Group, GroupMember, SavingsGoal, Transaction } from '@/db/schema'
+import type {
+  Account,
+  Budget,
+  Category,
+  Group,
+  GroupMember,
+  Recurrence,
+  SavingsGoal,
+  Transaction,
+} from '@/db/schema'
 import { applyDelta } from '../conflict'
 import type { SyncDelta } from '../vector-clock'
 
@@ -90,6 +99,54 @@ function makeGoal(overrides: Partial<SavingsGoal> = {}): SavingsGoal {
     categoryId: null,
     createdAt: 1000,
     updatedAt: 2000,
+    ...overrides,
+  }
+}
+
+function makeAccount(overrides: Partial<Account> = {}): Account {
+  return {
+    accountId: 'acc-1',
+    groupId: 'g1',
+    name: 'HDFC Savings',
+    type: 'savings',
+    color: '#22c55e',
+    icon: 'Bank',
+    sortOrder: 0,
+    isDefault: false,
+    openingBalance: 0,
+    createdAt: 1000,
+    updatedAt: 2000,
+    ...overrides,
+  }
+}
+
+function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
+  return {
+    recurrenceId: 'rec-1',
+    groupId: 'g1',
+    ownerId: 'user-b',
+    template: {
+      groupId: 'g1',
+      ownerId: 'user-b',
+      categoryId: 'cat-1',
+      type: 'expense',
+      amount: 50000,
+      currency: 'INR',
+      fxRate: null,
+      originalAmount: null,
+      note: 'Rent',
+      tags: [],
+      attachmentIds: [],
+      accountId: null,
+      paidBy: null,
+    } as Recurrence['template'],
+    frequency: 'monthly',
+    interval: 1,
+    nextDue: 10_000,
+    lastGeneratedAt: null,
+    endDate: null,
+    active: true,
+    createdAt: 1000,
     ...overrides,
   }
 }
@@ -520,7 +577,92 @@ describe('members', () => {
 
 // ── Admin invariant tests ─────────────────────────────────────────────────────
 
+describe('accounts', () => {
+  it('new → applied', async () => {
+    const account = makeAccount()
+    mockDb.accounts.get.mockResolvedValue(undefined)
+
+    await applyDelta(makeDelta({ accounts: [account] }), GROUP_ID, SYNC_ID, 'webrtc', 'user-a')
+
+    expect(mockDb.accounts.put).toHaveBeenCalledWith(account)
+  })
+
+  it('remote newer updatedAt → LWW apply', async () => {
+    const existing = makeAccount({ updatedAt: 1000, name: 'Old Name' })
+    const incoming = makeAccount({ updatedAt: 2000, name: 'New Name' })
+    mockDb.accounts.get.mockResolvedValue(existing)
+
+    await applyDelta(makeDelta({ accounts: [incoming] }), GROUP_ID, SYNC_ID, 'webrtc', 'user-a')
+
+    expect(mockDb.accounts.put).toHaveBeenCalledWith(incoming)
+  })
+
+  it('remote older updatedAt → skipped, no conflict raised', async () => {
+    const existing = makeAccount({ updatedAt: 2000 })
+    const incoming = makeAccount({ updatedAt: 1000 })
+    mockDb.accounts.get.mockResolvedValue(existing)
+
+    const result = await applyDelta(
+      makeDelta({ accounts: [incoming] }),
+      GROUP_ID,
+      SYNC_ID,
+      'webrtc',
+      'user-a',
+    )
+
+    expect(mockDb.accounts.put).not.toHaveBeenCalled()
+    // Accounts have no ConflictLog path per CLAUDE.md — silently skipped, not logged
+    expect(result.conflictsFound).toBe(0)
+  })
+})
+
+describe('recurrences', () => {
+  it('new → applied', async () => {
+    const recurrence = makeRecurrence()
+    mockDb.recurrences.get.mockResolvedValue(undefined)
+
+    await applyDelta(
+      makeDelta({ recurrences: [recurrence] }),
+      GROUP_ID,
+      SYNC_ID,
+      'webrtc',
+      'user-a',
+    )
+
+    expect(mockDb.recurrences.put).toHaveBeenCalledWith(recurrence)
+  })
+
+  it('incoming createdAt >= existing → applied', async () => {
+    const existing = makeRecurrence({ createdAt: 1000, nextDue: 5000 })
+    const incoming = makeRecurrence({ createdAt: 1000, nextDue: 8000 })
+    mockDb.recurrences.get.mockResolvedValue(existing)
+
+    await applyDelta(makeDelta({ recurrences: [incoming] }), GROUP_ID, SYNC_ID, 'webrtc', 'user-a')
+
+    expect(mockDb.recurrences.put).toHaveBeenCalledWith(incoming)
+  })
+
+  it('incoming createdAt older than existing → skipped', async () => {
+    const existing = makeRecurrence({ createdAt: 2000 })
+    const incoming = makeRecurrence({ createdAt: 1000 })
+    mockDb.recurrences.get.mockResolvedValue(existing)
+
+    await applyDelta(makeDelta({ recurrences: [incoming] }), GROUP_ID, SYNC_ID, 'webrtc', 'user-a')
+
+    expect(mockDb.recurrences.put).not.toHaveBeenCalled()
+  })
+})
+
 describe('admin invariant', () => {
+  it('does not crash when the group has zero members', async () => {
+    mockDb.members.where.mockResolvedValue([])
+
+    await expect(
+      applyDelta(makeDelta(), GROUP_ID, SYNC_ID, 'webrtc', 'user-a'),
+    ).resolves.toBeDefined()
+    expect(mockDb.members.update).not.toHaveBeenCalled()
+  })
+
   it('0 admins → promote oldest member', async () => {
     const older = makeMember({ id: 'mem-a', userId: 'user-a', role: 'member', joinedAt: 500 })
     const newer = makeMember({ id: 'mem-b', userId: 'user-b', role: 'member', joinedAt: 2000 })

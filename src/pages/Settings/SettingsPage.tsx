@@ -565,7 +565,9 @@ export default function SettingsPage() {
             ) : (
               <span className="text-warning">
                 Storage: not protected —{' '}
-                {canInstall ? 'install as app for better protection' : 'browser may evict data under storage pressure'}
+                {canInstall
+                  ? 'install as app for better protection'
+                  : 'browser may evict data under storage pressure'}
               </span>
             )}
           </p>

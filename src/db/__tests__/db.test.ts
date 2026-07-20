@@ -117,4 +117,23 @@ describe('db.atomically', () => {
     expect(await db.transactions.get(txn.txnId)).toBeUndefined()
     expect(await db.budgets.get(budget.budgetId)).toBeUndefined()
   })
+
+  it('sees its own not-yet-committed writes within the same atomic block (read-your-own-writes)', async () => {
+    // Mirrors applyDelta's dependency: enforceAdminInvariant reads members
+    // that an earlier step in the same atomic block just wrote.
+    const budget = makeBudget({ limit: 10000 })
+    let seenDuringBlock: Budget | undefined
+
+    await db.atomically(async () => {
+      await db.budgets.put(budget)
+      seenDuringBlock = await db.budgets.get(budget.budgetId)
+      await db.budgets.update(budget.budgetId, { limit: 99999 })
+      const afterUpdate = await db.budgets.where((b) => b.budgetId === budget.budgetId)
+      expect(afterUpdate[0]?.limit).toBe(99999)
+    })
+
+    expect(seenDuringBlock?.limit).toBe(10000)
+    // Final committed state reflects the last write, not the intermediate one.
+    expect((await db.budgets.get(budget.budgetId))?.limit).toBe(99999)
+  })
 })

@@ -34,12 +34,47 @@ interface EncryptedRow {
 // ─── EncryptedTable ───────────────────────────────────────────────────────────
 // Wraps a Dexie.Table<EncryptedRow> and transparently encrypts/decrypts.
 // keyField: the primary key field name on the plaintext record (e.g. 'txnId')
+//
+// Staging (used by ShillakDB.atomically): a real IndexedDB transaction closes
+// itself once no request is pending and control returns to the event loop —
+// it cannot stay open across the async Web Crypto encrypt/decrypt calls every
+// operation here makes (confirmed by a PrematureCommitError when this was
+// tried directly). So atomic multi-table writes work in two phases instead:
+// phase 1 runs the caller's callback with every EncryptedTable in staging
+// mode — encryption still happens eagerly, but the actual Dexie write is
+// queued instead of executed, and reads check the queue first so the
+// callback still sees its own not-yet-committed writes. Phase 2 replays the
+// queued writes inside one real Dexie transaction — now every call is a
+// plain, already-encrypted `table.put()`, a pure IDB-request promise with no
+// further await on anything else, which stays correctly scoped.
+interface StagedEntry<T> {
+  record: T | null // null = staged delete
+  row: EncryptedRow | null // null = staged delete
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: generic table wrapper requires any for flexible record types
 export class EncryptedTable<T extends Record<string, any>> {
+  private staged: Map<string, StagedEntry<T>> | null = null
+
   constructor(
     private table: Dexie.Table<EncryptedRow, string>,
     private keyField: keyof T & string,
   ) {}
+
+  beginStaging(): void {
+    this.staged = new Map()
+  }
+
+  /** Stops staging, returning replay actions to run inside a real transaction. */
+  endStaging(): Array<() => Promise<unknown>> {
+    const staged = this.staged
+    this.staged = null
+    if (!staged) return []
+    return Array.from(staged.entries()).map(([id, entry]) => {
+      if (entry.row) return () => this.table.put(entry.row as EncryptedRow)
+      return () => this.table.delete(id)
+    })
+  }
 
   private async enc(record: T): Promise<EncryptedRow> {
     const key = getKey()
@@ -56,37 +91,68 @@ export class EncryptedTable<T extends Record<string, any>> {
   }
 
   async add(record: T): Promise<string> {
-    return this.table.add(await this.enc(record))
+    const row = await this.enc(record)
+    if (this.staged) {
+      this.staged.set(row._id, { record, row })
+      return row._id
+    }
+    return this.table.add(row)
   }
 
   async put(record: T): Promise<string> {
-    return this.table.put(await this.enc(record))
+    const row = await this.enc(record)
+    if (this.staged) {
+      this.staged.set(row._id, { record, row })
+      return row._id
+    }
+    return this.table.put(row)
   }
 
   async bulkAdd(records: T[]): Promise<string> {
-    const encrypted = await Promise.all(records.map((r) => this.enc(r)))
-    return this.table.bulkAdd(encrypted) as Promise<string>
+    const rows = await Promise.all(records.map((r) => this.enc(r)))
+    if (this.staged) {
+      rows.forEach((row, i) => {
+        this.staged?.set(row._id, { record: records[i] as T, row })
+      })
+      return rows[rows.length - 1]?._id as string
+    }
+    return this.table.bulkAdd(rows) as Promise<string>
   }
 
   async bulkPut(records: T[]): Promise<string> {
-    const encrypted = await Promise.all(records.map((r) => this.enc(r)))
-    return this.table.bulkPut(encrypted) as Promise<string>
+    const rows = await Promise.all(records.map((r) => this.enc(r)))
+    if (this.staged) {
+      rows.forEach((row, i) => {
+        this.staged?.set(row._id, { record: records[i] as T, row })
+      })
+      return rows[rows.length - 1]?._id as string
+    }
+    return this.table.bulkPut(rows) as Promise<string>
   }
 
   async get(id: string): Promise<T | undefined> {
+    if (this.staged?.has(id)) {
+      return (this.staged.get(id) as StagedEntry<T>).record ?? undefined
+    }
     const row = await this.table.get(id)
     if (!row) return undefined
     return this.dec(row)
   }
 
   async bulkGet(ids: string[]): Promise<(T | undefined)[]> {
-    const rows = await this.table.bulkGet(ids)
-    return Promise.all(rows.map((r) => (r ? this.dec(r) : undefined)))
+    return Promise.all(ids.map((id) => this.get(id)))
   }
 
   async toArray(): Promise<T[]> {
     const rows = await this.table.toArray()
-    return Promise.all(rows.map((r) => this.dec(r)))
+    const decrypted = await Promise.all(rows.map((r) => this.dec(r)))
+    if (!this.staged) return decrypted
+    const byId = new Map(decrypted.map((r) => [r[this.keyField] as string, r]))
+    for (const [id, entry] of this.staged) {
+      if (entry.record) byId.set(id, entry.record)
+      else byId.delete(id)
+    }
+    return Array.from(byId.values())
   }
 
   async first(): Promise<T | undefined> {
@@ -111,10 +177,15 @@ export class EncryptedTable<T extends Record<string, any>> {
 
   // Count
   async count(): Promise<number> {
+    if (this.staged) return (await this.toArray()).length
     return this.table.count()
   }
 
   async delete(id: string): Promise<void> {
+    if (this.staged) {
+      this.staged.set(id, { record: null, row: null })
+      return
+    }
     await this.table.delete(id)
   }
 }
@@ -194,18 +265,53 @@ class ShillakDB extends Dexie {
     })
   }
 
+  private encryptedTables(): Array<EncryptedTable<Record<string, unknown>>> {
+    return [
+      this.users,
+      this.groups,
+      this.members,
+      this.invites,
+      this.categories,
+      this.transactions,
+      this.recurrences,
+      this.attachments,
+      this.budgets,
+      this.goals,
+      this.syncEvents,
+      this.conflicts,
+      this.accounts,
+      // biome-ignore lint/suspicious/noExplicitAny: EncryptedTable<T> for varying T, deliberately erased here
+    ] as any
+  }
+
   /**
-   * Wraps a multi-table write sequence in a Dexie transaction so a crash or
-   * thrown error partway through rolls back everything, not just some of it.
-   * Scoped to all tables (not a hand-picked subset) — this app is small
-   * enough that the broader lock scope costs nothing, and it means callers
-   * never have to remember to list every table they touch.
-   * Dexie tracks the transaction across the async Web Crypto calls inside
-   * EncryptedTable's encrypt/decrypt (native promises), so this stays atomic
-   * even though every read/write here is asynchronous.
+   * Wraps a multi-table write sequence so a thrown error partway through
+   * rolls back everything, not just some of it. See the comment above
+   * EncryptedTable for why this can't be a plain `db.transaction()` — every
+   * encrypted read/write is async over Web Crypto, which a real IndexedDB
+   * transaction cannot stay open across. Phase 1 runs `fn` with every
+   * EncryptedTable staging its writes (still visible to reads within `fn`
+   * itself); phase 2 replays the staged writes inside one real transaction.
+   * Only covers EncryptedTable writes — `keystoreTable` (unencrypted) isn't
+   * staged, so don't write to it from inside an atomic block.
    */
   async atomically<T>(fn: () => Promise<T>): Promise<T> {
-    return this.transaction('rw', this.tables, fn)
+    const tables = this.encryptedTables()
+    for (const t of tables) t.beginStaging()
+
+    let result: T
+    try {
+      result = await fn()
+    } catch (e) {
+      for (const t of tables) t.endStaging() // discard staged writes
+      throw e
+    }
+
+    const replays = tables.flatMap((t) => t.endStaging())
+    await this.transaction('rw', this.tables, async () => {
+      for (const replay of replays) await replay()
+    })
+    return result
   }
 }
 

@@ -27,11 +27,7 @@ const INCOME_SEEDS: Array<{ name: string; icon: string; color: string }> = [
 
 export function createDefaultCategories(groupId: string, userId: string): Category[] {
   const now = Date.now()
-  const make = (
-    seed: (typeof EXPENSE_SEEDS)[number],
-    type: CategoryType,
-    i: number,
-  ): Category => ({
+  const make = (seed: (typeof EXPENSE_SEEDS)[number], type: CategoryType, i: number): Category => ({
     categoryId: crypto.randomUUID(),
     groupId,
     name: seed.name,

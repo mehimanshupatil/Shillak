@@ -5,10 +5,6 @@ export interface KeystoreRecord {
   pinCheck: string // base64 AES-GCM ciphertext of "SHILLAK_V1"
   pinChangeInProgress: boolean
   userId?: string // local device owner — set at profile creation, never overwritten by sync
-  // Biometric unlock (WebAuthn PRF) — all optional, absent = not enrolled
-  biometricCredentialId?: string | null // base64 WebAuthn rawId
-  biometricIv?: string | null // base64 AES-GCM IV for encrypted PIN
-  biometricEncryptedPin?: string | null // base64 AES-GCM ciphertext of PIN
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────

@@ -3,7 +3,6 @@ import {
   CaretRightIcon,
   CrownIcon,
   DownloadSimpleIcon,
-  FingerprintIcon,
   PencilIcon,
   PlusIcon,
   UploadSimpleIcon,
@@ -12,7 +11,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConflictSeeder from '@/components/dev/ConflictSeeder'
-import BiometricSheet from '@/components/security/BiometricSheet'
 import ChangePinSheet from '@/components/security/ChangePinSheet'
 import EditProfileSheet from '@/components/space/EditProfileSheet'
 import EditSpaceSheet from '@/components/space/EditSpaceSheet'
@@ -21,7 +19,6 @@ import MemberIncomeSheet from '@/components/space/MemberIncomeSheet'
 import SyncSheet from '@/components/sync/SyncSheet'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
-import { disableBiometric, isBiometricAvailable } from '@/crypto/biometric'
 import { broadcastLock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
@@ -42,14 +39,11 @@ export default function SettingsPage() {
   const [exportLoading, setExportLoading] = useState(false)
   const [importMsg, setImportMsg] = useState('')
   const [changePinOpen, setChangePinOpen] = useState(false)
-  const [biometricSheetOpen, setBiometricSheetOpen] = useState(false)
   const [syncSheetOpen, setSyncSheetOpen] = useState(false)
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
   const [storageUsedPct, setStorageUsedPct] = useState<number | null>(null)
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
-  const [biometricEnrolled, setBiometricEnrolled] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const group = useLiveQuery(
@@ -120,10 +114,6 @@ export default function SettingsPage() {
       if (quota && quota > 0) {
         setStorageUsedPct(((usage ?? 0) / quota) * 100)
       }
-    })
-    isBiometricAvailable().then(setBiometricAvailable)
-    db.keystoreTable.get(1).then((ks) => {
-      setBiometricEnrolled(!!ks?.biometricCredentialId)
     })
   }, [])
 
@@ -571,29 +561,6 @@ export default function SettingsPage() {
             <span className="text-sm text-text-primary">Change PIN</span>
             <CaretRightIcon size={16} className="text-text-tertiary" />
           </button>
-          {biometricAvailable && (
-            <button
-              type="button"
-              onClick={async () => {
-                if (biometricEnrolled) {
-                  await disableBiometric()
-                  setBiometricEnrolled(false)
-                } else {
-                  setBiometricSheetOpen(true)
-                }
-              }}
-              className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-surface-2"
-            >
-              <span className="text-sm text-text-primary flex items-center gap-2">
-                <FingerprintIcon
-                  size={15}
-                  className={biometricEnrolled ? 'text-success' : 'text-text-tertiary'}
-                />
-                {biometricEnrolled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
-              </span>
-              <CaretRightIcon size={16} className="text-text-tertiary" />
-            </button>
-          )}
           <button
             type="button"
             onClick={() =>
@@ -682,16 +649,6 @@ export default function SettingsPage() {
         />
       )}
       <ChangePinSheet open={changePinOpen} onClose={() => setChangePinOpen(false)} />
-      {currentUserId && (
-        <BiometricSheet
-          open={biometricSheetOpen}
-          onClose={() => {
-            setBiometricSheetOpen(false)
-            db.keystoreTable.get(1).then((ks) => setBiometricEnrolled(!!ks?.biometricCredentialId))
-          }}
-          userId={currentUserId}
-        />
-      )}
       <SyncSheet open={syncSheetOpen} onClose={() => setSyncSheetOpen(false)} />
       {activeGroupId && currentUserId && (
         <InviteSheet

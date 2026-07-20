@@ -576,8 +576,8 @@ export function parseReceiptText(raw: string): ParsedReceipt {
   const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
   const flat = text.replace(/\s+/g, ' ')
 
-  const amount = extractAmount(flat)
-  const note = extractMerchant(flat)
+  const amount = extractAmount(text)
+  const note = extractMerchant(text)
   const date = extractDate(flat)
   const categoryHint = inferCategoryHint(note, flat)
 

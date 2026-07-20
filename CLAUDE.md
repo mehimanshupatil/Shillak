@@ -267,5 +267,4 @@ pnpm lint      # biome lint
 
 ## Status
 
-Phases 1–4 complete. Remaining:
-- ⬜ Biometric unlock (WebAuthn as PIN shortcut)
+Phases 1–4 complete. PIN-only unlock (biometric/WebAuthn removed).

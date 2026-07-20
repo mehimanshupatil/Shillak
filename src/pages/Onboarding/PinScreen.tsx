@@ -1,8 +1,6 @@
-import { FingerprintIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import Logo from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
-import { unlockWithBiometric } from '@/crypto/biometric'
 import { broadcastUnlock, verifyPin } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import type { KeystoreRecord } from '@/db/schema'
@@ -25,8 +23,6 @@ export default function PinScreen({ onUnlocked }: Props) {
     })
   }, [])
 
-  const hasBiometric = !!(ks?.biometricCredentialId && ks.biometricIv && ks.biometricEncryptedPin)
-
   async function handleSubmit() {
     if (pin.length < 4) {
       setError('PIN must be at least 4 digits')
@@ -44,22 +40,6 @@ export default function PinScreen({ onUnlocked }: Props) {
     } catch {
       setError('Wrong PIN. Try again.')
       setPin('')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleBiometric() {
-    if (!ks) return
-    setLoading(true)
-    setError('')
-    try {
-      const key = await unlockWithBiometric(ks)
-      setKey(key)
-      broadcastUnlock()
-      onUnlocked()
-    } catch (e) {
-      setError(String(e).replace('Error: ', ''))
     } finally {
       setLoading(false)
     }
@@ -135,20 +115,6 @@ export default function PinScreen({ onUnlocked }: Props) {
         >
           {loading ? 'Unlocking…' : 'Unlock'}
         </Button>
-
-        {hasBiometric && (
-          <button
-            type="button"
-            onClick={handleBiometric}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl
-                       text-sm text-text-secondary active:bg-surface-2
-                       transition-colors disabled:opacity-50"
-          >
-            <FingerprintIcon size={18} className="text-accent" />
-            Use biometric
-          </button>
-        )}
       </div>
     </div>
   )

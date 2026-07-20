@@ -8,8 +8,8 @@
  *   - advanceDate month overflow (Jan 31 + 1m ≠ Mar 2)
  */
 import { describe, expect, it } from 'vitest'
-import { advanceDate, parseDateStr, toPaise, toBaseCurrency } from '../utils'
 import type { Transaction } from '@/db/schema'
+import { advanceDate, parseDateStr, toBaseCurrency, toPaise } from '../utils'
 
 // ─── toPaise ─────────────────────────────────────────────────────────────────
 
@@ -73,9 +73,9 @@ describe('toBaseCurrency', () => {
   })
 
   it('falls back to amount when fxRate missing', () => {
-    expect(
-      toBaseCurrency(makeTxn({ currency: 'USD', amount: 8350, fxRate: null }), 'INR'),
-    ).toBe(8350)
+    expect(toBaseCurrency(makeTxn({ currency: 'USD', amount: 8350, fxRate: null }), 'INR')).toBe(
+      8350,
+    )
   })
 
   it('falls back to amount when originalAmount missing', () => {

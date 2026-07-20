@@ -18,6 +18,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { db } from '@/db/db'
 import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
 import useAppStore from '@/stores/app.store'
@@ -383,23 +384,18 @@ export default function SyncSheet({ open, onClose }: Props) {
         </SheetHeader>
 
         {/* Tabs */}
-        <div className="flex gap-1 mx-4 mb-4 p-1 rounded-xl bg-surface-2">
-          {(['wifi', 'qr', 'history'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors relative ${
-                tab === t ? 'bg-accent text-black' : 'text-text-secondary'
-              }`}
-            >
-              {t === 'wifi' ? 'Local WiFi' : t === 'qr' ? 'QR Code' : 'History'}
-              {t === 'history' && (pendingConflictsCount ?? 0) > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-warning" />
-              )}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mx-4 mb-4">
+          <TabsList>
+            {(['wifi', 'qr', 'history'] as const).map((t) => (
+              <TabsTab key={t} value={t}>
+                {t === 'wifi' ? 'Local WiFi' : t === 'qr' ? 'QR Code' : 'History'}
+                {t === 'history' && (pendingConflictsCount ?? 0) > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-warning" />
+                )}
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* Pending conflicts — shown above tab content so always visible */}
         {(pendingConflictsCount ?? 0) > 0 && activeGroupId && (

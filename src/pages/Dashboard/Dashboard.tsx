@@ -6,9 +6,11 @@ import {
   CaretUpIcon,
   EyeSlashIcon,
   PushPinIcon,
+  XIcon,
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import MonthlyBar from '@/components/charts/MonthlyBar'
 import SpendingDonut from '@/components/charts/SpendingDonut'
 import ThisMonthSummary from '@/components/charts/ThisMonthSummary'
@@ -20,7 +22,9 @@ import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
+import { useMonthlyRecap } from '@/hooks/useMonthlyRecap'
 import { useUpcomingBills } from '@/hooks/useUpcomingBills'
+import type { RecapBudgetItem, RecapCategoryItem, RecapGoalItem } from '@/lib/monthlyRecap'
 import type { UpcomingBillItem } from '@/lib/upcomingBills'
 import { formatCurrency, relativeDate, toBaseCurrency, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
@@ -113,6 +117,23 @@ export default function Dashboard() {
   const currency = group?.currency ?? 'INR'
 
   const { data: upcomingBills } = useUpcomingBills(activeGroupId, currency)
+
+  // Monthly recap always refers to the most recently closed calendar month,
+  // independent of whichever month the user is browsing above.
+  const recapYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+  const recapMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1
+  const { data: monthlyRecap } = useMonthlyRecap(activeGroupId, currency, recapYear, recapMonth)
+  const recapKey = activeGroupId
+    ? `shillak_recap_dismissed_${activeGroupId}_${recapYear}-${recapMonth}`
+    : null
+  const [recapDismissed, setRecapDismissed] = useState(false)
+  useEffect(() => {
+    if (!recapKey) return
+    setRecapDismissed(localStorage.getItem(recapKey) === '1')
+  }, [recapKey])
+  const [searchParams] = useSearchParams()
+  const forceRecap = import.meta.env.DEV && searchParams.has('forceRecap')
+  const withinRecapWindow = now.getDate() <= 7 || forceRecap
 
   // Sum of all members' stated monthly income — used as baseline when no income transactions
   const memberIncomeBaseline = useMemo(
@@ -214,6 +235,35 @@ export default function Dashboard() {
   const isCurrent = year === now.getFullYear() && month === now.getMonth()
   const totalsOnly = group?.visibility === 'totals_only'
 
+  const recapIsEmpty = !!monthlyRecap && monthlyRecap.income === 0 && monthlyRecap.expense === 0
+  // DEV-only: forceRecap preview with no real data falls back to mock numbers
+  // (using real category ids so names/icons still resolve) so the layout is
+  // still inspectable on a fresh/empty group. Never used outside forceRecap.
+  const catIds = Object.keys(catMap)
+  const mockRecapPreview = {
+    income: 8500000,
+    expense: 6200000,
+    netSaved: 2300000,
+    hasPreviousMonth: true,
+    expenseDeltaPct: -8,
+    budgets: catIds.slice(0, 2).map((categoryId, i) => ({
+      categoryId,
+      spent: 300000 + i * 100000,
+      limit: 500000,
+    })),
+    topCategories: catIds.slice(0, 3).map((categoryId, i) => ({
+      categoryId,
+      amount: 400000 - i * 100000,
+    })),
+    goals: [] as RecapGoalItem[],
+  }
+  const effectiveRecap = forceRecap && recapIsEmpty ? mockRecapPreview : monthlyRecap
+  const showRecap =
+    withinRecapWindow &&
+    !recapDismissed &&
+    !!effectiveRecap &&
+    (effectiveRecap.income > 0 || effectiveRecap.expense > 0)
+
   return (
     <div className="flex flex-col gap-0 pb-24">
       {/* Header */}
@@ -246,6 +296,20 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Last month recap — visible for the first 7 days of a new month, dismissible */}
+      {showRecap && effectiveRecap && recapKey && (
+        <MonthlyRecapCard
+          recap={effectiveRecap}
+          currency={currency}
+          catMap={catMap}
+          monthLabel={`${MONTHS_SHORT[recapMonth]} ${recapYear}`}
+          onDismiss={() => {
+            localStorage.setItem(recapKey, '1')
+            setRecapDismissed(true)
+          }}
+        />
+      )}
 
       {/* Summary card */}
       <ThisMonthSummary
@@ -534,6 +598,204 @@ function UpcomingBillRow({
         </span>
       </div>
     </button>
+  )
+}
+
+// ─── Monthly Recap Card ───────────────────────────────────────────────────────
+
+function MonthlyRecapCard({
+  recap,
+  currency,
+  catMap,
+  monthLabel,
+  onDismiss,
+}: {
+  recap: {
+    income: number
+    expense: number
+    netSaved: number
+    hasPreviousMonth: boolean
+    expenseDeltaPct: number | null
+    budgets: RecapBudgetItem[]
+    topCategories: RecapCategoryItem[]
+    goals: RecapGoalItem[]
+  }
+  currency: string
+  catMap: Record<string, { name: string; color: string; icon: string }>
+  monthLabel: string
+  onDismiss: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="mt-4 mb-4 mx-4 rounded-2xl bg-surface border border-border overflow-hidden">
+      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+        <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">
+          {monthLabel} recap
+        </span>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="p-1 -mr-1 text-text-tertiary"
+          aria-label="Dismiss recap"
+        >
+          <XIcon size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-border px-4 pb-3 pt-2">
+        <RecapStatTile
+          label="Income"
+          value={formatCurrency(recap.income, currency)}
+          tone="income"
+        />
+        <RecapStatTile
+          label="Expense"
+          value={formatCurrency(recap.expense, currency)}
+          tone="expense"
+        />
+        <RecapStatTile label="Net saved" value={formatCurrency(recap.netSaved, currency)} />
+        {recap.hasPreviousMonth && recap.expenseDeltaPct !== null && (
+          <RecapStatTile
+            label="vs last month"
+            value={`${recap.expenseDeltaPct > 0 ? '+' : ''}${recap.expenseDeltaPct}%`}
+            tone={recap.expenseDeltaPct <= 0 ? 'income' : 'expense'}
+          />
+        )}
+      </div>
+
+      {(recap.budgets.length > 0 || recap.topCategories.length > 0 || recap.goals.length > 0) && (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full py-2 text-xs font-medium text-accent border-t border-border"
+          >
+            {expanded ? 'Hide details' : 'View details'}
+          </button>
+
+          {expanded && (
+            <div className="px-4 pb-4 pt-1 flex flex-col gap-4 border-t border-border">
+              {recap.budgets.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
+                    Budgets
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {recap.budgets.map((b) => {
+                      const cat = catMap[b.categoryId]
+                      const pct = Math.min((b.spent / b.limit) * 100, 100)
+                      const over = b.spent > b.limit
+                      return (
+                        <div key={b.categoryId}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-text-primary">{cat?.name ?? 'Unknown'}</span>
+                            <span className={over ? 'text-danger' : 'text-text-tertiary'}>
+                              {formatCurrency(b.spent, currency)} /{' '}
+                              {formatCurrency(b.limit, currency)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-surface-2">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: over
+                                  ? 'var(--color-danger)'
+                                  : (cat?.color ?? 'var(--color-accent)'),
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {recap.topCategories.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
+                    Top categories
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {recap.topCategories.map((c) => {
+                      const cat = catMap[c.categoryId]
+                      return (
+                        <div key={c.categoryId} className="flex items-center gap-2 text-xs">
+                          <CategoryIcon
+                            icon={cat?.icon ?? 'CircleDot'}
+                            color={cat?.color ?? '#888'}
+                            size={11}
+                            containerSize={22}
+                          />
+                          <span className="flex-1 text-text-primary">{cat?.name ?? 'Unknown'}</span>
+                          <span className="font-mono text-text-primary">
+                            {formatCurrency(c.amount, currency)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {recap.goals.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
+                    Goals
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {recap.goals.map((g) => {
+                      const pct = g.target > 0 ? Math.min((g.saved / g.target) * 100, 100) : 0
+                      return (
+                        <div key={g.goalId} className="flex items-center gap-2 text-xs">
+                          <span className="flex-1 text-text-primary">{g.name}</span>
+                          {g.isAutoTracked ? (
+                            <span className="font-mono text-income">
+                              +{formatCurrency(g.delta, currency)}
+                            </span>
+                          ) : (
+                            <span className="text-text-tertiary">{Math.round(pct)}%</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function RecapStatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'income' | 'expense'
+}) {
+  return (
+    <div className="bg-surface px-2 py-2">
+      <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-0.5">{label}</p>
+      <p
+        className={`text-sm font-bold font-mono ${
+          tone === 'income'
+            ? 'text-income'
+            : tone === 'expense'
+              ? 'text-expense'
+              : 'text-text-primary'
+        }`}
+      >
+        {value}
+      </p>
+    </div>
   )
 }
 

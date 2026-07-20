@@ -23,8 +23,9 @@ export default function PinScreen({ onUnlocked }: Props) {
     })
   }, [])
 
-  async function handleSubmit() {
-    if (pin.length < 4) {
+  async function handleSubmit(pinOverride?: string) {
+    const pinToVerify = pinOverride ?? pin
+    if (pinToVerify.length < 4) {
       setError('PIN must be at least 4 digits')
       return
     }
@@ -33,7 +34,7 @@ export default function PinScreen({ onUnlocked }: Props) {
     try {
       const k = ks ?? (await db.keystoreTable.get(1))
       if (!k) throw new Error('No keystore found')
-      const key = await verifyPin(pin, k.salt, k.pinCheck)
+      const key = await verifyPin(pinToVerify, k.salt, k.pinCheck)
       setKey(key)
       broadcastUnlock()
       onUnlocked()
@@ -44,6 +45,9 @@ export default function PinScreen({ onUnlocked }: Props) {
       setLoading(false)
     }
   }
+
+  // DEV-only convenience — never present in production builds.
+  const devPin = import.meta.env.DEV ? import.meta.env.VITE_DEV_PIN : undefined
 
   function handleDigit(d: string) {
     if (pin.length >= 6) return
@@ -107,7 +111,7 @@ export default function PinScreen({ onUnlocked }: Props) {
 
       <div className="flex flex-col items-center gap-3 w-full max-w-[280px]">
         <Button
-          onClick={handleSubmit}
+          onClick={() => handleSubmit()}
           disabled={pin.length < 4 || loading}
           className="w-full h-14 rounded-2xl bg-accent
                      text-black font-semibold text-base hover:bg-accent-hover
@@ -115,6 +119,17 @@ export default function PinScreen({ onUnlocked }: Props) {
         >
           {loading ? 'Unlocking…' : 'Unlock'}
         </Button>
+
+        {devPin && (
+          <button
+            type="button"
+            onClick={() => handleSubmit(devPin)}
+            disabled={loading}
+            className="text-xs text-text-tertiary underline disabled:opacity-50"
+          >
+            Unlock with dev PIN (VITE_DEV_PIN)
+          </button>
+        )}
       </div>
     </div>
   )

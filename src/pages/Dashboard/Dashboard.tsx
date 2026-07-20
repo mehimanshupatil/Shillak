@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
+import { useUpcomingBills } from '@/hooks/useUpcomingBills'
+import type { UpcomingBillItem } from '@/lib/upcomingBills'
 import { formatCurrency, relativeDate, toBaseCurrency, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
@@ -108,19 +110,9 @@ export default function Dashboard() {
     [activeGroupId],
   )
 
-  const upcomingRecurrences = useLiveQuery(() => {
-    if (!activeGroupId || !currentUserId) return []
-    const sevenDaysFromNow = today() + 7 * 86_400_000
-    return db.recurrences.where(
-      (r) =>
-        r.groupId === activeGroupId &&
-        r.ownerId === currentUserId &&
-        r.active &&
-        r.nextDue <= sevenDaysFromNow,
-    )
-  }, [activeGroupId, currentUserId])
-
   const currency = group?.currency ?? 'INR'
+
+  const { data: upcomingBills } = useUpcomingBills(activeGroupId, currency)
 
   // Sum of all members' stated monthly income — used as baseline when no income transactions
   const memberIncomeBaseline = useMemo(
@@ -332,53 +324,21 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Upcoming recurrences */}
-      {(upcomingRecurrences ?? []).length > 0 && (
-        <div className="mt-6 px-4">
-          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-3">
-            Upcoming
-          </p>
-          <div className="flex flex-col gap-2">
-            {(upcomingRecurrences ?? [])
-              .sort((a, b) => a.nextDue - b.nextDue)
-              .map((rec) => {
-                const cat = catMap[rec.template.categoryId]
-                const daysUntil = Math.round((rec.nextDue - today()) / 86_400_000)
-                return (
-                  <button
-                    key={rec.recurrenceId}
-                    type="button"
-                    onClick={() => {
-                      setEditRecurrence(rec)
-                      setRecurrenceSheetOpen(true)
-                    }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-surface text-left active:opacity-80 transition-opacity"
-                  >
-                    <CategoryIcon
-                      icon={cat?.icon ?? 'CircleDot'}
-                      color={cat?.color ?? '#888'}
-                      size={16}
-                      containerSize={36}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {cat?.name ?? 'Unknown'}
-                      </p>
-                      <p className="text-xs text-text-tertiary">
-                        {rec.frequency} · {daysUntil === 0 ? 'today' : `in ${daysUntil}d`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <ArrowClockwiseIcon size={10} className="text-text-tertiary" />
-                      <span className="text-sm font-mono font-medium text-text-primary">
-                        {formatCurrency(rec.template.amount, currency)}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
-          </div>
-        </div>
+      {/* Upcoming bills — household-wide expense recurrences due in the next 30 days */}
+      {upcomingBills && (upcomingBills.overdue.length > 0 || upcomingBills.upcoming.length > 0) && (
+        <UpcomingBillsSection
+          overdue={upcomingBills.overdue}
+          upcoming={upcomingBills.upcoming}
+          upcomingTotal={upcomingBills.upcomingTotal}
+          currency={currency}
+          catMap={catMap}
+          onSelect={(recurrenceId) => {
+            const rec = (allRecurrences ?? []).find((r) => r.recurrenceId === recurrenceId)
+            if (!rec) return
+            setEditRecurrence(rec)
+            setRecurrenceSheetOpen(true)
+          }}
+        />
       )}
 
       {/* Recent transactions */}
@@ -450,6 +410,130 @@ export default function Dashboard() {
         currency={currency}
       />
     </div>
+  )
+}
+
+// ─── Upcoming Bills Section ───────────────────────────────────────────────────
+
+function daysLabel(dueDate: number): string {
+  const daysUntil = Math.round((dueDate - today()) / 86_400_000)
+  if (daysUntil < 0) return `${Math.abs(daysUntil)}d overdue`
+  if (daysUntil === 0) return 'today'
+  return `in ${daysUntil}d`
+}
+
+function UpcomingBillsSection({
+  overdue,
+  upcoming,
+  upcomingTotal,
+  currency,
+  catMap,
+  onSelect,
+}: {
+  overdue: UpcomingBillItem[]
+  upcoming: UpcomingBillItem[]
+  upcomingTotal: number
+  currency: string
+  catMap: Record<string, { name: string; color: string; icon: string }>
+  onSelect: (recurrenceId: string) => void
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? upcoming : upcoming.slice(0, 5)
+
+  return (
+    <div className="mt-6 px-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+          Upcoming bills
+        </p>
+        <span className="text-xs font-mono text-text-tertiary">
+          {formatCurrency(upcomingTotal, currency)} / 30d
+        </span>
+      </div>
+
+      {overdue.length > 0 && (
+        <div className="flex flex-col gap-2 mb-3">
+          {overdue.map((bill) => (
+            <UpcomingBillRow
+              key={bill.recurrenceId}
+              bill={bill}
+              currency={currency}
+              catMap={catMap}
+              overdue
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {visible.map((bill) => (
+          <UpcomingBillRow
+            key={`${bill.recurrenceId}-${bill.date}`}
+            bill={bill}
+            currency={currency}
+            catMap={catMap}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+
+      {!showAll && upcoming.length > 5 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="w-full mt-2 py-2 text-xs font-medium text-accent text-center"
+        >
+          See all {upcoming.length} upcoming
+        </button>
+      )}
+    </div>
+  )
+}
+
+function UpcomingBillRow({
+  bill,
+  currency,
+  catMap,
+  overdue = false,
+  onSelect,
+}: {
+  bill: UpcomingBillItem
+  currency: string
+  catMap: Record<string, { name: string; color: string; icon: string }>
+  overdue?: boolean
+  onSelect: (recurrenceId: string) => void
+}) {
+  const cat = catMap[bill.categoryId]
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(bill.recurrenceId)}
+      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-opacity active:opacity-80 ${
+        overdue ? 'bg-danger/5 border-danger/30' : 'bg-surface border-transparent'
+      }`}
+    >
+      <CategoryIcon
+        icon={cat?.icon ?? 'CircleDot'}
+        color={cat?.color ?? '#888'}
+        size={16}
+        containerSize={36}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-text-primary truncate">
+          {bill.note || cat?.name || 'Unknown'}
+        </p>
+        <p className={`text-xs ${overdue ? 'text-danger' : 'text-text-tertiary'}`}>
+          {daysLabel(bill.date)}
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <ArrowClockwiseIcon size={10} className="text-text-tertiary" />
+        <span className="text-sm font-mono font-medium text-text-primary">
+          {formatCurrency(bill.amount, currency)}
+        </span>
+      </div>
+    </button>
   )
 }
 

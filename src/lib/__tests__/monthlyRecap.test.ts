@@ -69,6 +69,17 @@ describe('computeMonthlyRecap', () => {
     expect(result.netSaved).toBe(30000)
   })
 
+  it('excludes transfers from both income and expense totals', async () => {
+    transactions.push(
+      makeTxn({ type: 'income', amount: 50000, date: Date.UTC(2026, 5, 1) }),
+      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }),
+      makeTxn({ type: 'transfer', amount: 999999, date: Date.UTC(2026, 5, 10) }),
+    )
+    const result = await computeMonthlyRecap('g1', 'INR', 2026, 5)
+    expect(result.income).toBe(50000)
+    expect(result.expense).toBe(20000)
+  })
+
   it('hides the comparison when the previous month has no expense', async () => {
     transactions.push(makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }))
     const result = await computeMonthlyRecap('g1', 'INR', 2026, 5)

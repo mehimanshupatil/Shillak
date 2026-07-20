@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
+import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
 import { advanceDate, generateId, parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
@@ -36,17 +37,6 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
-}
-
-async function checkQuota(): Promise<{ blocked: boolean; warn: boolean }> {
-  try {
-    const { usage, quota } = await navigator.storage.estimate()
-    if (!quota || quota === 0) return { blocked: false, warn: false }
-    const pct = (usage ?? 0) / quota
-    return { blocked: pct >= 0.9, warn: pct >= 0.8 }
-  } catch {
-    return { blocked: false, warn: false }
-  }
 }
 
 export default function QuickAddFAB() {
@@ -171,13 +161,13 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
 
     setAttachmentWarn('')
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (isAttachmentTooLarge(file.size)) {
         setError('Attachment too large (max 5 MB each)')
         return
       }
     }
 
-    const { blocked, warn } = await checkQuota()
+    const { blocked, warn } = await checkStorageQuota()
     if (blocked) {
       setError('Storage above 90% — attachment uploads blocked.')
       return

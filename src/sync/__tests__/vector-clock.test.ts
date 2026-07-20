@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Account, Budget, Category, Group, GroupMember, Transaction, User } from '@/db/schema'
-import { computeDelta, mergeClock } from '../vector-clock'
+import { computeDelta, computeSince, incrementVectorClock, mergeClock } from '../vector-clock'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockDb = vi.hoisted(() => ({
-  groups: { get: vi.fn() },
+  groups: { get: vi.fn(), update: vi.fn() },
   transactions: { where: vi.fn() },
   categories: { where: vi.fn() },
   members: { where: vi.fn() },
@@ -16,7 +16,12 @@ const mockDb = vi.hoisted(() => ({
   users: { bulkGet: vi.fn() },
 }))
 
+const mockAppStore = vi.hoisted(() => ({ currentUserId: 'u1' }))
+
 vi.mock('@/db/db', () => ({ db: mockDb }))
+vi.mock('@/stores/app.store', () => ({
+  default: { getState: () => mockAppStore },
+}))
 
 // ── Factories ─────────────────────────────────────────────────────────────────
 
@@ -222,5 +227,69 @@ describe('computeDelta', () => {
 
     const delta = await computeDelta('g1', {}, 'u1', 1000)
     expect(delta.users.map((u) => u.userId)).toEqual(['u1'])
+  })
+})
+
+// ─── incrementVectorClock ─────────────────────────────────────────────────────
+
+describe('incrementVectorClock', () => {
+  it('throws when asked to increment a user other than the current one', async () => {
+    mockAppStore.currentUserId = 'u1'
+    await expect(incrementVectorClock('g1', 'someone-else')).rejects.toThrow(
+      'incrementVectorClock: userId someone-else !== currentUserId u1',
+    )
+    expect(mockDb.groups.update).not.toHaveBeenCalled()
+  })
+
+  it('increments only the current user entry, leaving others untouched', async () => {
+    mockAppStore.currentUserId = 'u1'
+    mockDb.groups.get.mockResolvedValue(makeGroup({ vectorClock: { u1: 3, u2: 7 } }))
+
+    const newSeq = await incrementVectorClock('g1', 'u1')
+
+    expect(newSeq).toBe(4)
+    expect(mockDb.groups.update).toHaveBeenCalledWith(
+      'g1',
+      expect.objectContaining({ vectorClock: { u1: 4, u2: 7 } }),
+    )
+  })
+
+  it('starts a first-time entry at 1', async () => {
+    mockAppStore.currentUserId = 'u1'
+    mockDb.groups.get.mockResolvedValue(makeGroup({ vectorClock: {} }))
+
+    const newSeq = await incrementVectorClock('g1', 'u1')
+
+    expect(newSeq).toBe(1)
+  })
+
+  it('throws when the group does not exist', async () => {
+    mockAppStore.currentUserId = 'u1'
+    mockDb.groups.get.mockResolvedValue(undefined)
+    await expect(incrementVectorClock('g1', 'u1')).rejects.toThrow('Group not found')
+  })
+})
+
+// ─── computeSince ─────────────────────────────────────────────────────────────
+
+describe('computeSince', () => {
+  it('returns the max timestamp across all non-transaction entities', async () => {
+    mockDb.categories.where.mockResolvedValue([makeCategory({ createdAt: 500 })])
+    mockDb.members.where.mockResolvedValue([makeMember({ updatedAt: 1500 })])
+    mockDb.budgets.where.mockResolvedValue([])
+    mockDb.goals.where.mockResolvedValue([])
+    mockDb.recurrences.where.mockResolvedValue([])
+
+    expect(await computeSince('g1')).toBe(1500)
+  })
+
+  it('returns 0 when the group has no entities at all', async () => {
+    mockDb.categories.where.mockResolvedValue([])
+    mockDb.members.where.mockResolvedValue([])
+    mockDb.budgets.where.mockResolvedValue([])
+    mockDb.goals.where.mockResolvedValue([])
+    mockDb.recurrences.where.mockResolvedValue([])
+
+    expect(await computeSince('g1')).toBe(0)
   })
 })

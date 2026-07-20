@@ -1,5 +1,15 @@
 import { ArrowClockwiseIcon, PushPinIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -30,6 +40,7 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
   const [isFixed, setIsFixed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false)
 
   const currencySymbol = currency === 'INR' ? '₹' : currency
 
@@ -70,7 +81,6 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
 
   async function handleStop() {
     if (!recurrence) return
-    if (!confirm("Stop this recurring transaction? Future instances won't be generated.")) return
     setLoading(true)
     try {
       await db.recurrences.update(recurrence.recurrenceId, {
@@ -214,7 +224,7 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
 
           <Button
             variant="destructive"
-            onClick={handleStop}
+            onClick={() => setConfirmStopOpen(true)}
             disabled={loading}
             className="w-full h-12 rounded-2xl font-semibold"
           >
@@ -222,6 +232,19 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
           </Button>
         </div>
       </SheetContent>
+
+      <AlertDialog open={confirmStopOpen} onOpenChange={setConfirmStopOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop this recurring transaction?</AlertDialogTitle>
+            <AlertDialogDescription>Future instances won't be generated.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStop}>Stop</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

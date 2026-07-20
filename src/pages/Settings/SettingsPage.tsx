@@ -18,6 +18,16 @@ import InviteSheet from '@/components/space/InviteSheet'
 import MemberIncomeSheet from '@/components/space/MemberIncomeSheet'
 import SyncSheet from '@/components/sync/SyncSheet'
 import { Avatar } from '@/components/ui/Avatar'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -48,6 +58,9 @@ export default function SettingsPage() {
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
+  const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<string | null>(null)
+  const [confirmClearDataOpen, setConfirmClearDataOpen] = useState(false)
+  const [confirmDeleteSpaceOpen, setConfirmDeleteSpaceOpen] = useState(false)
   const [storageUsedPct, setStorageUsedPct] = useState<number | null>(null)
   const [storagePersisted, setStoragePersisted] = useState<boolean | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
@@ -141,7 +154,7 @@ export default function SettingsPage() {
     setMemberActionsFor(null)
   }
 
-  async function handleRemoveMember(memberId: string, _userId: string) {
+  function handleRemoveMember(memberId: string, _userId: string) {
     if (!activeGroupId) return
     const target = (members ?? []).find((m) => m.id === memberId)
     if (!target) return
@@ -152,9 +165,15 @@ export default function SettingsPage() {
         return
       }
     }
-    if (!confirm(`Remove this member from the space? They will lose access.`)) return
+    setConfirmRemoveMemberId(memberId)
+  }
+
+  async function doRemoveMember() {
+    const memberId = confirmRemoveMemberId
+    if (!memberId) return
     await db.members.update(memberId, { status: 'left', leftAt: Date.now(), updatedAt: Date.now() })
     setMemberActionsFor(null)
+    setConfirmRemoveMemberId(null)
   }
 
   function handleLock() {
@@ -162,15 +181,8 @@ export default function SettingsPage() {
     broadcastLock()
   }
 
-  async function handleClearSpaceData() {
+  async function doClearSpaceData() {
     if (!activeGroupId) return
-    if (
-      !confirm(
-        'Delete all transactions, budgets, and goals in this space?\nSpace settings, categories, and members are kept.',
-      )
-    )
-      return
-    if (!confirm('This cannot be undone. Continue?')) return
 
     const [txns, budgets, goals, attachments, recurrences, syncEvents, conflicts] =
       await Promise.all([
@@ -194,11 +206,8 @@ export default function SettingsPage() {
     ])
   }
 
-  async function handleDeleteSpace() {
+  async function doDeleteSpace() {
     if (!activeGroupId) return
-    const spaceName = group?.name ?? 'this space'
-    if (!confirm(`Delete "${spaceName}" and all its data?\nThis cannot be undone.`)) return
-    if (!confirm(`Last chance — permanently delete "${spaceName}"?`)) return
 
     const [
       txns,
@@ -622,7 +631,7 @@ export default function SettingsPage() {
         <div className="rounded-2xl bg-surface border border-danger/30 divide-y divide-danger/20 overflow-hidden">
           <button
             type="button"
-            onClick={handleClearSpaceData}
+            onClick={() => setConfirmClearDataOpen(true)}
             disabled={!activeGroupId}
             className="w-full flex items-center justify-between px-4 py-3 transition-colors
                        hover:bg-danger/5 disabled:opacity-50"
@@ -636,7 +645,7 @@ export default function SettingsPage() {
           </button>
           <button
             type="button"
-            onClick={handleDeleteSpace}
+            onClick={() => setConfirmDeleteSpaceOpen(true)}
             disabled={!activeGroupId}
             className="w-full flex items-center justify-between px-4 py-3 transition-colors
                        hover:bg-danger/5 disabled:opacity-50"
@@ -695,6 +704,55 @@ export default function SettingsPage() {
           />
         ) : null
       })()}
+
+      <AlertDialog
+        open={confirmRemoveMemberId !== null}
+        onOpenChange={(v) => !v && setConfirmRemoveMemberId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+            <AlertDialogDescription>They will lose access to this space.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={doRemoveMember}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmClearDataOpen} onOpenChange={setConfirmClearDataOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear space data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deletes all transactions, budgets, and goals in this space. Space settings,
+              categories, and members are kept. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void doClearSpaceData()}>
+              Clear data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteSpaceOpen} onOpenChange={setConfirmDeleteSpaceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{group?.name ?? 'this space'}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently deletes this space and all its data. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void doDeleteSpace()}>Delete space</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -1,17 +1,24 @@
 import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/db'
 import type { Account } from '@/db/schema'
 import { formatCurrency, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
+import {
+  NetWorthPrototypeSwitcher,
+  NetWorthTrendPrototypeSection,
+  // PROTOTYPE — wayfinder ticket #13, drop this import + mount when resolved
+} from './NetWorthTrend.prototype'
 
 export default function AccountsPage() {
   const navigate = useNavigate()
   const activeGroupId = useAppStore((s) => s.activeGroupId)
+  const [searchParams] = useSearchParams()
+  const showNwPrototype = searchParams.has('nw')
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editAccount, setEditAccount] = useState<Account | undefined>(undefined)
@@ -152,6 +159,10 @@ export default function AccountsPage() {
           <p className="text-sm text-text-tertiary py-8 text-center">No accounts yet.</p>
         )}
       </div>
+
+      {/* PROTOTYPE — wayfinder ticket #13, ?nw=a|b|c */}
+      {showNwPrototype && <NetWorthTrendPrototypeSection />}
+      {showNwPrototype && <NetWorthPrototypeSwitcher />}
 
       {activeGroupId && (
         <AccountSheet

@@ -89,7 +89,7 @@ export default function MemberIncomeSheet({ open, onClose, member, defaultCurren
               <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Currency
               </Label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={(v) => v !== null && setCurrency(v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

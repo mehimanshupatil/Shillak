@@ -111,7 +111,7 @@ describe('chunkPayload / reassembleChunks', () => {
   it('reassembles chunks back to the exact original payload, regardless of arrival order', () => {
     const payload = `${'a'.repeat(QR_CHUNK_BYTES)}${'b'.repeat(QR_CHUNK_BYTES)}c123`
     const chunks = chunkPayload(payload)
-    const map = new Map(chunks.map((c) => [c.index, c]).reverse()) // insert out of order
+    const map = new Map(chunks.map((c) => [c.index, c] as const).reverse()) // insert out of order
     const reassembled = reassembleChunks(map, chunks.length)
     expect(reassembled).toBe(payload)
   })

@@ -2,7 +2,7 @@ import { Select as SelectPrimitive } from '@base-ui/react/select'
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
-function Select({ ...props }: SelectPrimitive.Root.Props<unknown>) {
+function Select<Value>({ ...props }: SelectPrimitive.Root.Props<Value>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
 }
 

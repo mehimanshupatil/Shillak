@@ -145,7 +145,7 @@ export class EncryptedTable<T extends Record<string, any>> {
 
   async toArray(): Promise<T[]> {
     const rows = await this.table.toArray()
-    const decrypted = await Promise.all(rows.map((r) => this.dec(r)))
+    const decrypted = (await Promise.all(rows.map((r) => this.dec(r)))) as T[]
     if (!this.staged) return decrypted
     const byId = new Map(decrypted.map((r) => [r[this.keyField] as string, r]))
     for (const [id, entry] of this.staged) {

@@ -120,7 +120,7 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Currency
             </Label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={(v) => v !== null && setCurrency(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -138,7 +138,7 @@ export default function EditSpaceSheet({ open, onClose, group }: Props) {
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
               Fiscal year starts in
             </Label>
-            <Select value={fiscalMonth} onValueChange={setFiscalMonth}>
+            <Select value={fiscalMonth} onValueChange={(v) => v !== null && setFiscalMonth(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

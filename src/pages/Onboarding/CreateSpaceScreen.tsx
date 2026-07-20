@@ -144,7 +144,7 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         >
           Currency
         </Label>
-        <Select value={currency} onValueChange={setCurrency}>
+        <Select value={currency} onValueChange={(v) => v !== null && setCurrency(v)}>
           <SelectTrigger id="space-currency" className="w-full h-12">
             <SelectValue />
           </SelectTrigger>
@@ -166,7 +166,7 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
         >
           Fiscal year starts in
         </Label>
-        <Select value={fiscalMonth} onValueChange={setFiscalMonth}>
+        <Select value={fiscalMonth} onValueChange={(v) => v !== null && setFiscalMonth(v)}>
           <SelectTrigger id="space-fiscal" className="w-full h-12">
             <SelectValue />
           </SelectTrigger>

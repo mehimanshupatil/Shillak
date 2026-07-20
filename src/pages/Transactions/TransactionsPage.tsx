@@ -249,7 +249,10 @@ export default function TransactionsPage() {
               <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                 Category
               </p>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => v !== null && setCategoryFilter(v)}
+              >
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -273,7 +276,10 @@ export default function TransactionsPage() {
                 <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
                   Person
                 </p>
-                <Select value={memberFilter} onValueChange={setMemberFilter}>
+                <Select
+                  value={memberFilter}
+                  onValueChange={(v) => v !== null && setMemberFilter(v)}
+                >
                   <SelectTrigger className="w-full h-9">
                     <SelectValue />
                   </SelectTrigger>

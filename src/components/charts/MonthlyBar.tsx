@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
-import { Bar, BarChart, Cell, Tooltip, XAxis } from 'recharts'
+import { Bar, BarChart, Tooltip, XAxis } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
@@ -50,10 +50,14 @@ export default function MonthlyBar({ groupId, currency }: Props) {
   )
 
   const data = useMemo(() => {
-    const buckets: Array<{ month: string; amount: number; isCurrent: boolean }> = []
+    const buckets: Array<{ month: string; amount: number; fill: string }> = []
     for (let i = 5; i >= 0; i--) {
       const d = new Date(NOW_YEAR, NOW_MONTH - i, 1)
-      buckets.push({ month: MONTHS_SHORT[d.getMonth()] ?? '', amount: 0, isCurrent: i === 0 })
+      buckets.push({
+        month: MONTHS_SHORT[d.getMonth()] ?? '',
+        amount: 0,
+        fill: i === 0 ? 'var(--color-accent)' : 'var(--color-surface-3)',
+      })
     }
     for (const txn of transactions ?? []) {
       const d = new Date(txn.date)
@@ -97,15 +101,7 @@ export default function MonthlyBar({ groupId, currency }: Props) {
               )
             }}
           />
-          <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-            {data.map((entry, i) => (
-              <Cell
-                // biome-ignore lint/suspicious/noArrayIndexKey: stable month order
-                key={i}
-                fill={entry.isCurrent ? 'var(--color-accent)' : 'var(--color-surface-3)'}
-              />
-            ))}
-          </Bar>
+          <Bar dataKey="amount" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ChartContainer>
     </div>

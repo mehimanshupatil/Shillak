@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/react'
+import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -164,7 +164,7 @@ export default function AccountsPage() {
                   onClick={() => handleDelete(acc)}
                   className="text-text-tertiary hover:text-danger hover:bg-danger/10"
                 >
-                  <Trash size={13} />
+                  <TrashIcon size={13} />
                 </Button>
               )}
             </div>

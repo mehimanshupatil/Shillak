@@ -11,6 +11,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConflictSeeder from '@/components/dev/ConflictSeeder'
+import DemoDataSeeder from '@/components/dev/DemoDataSeeder'
 import ChangePinSheet from '@/components/security/ChangePinSheet'
 import EditProfileSheet from '@/components/space/EditProfileSheet'
 import EditSpaceSheet from '@/components/space/EditSpaceSheet'
@@ -661,7 +662,12 @@ export default function SettingsPage() {
       </section>
 
       {/* ── Dev tools ── */}
-      {import.meta.env.DEV && <ConflictSeeder />}
+      {import.meta.env.DEV && (
+        <div className="flex flex-col gap-3">
+          <DemoDataSeeder />
+          <ConflictSeeder />
+        </div>
+      )}
 
       {/* ── Lock ── */}
       <Button variant="destructive" size="lg" onClick={handleLock} className="w-full rounded-2xl">

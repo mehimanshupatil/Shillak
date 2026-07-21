@@ -1,4 +1,4 @@
-import { Cell, Pie, PieChart, Tooltip } from 'recharts'
+import { Pie, PieChart, Tooltip } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
 import { formatCurrency } from '@/lib/utils'
@@ -38,11 +38,7 @@ export default function SpendingDonut({ slices, total, currency }: Props) {
             paddingAngle={2}
             dataKey="value"
             strokeWidth={0}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.fill} />
-            ))}
-          </Pie>
+          />
           <Tooltip
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null

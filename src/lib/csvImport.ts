@@ -265,10 +265,11 @@ export async function commitCsvImport(
   const now = Date.now()
   let seq = group.vectorClock[userId] ?? 0
   const toInsert: Transaction[] = []
+  const seen: Array<{ date: number; amount: number; note: string }> = existing
   let skipped = 0
 
   for (const row of rows) {
-    if (isDuplicateTransaction(row, existing)) {
+    if (isDuplicateTransaction(row, seen)) {
       skipped++
       continue
     }
@@ -296,7 +297,7 @@ export async function commitCsvImport(
       deletedAt: null,
     })
     // Dedupe subsequent rows in the same import against ones we just staged too.
-    existing.push({ date: row.date, amount: row.amount, note: row.note })
+    seen.push({ date: row.date, amount: row.amount, note: row.note })
   }
 
   if (toInsert.length > 0) {

@@ -1,12 +1,13 @@
 import { Outlet } from 'react-router-dom'
+import NoSpaceScreen from '@/pages/Onboarding/NoSpaceScreen'
 import useAppStore from '@/stores/app.store'
 import BottomNav from './BottomNav'
 
 export default function AppLayout() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
 
-  // If no active group (shouldn't happen post-onboarding, but guard)
-  if (!activeGroupId) return null
+  // No active group — e.g. user deleted their last remaining space.
+  if (!activeGroupId) return <NoSpaceScreen />
 
   return (
     <div className="app-shell">

@@ -7,7 +7,7 @@ import { type InvitePayload, isInvite, parseAndVerifyInvite } from '@/sync/invit
 
 interface Props {
   onCreateSpace: () => void
-  onRestoreIdentity: () => void
+  onRestoreIdentity?: () => void
   onJoinSpace: (invite: InvitePayload) => void
 }
 
@@ -28,7 +28,7 @@ export default function SpaceChoiceScreen({
     e.target.value = ''
     try {
       await importIdentityBackup(file)
-      onRestoreIdentity()
+      onRestoreIdentity?.()
     } catch (err) {
       setRestoreError(`Restore failed: ${String(err)}`)
     }
@@ -117,23 +117,25 @@ export default function SpaceChoiceScreen({
 
         {scanError && <p className="text-xs text-danger px-1 -mt-2">{scanError}</p>}
 
-        <Button
-          variant="secondary"
-          onClick={() => fileRef.current?.click()}
-          className="w-full p-5 h-auto rounded-2xl border border-border
-                     flex items-start gap-4 text-left"
-        >
-          <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
-            <ArrowCounterClockwiseIcon size={20} className="text-text-secondary" />
-          </div>
-          <div>
-            <p className="font-semibold text-text-primary">Restore from backup</p>
-            <p className="text-sm text-text-secondary mt-0.5">
-              Import a <span className="font-mono text-xs">.shillak-id</span> file to restore your
-              identity on this device.
-            </p>
-          </div>
-        </Button>
+        {onRestoreIdentity && (
+          <Button
+            variant="secondary"
+            onClick={() => fileRef.current?.click()}
+            className="w-full p-5 h-auto rounded-2xl border border-border
+                       flex items-start gap-4 text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
+              <ArrowCounterClockwiseIcon size={20} className="text-text-secondary" />
+            </div>
+            <div>
+              <p className="font-semibold text-text-primary">Restore from backup</p>
+              <p className="text-sm text-text-secondary mt-0.5">
+                Import a <span className="font-mono text-xs">.shillak-id</span> file to restore your
+                identity on this device.
+              </p>
+            </div>
+          </Button>
+        )}
 
         {restoreError && <p className="text-xs text-danger px-1">{restoreError}</p>}
       </div>

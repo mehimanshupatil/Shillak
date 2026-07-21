@@ -17,8 +17,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
-import { pickGroupColor } from '@/db/seeds'
-import { formatCompact, formatCurrency, toBaseCurrency } from '@/lib/utils'
+import { formatCompact, formatCurrency, groupColor, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const MONTHS_SHORT = [
@@ -567,7 +566,7 @@ export default function BudgetsPage() {
                     className="mb-2"
                     trackClassName="h-2"
                     indicatorStyle={{
-                      backgroundColor: done ? 'var(--color-success)' : pickGroupColor(goalIndex),
+                      backgroundColor: done ? 'var(--color-success)' : groupColor(goalIndex),
                     }}
                   />
                   <div className="flex justify-between text-xs font-mono">

@@ -11,9 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { db } from '@/db/db'
-import { createDefaultAccounts, createDefaultCategories, pickGroupColor } from '@/db/seeds'
+import { createDefaultAccounts, createDefaultCategories } from '@/db/seeds'
 import { CURRENCIES, MONTHS } from '@/lib/constants'
-import { generateId } from '@/lib/utils'
+import { generateId, groupColor } from '@/lib/utils'
 
 interface Props {
   userId: string
@@ -44,7 +44,7 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
       const now = Date.now()
 
       const existingGroups = await db.groups.toArray()
-      const avatarColor = pickGroupColor(existingGroups.length)
+      const avatarColor = groupColor(existingGroups.length)
 
       await db.groups.put({
         groupId,
@@ -99,13 +99,7 @@ export default function CreateSpaceScreen({ userId, onComplete }: Props) {
 
       {/* Avatar preview */}
       <div className="flex justify-center">
-        <Avatar
-          color={pickGroupColor(0)}
-          name={name || 'S'}
-          icon={avatarIcon}
-          size={72}
-          rounded="xl"
-        />
+        <Avatar color={groupColor(0)} name={name || 'S'} icon={avatarIcon} size={72} rounded="xl" />
       </div>
 
       {/* Space icon */}

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  createDefaultAccounts,
-  createDefaultCategories,
-  GROUP_COLORS,
-  pickGroupColor,
-} from '../seeds'
+import { createDefaultAccounts, createDefaultCategories } from '../seeds'
 
 describe('createDefaultCategories', () => {
   it('seeds 15 expense and 4 income categories, all tagged isDefault', () => {
@@ -59,17 +54,5 @@ describe('createDefaultAccounts', () => {
   it('threads groupId through every account', () => {
     const accounts = createDefaultAccounts('g-xyz')
     expect(accounts.every((a) => a.groupId === 'g-xyz')).toBe(true)
-  })
-})
-
-describe('pickGroupColor', () => {
-  it('returns a color from GROUP_COLORS for indices within range', () => {
-    expect(pickGroupColor(0)).toBe(GROUP_COLORS[0])
-    expect(pickGroupColor(GROUP_COLORS.length - 1)).toBe(GROUP_COLORS[GROUP_COLORS.length - 1])
-  })
-
-  it('wraps around via modulo for an index beyond the palette length', () => {
-    expect(pickGroupColor(GROUP_COLORS.length)).toBe(GROUP_COLORS[0])
-    expect(pickGroupColor(GROUP_COLORS.length + 2)).toBe(GROUP_COLORS[2])
   })
 })

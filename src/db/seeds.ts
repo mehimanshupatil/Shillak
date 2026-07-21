@@ -67,19 +67,3 @@ export function createDefaultAccounts(groupId: string): Account[] {
     updatedAt: now,
   }))
 }
-
-export const GROUP_COLORS = [
-  '#6366f1',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-  '#8b5cf6',
-  '#06b6d4',
-  '#64748b',
-  '#f43f5e',
-]
-
-export function pickGroupColor(index: number): string {
-  // biome-ignore lint/style/noNonNullAssertion: GROUP_COLORS is non-empty const, index always valid
-  return GROUP_COLORS[index % GROUP_COLORS.length] ?? GROUP_COLORS[0]!
-}

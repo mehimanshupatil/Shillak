@@ -17,6 +17,7 @@ import EditProfileSheet from '@/components/space/EditProfileSheet'
 import EditSpaceSheet from '@/components/space/EditSpaceSheet'
 import InviteSheet from '@/components/space/InviteSheet'
 import MemberIncomeSheet from '@/components/space/MemberIncomeSheet'
+import CsvImportSheet from '@/components/sync/CsvImportSheet'
 import SyncSheet from '@/components/sync/SyncSheet'
 import { Avatar } from '@/components/ui/Avatar'
 import {
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   const [importMsg, setImportMsg] = useState('')
   const [changePinOpen, setChangePinOpen] = useState(false)
   const [syncSheetOpen, setSyncSheetOpen] = useState(false)
+  const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
@@ -496,6 +498,21 @@ export default function SettingsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setCsvImportOpen(true)}
+            disabled={!activeGroupId}
+            className="w-full flex items-center justify-between px-4 py-3 transition-colors
+                       hover:bg-surface-2 disabled:opacity-50"
+          >
+            <div>
+              <p className="text-sm text-text-primary">Import CSV</p>
+              <p className="text-[11px] text-text-tertiary mt-0.5">
+                Bank statements, other budget apps, or custom formats
+              </p>
+            </div>
+            <UploadSimpleIcon size={16} className="text-text-tertiary" />
+          </button>
+          <button
+            type="button"
             onClick={() => setSyncSheetOpen(true)}
             disabled={!activeGroupId}
             className="w-full flex items-center justify-between px-4 py-3 transition-colors
@@ -691,6 +708,7 @@ export default function SettingsPage() {
       )}
       <ChangePinSheet open={changePinOpen} onClose={() => setChangePinOpen(false)} />
       <SyncSheet open={syncSheetOpen} onClose={() => setSyncSheetOpen(false)} />
+      <CsvImportSheet open={csvImportOpen} onClose={() => setCsvImportOpen(false)} />
       {activeGroupId && currentUserId && (
         <InviteSheet
           open={inviteSheetOpen}

@@ -1,8 +1,7 @@
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
-import { pickGroupColor } from '@/db/seeds'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, groupColor } from '@/lib/utils'
 
 interface Goal {
   goalId: string
@@ -31,7 +30,7 @@ export default function GoalProgress({ goals, currency }: Props) {
       saved: g.saved,
       target: g.target,
       done,
-      fill: done ? 'var(--color-success)' : pickGroupColor(i),
+      fill: done ? 'var(--color-success)' : groupColor(i),
     }
   })
 

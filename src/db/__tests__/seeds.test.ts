@@ -34,9 +34,9 @@ describe('createDefaultCategories', () => {
 })
 
 describe('createDefaultAccounts', () => {
-  it('seeds exactly one cash, savings, credit, and upi account', () => {
+  it('seeds exactly one cash, savings, credit, and wallet account', () => {
     const accounts = createDefaultAccounts('g1')
-    expect(accounts.map((a) => a.type).sort()).toEqual(['cash', 'credit', 'savings', 'upi'])
+    expect(accounts.map((a) => a.type).sort()).toEqual(['cash', 'credit', 'savings', 'wallet'])
   })
 
   it('assigns every account a unique accountId', () => {

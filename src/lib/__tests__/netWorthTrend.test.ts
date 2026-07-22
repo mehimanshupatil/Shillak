@@ -96,6 +96,29 @@ describe('computeNetWorthTrend', () => {
     expect(result.points[11]?.netWorth).toBe(400000)
   })
 
+  it('increases a credit account liability on a charge and decreases it on a bill payment', async () => {
+    accounts.push(
+      makeAccount({ accountId: 'bank', type: 'savings', openingBalance: 500000, createdAt: 0 }),
+      makeAccount({ accountId: 'cc', type: 'credit', openingBalance: 100000, createdAt: 0 }),
+    )
+    transactions.push(
+      // charge ₹500 to the card — owed goes 1000 -> 1500
+      makeTxn({ type: 'expense', amount: 50000, accountId: 'cc', date: today() }),
+      // pay the bill from the bank account — owed goes 1500 -> 1000
+      makeTxn({
+        type: 'transfer',
+        amount: 150000,
+        accountId: 'bank',
+        toAccountId: 'cc',
+        date: today(),
+      }),
+    )
+    const result = await computeNetWorthTrend('g1', 'INR')
+    // bank: 500000 - 150000 = 350000; card owed: 100000 + 50000 - 150000 = 0
+    // net worth = 350000 - 0 = 350000
+    expect(result.points[11]?.netWorth).toBe(350000)
+  })
+
   it('moves balance between accounts on a transfer without double-counting', async () => {
     accounts.push(
       makeAccount({ accountId: 'a', openingBalance: 100000, createdAt: 0 }),

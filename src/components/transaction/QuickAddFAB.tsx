@@ -397,31 +397,49 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       </SheetHeader>
 
       {/* Expense / Income / Transfer toggle */}
-      <div className="flex gap-2">
-        {(['expense', 'income', 'transfer'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => {
-              setTxnType(t)
-              setSelectedCatId(null)
-              setSelectedAccountId(null)
-              setToAccountId(null)
-              setPaidBy(null)
-            }}
-            className={`flex-1 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
-              txnType === t
-                ? t === 'income'
-                  ? 'bg-income text-black'
-                  : t === 'transfer'
-                    ? 'bg-accent/80 text-black'
-                    : 'bg-expense text-white'
-                : 'bg-surface-2 text-text-secondary'
-            }`}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 gap-2">
+          {(['expense', 'income', 'transfer'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTxnType(t)
+                setSelectedCatId(null)
+                setSelectedAccountId(null)
+                setToAccountId(null)
+                setPaidBy(null)
+              }}
+              className={`flex-1 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+                txnType === t
+                  ? t === 'income'
+                    ? 'bg-income text-black'
+                    : t === 'transfer'
+                      ? 'bg-accent/80 text-black'
+                      : 'bg-expense text-white'
+                  : 'bg-surface-2 text-text-secondary'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <Popover>
+          <PopoverTrigger
+            aria-label="When should I use Transfer?"
+            className="text-text-tertiary shrink-0"
           >
-            {t}
-          </button>
-        ))}
+            <InfoIcon size={15} />
+          </PopoverTrigger>
+          <PopoverContent className="max-w-65">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Use Transfer when money moves between your own accounts — nothing was actually bought.
+              Paying your credit card bill from your bank account? That's a Transfer (bank → credit
+              card), not an Expense — the purchase itself was already recorded as an Expense when you
+              made it.
+            </p>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* OCR progress */}

@@ -66,14 +66,15 @@ export default function AccountsPage() {
     for (const acc of sorted) {
       let balance = acc.openingBalance ?? 0
       for (const t of allTxns ?? []) {
+        let delta = 0
         if (t.accountId === acc.accountId) {
-          if (t.type === 'income') balance += toBaseCurrency(t, currency)
-          else if (t.type === 'expense') balance -= toBaseCurrency(t, currency)
-          else if (t.type === 'transfer') balance -= toBaseCurrency(t, currency)
+          if (t.type === 'income') delta = toBaseCurrency(t, currency)
+          else delta = -toBaseCurrency(t, currency) // expense or transfer-out
+        } else if (t.toAccountId === acc.accountId && t.type === 'transfer') {
+          delta = toBaseCurrency(t, currency)
         }
-        if (t.toAccountId === acc.accountId && t.type === 'transfer') {
-          balance += toBaseCurrency(t, currency)
-        }
+        // Credit accounts track "amount owed" — a charge increases it, a payment decreases it.
+        balance += acc.type === 'credit' ? -delta : delta
       }
       balances[acc.accountId] = balance
     }

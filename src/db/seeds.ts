@@ -53,7 +53,7 @@ export function createDefaultAccounts(groupId: string): Account[] {
     { name: 'Cash', type: 'cash', color: '#22c55e', icon: 'Wallet' },
     { name: 'Savings Account', type: 'savings', color: '#3b82f6', icon: 'Building2' },
     { name: 'Credit Card', type: 'credit', color: '#ef4444', icon: 'CreditCard' },
-    { name: 'UPI / Wallet', type: 'upi', color: '#8b5cf6', icon: 'Smartphone' },
+    { name: 'Wallet', type: 'wallet', color: '#8b5cf6', icon: 'Smartphone' },
   ]
   return defaults.map((d, i) => ({
     accountId: crypto.randomUUID(),

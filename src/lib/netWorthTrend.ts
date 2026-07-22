@@ -1,5 +1,5 @@
 import { db } from '@/db/db'
-import type { Transaction } from '@/db/schema'
+import type { AccountType, Transaction } from '@/db/schema'
 import { toBaseCurrency, today } from '@/lib/utils'
 
 const WINDOW_MONTHS = 12
@@ -27,15 +27,26 @@ function monthBuckets(now: Date): Array<{ year: number; month: number; cutoff: n
   return buckets
 }
 
-/** Signed delta this transaction contributes to `accountId`'s balance. */
-function deltaFor(txn: Transaction, accountId: string, currency: string): number {
+/**
+ * Signed delta this transaction contributes to `accountId`'s running balance.
+ * For credit accounts the running balance means "amount owed", so the sign is
+ * flipped relative to an asset account: a charge increases what's owed, a
+ * payment (transfer-in) decreases it.
+ */
+function deltaFor(
+  txn: Transaction,
+  accountId: string,
+  accountType: AccountType,
+  currency: string,
+): number {
   const amount = toBaseCurrency(txn, currency)
+  let delta = 0
   if (txn.accountId === accountId) {
-    if (txn.type === 'income') return amount
-    return -amount // expense or transfer-out
+    delta = txn.type === 'income' ? amount : -amount // expense or transfer-out
+  } else if (txn.toAccountId === accountId && txn.type === 'transfer') {
+    delta = amount
   }
-  if (txn.toAccountId === accountId && txn.type === 'transfer') return amount
-  return 0
+  return accountType === 'credit' ? -delta : delta
 }
 
 /**
@@ -70,7 +81,7 @@ export async function computeNetWorthTrend(
     for (let b = 0; b < buckets.length; b++) {
       const bucket = buckets[b] as { year: number; month: number; cutoff: number }
       while (idx < relevant.length && (relevant[idx] as Transaction).date <= bucket.cutoff) {
-        running += deltaFor(relevant[idx] as Transaction, account.accountId, currency)
+        running += deltaFor(relevant[idx] as Transaction, account.accountId, account.type, currency)
         idx++
       }
       if (bucket.cutoff < account.createdAt) continue // account didn't exist yet — omit

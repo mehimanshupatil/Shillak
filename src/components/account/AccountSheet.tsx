@@ -20,7 +20,7 @@ export const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> 
   { value: 'current', label: 'Current' },
   { value: 'credit', label: 'Credit Card' },
   { value: 'cash', label: 'Cash' },
-  { value: 'upi', label: 'UPI / WalletIcon' },
+  { value: 'wallet', label: 'Wallet' },
 ]
 
 const TYPE_COLORS: Record<AccountType, string> = {
@@ -28,7 +28,7 @@ const TYPE_COLORS: Record<AccountType, string> = {
   current: '#06b6d4',
   credit: '#ef4444',
   cash: '#22c55e',
-  upi: '#8b5cf6',
+  wallet: '#8b5cf6',
 }
 
 type PhosphorIcon = React.ForwardRefExoticComponent<
@@ -40,7 +40,7 @@ const TYPE_ICONS: Record<AccountType, string> = {
   current: 'BankIcon',
   credit: 'CreditCardIcon',
   cash: 'WalletIcon',
-  upi: 'DeviceMobileIcon',
+  wallet: 'DeviceMobileIcon',
 }
 
 export const ICON_MAP: Record<string, PhosphorIcon> = {

@@ -3,6 +3,7 @@ import { broadcastLock, initLockChannel } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
+import { migrateUpiAccounts } from '@/lib/migrations'
 import { processRecurrences } from '@/lib/recurrences'
 import { requestPersistentStorage } from '@/lib/storagePersistence'
 import OnboardingFlow from '@/pages/Onboarding/OnboardingFlow'
@@ -124,6 +125,7 @@ export default function AppBootstrap({ children }: { children: ReactNode }) {
     if (group) {
       setActiveGroupId(group.groupId)
       void processRecurrences(group.groupId, user.userId)
+      void migrateUpiAccounts(group.groupId)
     }
 
     setBoot({ status: 'ready' })

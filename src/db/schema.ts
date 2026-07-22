@@ -88,7 +88,7 @@ export interface Category {
 }
 
 // ─── Account ──────────────────────────────────────────────────────────────────
-export type AccountType = 'savings' | 'current' | 'credit' | 'cash' | 'upi'
+export type AccountType = 'savings' | 'current' | 'credit' | 'cash' | 'wallet'
 
 export interface Account {
   accountId: string

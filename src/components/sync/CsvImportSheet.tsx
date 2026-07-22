@@ -247,7 +247,7 @@ export default function CsvImportSheet({ open, onClose }: Props) {
     <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-2xl bg-surface
-                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92dvh] overflow-y-auto"
+                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92%] overflow-y-auto"
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-surface-3" />

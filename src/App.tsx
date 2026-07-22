@@ -21,9 +21,9 @@ const router = createBrowserRouter([
       { path: '/settings/categories', element: <CategoriesPage /> },
       { path: '/settings/accounts', element: <AccountsPage /> },
       { path: '/share-target', element: <ShareTargetPage /> },
+      { path: '/dev/drawer-test', element: <DrawerTestPage /> },
     ],
   },
-  { path: '/dev/drawer-test', element: <DrawerTestPage /> },
 ])
 
 export default function App() {

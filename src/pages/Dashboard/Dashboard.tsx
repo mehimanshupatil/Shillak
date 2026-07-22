@@ -333,14 +333,19 @@ export default function Dashboard() {
       )}
 
       {/* Spending donut */}
-      {totalExpense > 0 && donutSlices.length > 0 && (
-        <div className="mt-4 mx-4 p-4 rounded-2xl bg-surface border border-border">
-          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-4">
-            By category
-          </p>
-          <SpendingDonut slices={donutSlices} total={totalExpense} currency={currency} />
-        </div>
-      )}
+      {totalExpense > 0 &&
+        (categories === undefined ? (
+          <div className="mt-4 mx-4 h-64 rounded-2xl bg-surface border border-border animate-pulse" />
+        ) : (
+          donutSlices.length > 0 && (
+            <div className="mt-4 mx-4 p-4 rounded-2xl bg-surface border border-border">
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-4">
+                By category
+              </p>
+              <SpendingDonut slices={donutSlices} total={totalExpense} currency={currency} />
+            </div>
+          )
+        ))}
 
       {/* Monthly spend trend — card wrapper lives inside MonthlyBar */}
       {activeGroupId && <MonthlyBar groupId={activeGroupId} currency={currency} />}

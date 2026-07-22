@@ -100,7 +100,7 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
         <DrawerPrimitive.Viewport
           data-slot="drawer-viewport"
           data-modal={modal}
-          className="pointer-events-none fixed inset-0 z-50 touch-none select-none data-[modal=true]:pointer-events-auto"
+          className="pointer-events-none fixed inset-0 z-50 select-none data-[modal=true]:pointer-events-auto"
         >
           <DrawerPrimitive.Popup
             data-slot="drawer-popup"
@@ -108,7 +108,7 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
             data-snap-points={hasSnapPoints ? '' : undefined}
             className={cn(
               // Base.
-              'group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) touch-none transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-b',
+              'group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-b',
               // Nested.
               'data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95',
               // Bleed.
@@ -139,7 +139,7 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
             <DrawerPrimitive.Content
               data-slot="drawer-content"
               className={cn(
-                'flex min-h-0 flex-1 flex-col touch-auto overflow-hidden overscroll-contain rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none',
+                'flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none',
               )}
             >
               {children}

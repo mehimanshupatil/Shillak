@@ -3,6 +3,7 @@ import AppBootstrap from './components/layout/AppBootstrap'
 import AppLayout from './components/layout/AppLayout'
 import BudgetsPage from './pages/Budgets/BudgetsPage'
 import Dashboard from './pages/Dashboard/Dashboard'
+import DrawerTestPage from './pages/Dev/DrawerTestPage'
 import AccountsPage from './pages/Settings/AccountsPage'
 import CategoriesPage from './pages/Settings/CategoriesPage'
 import SettingsPage from './pages/Settings/SettingsPage'
@@ -22,6 +23,7 @@ const router = createBrowserRouter([
       { path: '/share-target', element: <ShareTargetPage /> },
     ],
   },
+  { path: '/dev/drawer-test', element: <DrawerTestPage /> },
 ])
 
 export default function App() {

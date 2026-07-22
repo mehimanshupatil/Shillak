@@ -1,4 +1,3 @@
-import { Drawer as BaseDrawer } from '@base-ui/react/drawer'
 import {
   ArrowClockwiseIcon,
   ClipboardIcon,
@@ -15,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { DatePicker } from '@/components/ui/date-picker'
-import { DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
@@ -61,25 +60,17 @@ export default function QuickAddFAB() {
         <PlusIcon size={24} className="text-black" strokeWidth={2.5} />
       </button>
 
-      {/* TEMP: raw @base-ui/react/drawer, bypassing src/components/ui/drawer.tsx,
-          to test whether the iOS keyboard bug is in our wrapper or the environment. */}
-      <BaseDrawer.Root open={open} onOpenChange={setOpen}>
-        <BaseDrawer.VirtualKeyboardProvider>
-          <BaseDrawer.Portal>
-            <BaseDrawer.Backdrop className="fixed inset-0 z-50 bg-black/10 opacity-[calc(1-var(--drawer-swipe-progress))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0" />
-            <BaseDrawer.Viewport className="fixed inset-0 z-50 flex touch-none flex-col justify-end">
-              <BaseDrawer.Popup className="relative z-50 flex max-h-[calc(100%-6rem)] w-full max-w-[430px] mx-auto touch-none flex-col rounded-t-3xl border-0 border-t border-border bg-surface transform-[translateY(var(--drawer-swipe-movement-y,0px))] transition-transform duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform data-ending-style:transform-[translateY(calc(100%+2px))] data-starting-style:transform-[translateY(calc(100%+2px))] data-swiping:duration-0">
-                <div className="flex justify-center pt-3 pb-2 shrink-0">
-                  <div className="w-10 h-1 rounded-full bg-border" />
-                </div>
-                <BaseDrawer.Content className="flex min-h-0 flex-1 flex-col touch-auto overflow-y-auto overscroll-contain safe-bottom">
-                  <QuickAddForm onClose={() => setOpen(false)} />
-                </BaseDrawer.Content>
-              </BaseDrawer.Popup>
-            </BaseDrawer.Viewport>
-          </BaseDrawer.Portal>
-        </BaseDrawer.VirtualKeyboardProvider>
-      </BaseDrawer.Root>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent
+          className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
+                     border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
+        >
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 rounded-full bg-border" />
+          </div>
+          <QuickAddForm onClose={() => setOpen(false)} />
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }

@@ -132,18 +132,6 @@ export default function PinScreen({ onUnlocked }: Props) {
             Unlock with dev PIN (VITE_DEV_PIN)
           </button>
         )}
-
-        {
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = '/dev/drawer-test'
-            }}
-            className="text-xs text-text-tertiary underline"
-          >
-            Open drawer test page
-          </button>
-        }
       </div>
     </div>
   )

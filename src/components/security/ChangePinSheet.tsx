@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createKeystore, verifyPin } from '@/crypto/keystore'
 import { db } from '@/db/db'
+import { PIN_LENGTH } from '@/lib/constants'
 import useKeyStore from '@/stores/key.store'
 
 interface Props {
@@ -32,8 +33,8 @@ export default function ChangePinSheet({ open, onClose }: Props) {
 
   async function handleChange() {
     setError('')
-    if (newPin.length < 4) {
-      setError('New PIN must be at least 4 digits')
+    if (newPin.length !== PIN_LENGTH) {
+      setError(`New PIN must be ${PIN_LENGTH} digits`)
       return
     }
     if (newPin !== confirmPin) {
@@ -196,8 +197,10 @@ export default function ChangePinSheet({ open, onClose }: Props) {
             <Input
               type="password"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={PIN_LENGTH}
               value={currentPin}
-              onChange={(e) => setCurrentPin(e.target.value)}
+              onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
               placeholder="Enter current PIN"
               disabled={loading}
               className="h-11 rounded-xl bg-surface-2 border-border
@@ -213,9 +216,11 @@ export default function ChangePinSheet({ open, onClose }: Props) {
             <Input
               type="password"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={PIN_LENGTH}
               value={newPin}
-              onChange={(e) => setNewPin(e.target.value)}
-              placeholder="At least 4 digits"
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+              placeholder={`${PIN_LENGTH} digits`}
               disabled={loading}
               className="h-11 rounded-xl bg-surface-2 border-border
                          text-text-primary placeholder:text-text-tertiary
@@ -230,8 +235,10 @@ export default function ChangePinSheet({ open, onClose }: Props) {
             <Input
               type="password"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={PIN_LENGTH}
               value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value)}
+              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
               placeholder="Repeat new PIN"
               disabled={loading}
               className="h-11 rounded-xl bg-surface-2 border-border

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createKeystore } from '@/crypto/keystore'
 import { db } from '@/db/db'
+import { PIN_LENGTH } from '@/lib/constants'
 import { GROUP_COLORS, generateId, groupColor } from '@/lib/utils'
 import useKeyStore from '@/stores/key.store'
 
@@ -29,8 +30,8 @@ export default function CreateProfileScreen({ onNext }: Props) {
       setError('Name is required')
       return
     }
-    if (pin.length < 4) {
-      setError('PIN must be at least 4 digits')
+    if (pin.length !== PIN_LENGTH) {
+      setError(`PIN must be ${PIN_LENGTH} digits`)
       return
     }
     if (pin !== confirmPin) {
@@ -133,14 +134,14 @@ export default function CreateProfileScreen({ onNext }: Props) {
           htmlFor="profile-pin"
           className="text-xs font-medium text-text-secondary uppercase tracking-wider"
         >
-          PIN (4–6 digits)
+          PIN ({PIN_LENGTH} digits)
         </Label>
         <Input
           id="profile-pin"
           type="password"
           inputMode="numeric"
           pattern="[0-9]*"
-          maxLength={6}
+          maxLength={PIN_LENGTH}
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           placeholder="····"
@@ -164,7 +165,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
           type="password"
           inputMode="numeric"
           pattern="[0-9]*"
-          maxLength={6}
+          maxLength={PIN_LENGTH}
           value={confirmPin}
           onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
           placeholder="····"

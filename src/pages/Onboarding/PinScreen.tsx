@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { broadcastUnlock, resolveUnlock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import type { KeystoreRecord } from '@/db/schema'
+import { PIN_LENGTH } from '@/lib/constants'
 import useKeyStore from '@/stores/key.store'
 
 interface Props {
@@ -25,8 +26,8 @@ export default function PinScreen({ onUnlocked }: Props) {
 
   async function handleSubmit(pinOverride?: string) {
     const pinToVerify = pinOverride ?? pin
-    if (pinToVerify.length < 4) {
-      setError('PIN must be at least 4 digits')
+    if (pinToVerify.length !== PIN_LENGTH) {
+      setError(`PIN must be ${PIN_LENGTH} digits`)
       return
     }
     setLoading(true)
@@ -51,10 +52,10 @@ export default function PinScreen({ onUnlocked }: Props) {
   const devPin = import.meta.env.DEV ? import.meta.env.VITE_DEV_PIN : undefined
 
   function handleDigit(d: string) {
-    if (pin.length >= 6) return
+    if (pin.length >= PIN_LENGTH) return
     const next = pin + d
     setPin(next)
-    if (next.length >= 4) setError('')
+    if (next.length >= PIN_LENGTH) setError('')
   }
 
   function handleDelete() {
@@ -72,7 +73,7 @@ export default function PinScreen({ onUnlocked }: Props) {
 
       {/* PIN dots */}
       <div className="flex gap-4">
-        {Array.from({ length: 6 }, (_, i) => `dot-${i}`).map((id, i) => (
+        {Array.from({ length: PIN_LENGTH }, (_, i) => `dot-${i}`).map((id, i) => (
           <div
             key={id}
             className={`w-3.5 h-3.5 rounded-full transition-all ${
@@ -113,7 +114,7 @@ export default function PinScreen({ onUnlocked }: Props) {
       <div className="flex flex-col items-center gap-3 w-full max-w-[280px]">
         <Button
           onClick={() => handleSubmit()}
-          disabled={pin.length < 4 || loading}
+          disabled={pin.length !== PIN_LENGTH || loading}
           className="w-full h-14 rounded-2xl bg-accent
                      text-black font-semibold text-base hover:bg-accent-hover
                      disabled:opacity-50"

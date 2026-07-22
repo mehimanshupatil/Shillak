@@ -23,3 +23,5 @@ export const MONTHS = [
 ] as const
 
 export const APP_LOCK_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+
+export const PIN_LENGTH = 4

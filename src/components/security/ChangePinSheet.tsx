@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { createKeystore, verifyPin } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import useKeyStore from '@/stores/key.store'
@@ -166,7 +166,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
   }
 
   return (
-    <Sheet
+    <Drawer
       open={open}
       onOpenChange={(v) => {
         if (!v && !loading) {
@@ -175,9 +175,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
         }
       }}
     >
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                    border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
@@ -185,11 +183,11 @@ export default function ChangePinSheet({ open, onClose }: Props) {
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4">
-          <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-text-primary">
+          <DrawerHeader className="p-0">
+            <DrawerTitle className="text-base font-semibold text-text-primary">
               Change PIN
-            </SheetTitle>
-          </SheetHeader>
+            </DrawerTitle>
+          </DrawerHeader>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -260,7 +258,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
             {loading ? progress || 'Working…' : 'Change PIN'}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }

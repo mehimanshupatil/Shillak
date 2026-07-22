@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { GroupMember } from '@/db/schema'
 import { CURRENCIES } from '@/lib/constants'
@@ -63,10 +63,8 @@ export default function MemberIncomeSheet({ open, onClose, member, defaultCurren
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                    border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
@@ -74,14 +72,14 @@ export default function MemberIncomeSheet({ open, onClose, member, defaultCurren
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4">
-          <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-text-primary">
+          <DrawerHeader className="p-0">
+            <DrawerTitle className="text-base font-semibold text-text-primary">
               Monthly income
-            </SheetTitle>
+            </DrawerTitle>
             <p className="text-xs text-text-tertiary">
               Used to calculate household savings rate. Only you can see and edit this.
             </p>
-          </SheetHeader>
+          </DrawerHeader>
 
           <div className="flex gap-3">
             {/* Currency picker */}
@@ -143,7 +141,7 @@ export default function MemberIncomeSheet({ open, onClose, member, defaultCurren
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }

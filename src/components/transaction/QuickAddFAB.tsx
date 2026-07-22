@@ -14,10 +14,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { DatePicker } from '@/components/ui/date-picker'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
@@ -60,10 +60,8 @@ export default function QuickAddFAB() {
         <PlusIcon size={24} className="text-black" strokeWidth={2.5} />
       </button>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent
           className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                      border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
         >
@@ -71,8 +69,8 @@ export default function QuickAddFAB() {
             <div className="w-10 h-1 rounded-full bg-border" />
           </div>
           <QuickAddForm onClose={() => setOpen(false)} />
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }
@@ -352,11 +350,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const currencySymbol = group?.currency === 'INR' ? '₹' : (group?.currency ?? '₹')
 
   return (
-    <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
-      <SheetHeader className="p-0 flex-row items-center justify-between">
-        <SheetTitle className="text-base font-semibold text-text-primary">
+    <div className="px-5 pb-6 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
+      <DrawerHeader className="p-0 flex-row items-center justify-between">
+        <DrawerTitle className="text-base font-semibold text-text-primary">
           Add transaction
-        </SheetTitle>
+        </DrawerTitle>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -394,7 +392,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             )}
           </button>
         </div>
-      </SheetHeader>
+      </DrawerHeader>
 
       {/* Expense / Income / Transfer toggle */}
       <div className="flex items-center gap-2">
@@ -435,8 +433,8 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             <p className="text-xs text-text-secondary leading-relaxed">
               Use Transfer when money moves between your own accounts — nothing was actually bought.
               Paying your credit card bill from your bank account? That's a Transfer (bank → credit
-              card), not an Expense — the purchase itself was already recorded as an Expense when you
-              made it.
+              card), not an Expense — the purchase itself was already recorded as an Expense when
+              you made it.
             </p>
           </PopoverContent>
         </Popover>

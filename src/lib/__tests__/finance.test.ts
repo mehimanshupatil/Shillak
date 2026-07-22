@@ -105,9 +105,10 @@ describe('transfer type exclusion', () => {
   })
 
   it('transfer is not expense and not income', () => {
-    const transfer = txns.find((t) => t.type === 'transfer')!
-    expect(transfer.type === 'expense').toBe(false)
-    expect(transfer.type === 'income').toBe(false)
+    const transfer = txns.find((t) => t.type === 'transfer')
+    expect(transfer).toBeDefined()
+    expect(transfer?.type === 'expense').toBe(false)
+    expect(transfer?.type === 'income').toBe(false)
   })
 })
 

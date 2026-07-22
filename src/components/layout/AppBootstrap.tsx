@@ -1,7 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { broadcastLock, initLockChannel } from '@/crypto/keystore'
 import { db } from '@/db/db'
-import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { APP_LOCK_TIMEOUT_MS } from '@/lib/constants'
 import { migrateUpiAccounts } from '@/lib/migrations'
 import { processRecurrences } from '@/lib/recurrences'
@@ -23,7 +22,6 @@ type BootState =
 export default function AppBootstrap({ children }: { children: ReactNode }) {
   const [boot, setBoot] = useState<BootState>({ status: 'loading' })
   const { key, clearKey } = useKeyStore()
-  useKeyboardHeight()
   const setCurrentUserId = useAppStore((s) => s.setCurrentUserId)
   const setActiveGroupId = useAppStore((s) => s.setActiveGroupId)
 

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Avatar, IconPicker, PROFILE_ICONS } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { User } from '@/db/schema'
 import { GROUP_COLORS } from '@/lib/utils'
@@ -56,10 +56,8 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                    border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
@@ -67,11 +65,11 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-6 flex flex-col gap-4">
-          <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-text-primary">
+          <DrawerHeader className="p-0">
+            <DrawerTitle className="text-base font-semibold text-text-primary">
               Edit profile
-            </SheetTitle>
-          </SheetHeader>
+            </DrawerTitle>
+          </DrawerHeader>
 
           {/* Avatar preview */}
           <div className="flex justify-center">
@@ -133,7 +131,7 @@ export default function EditProfileSheet({ open, onClose, user }: Props) {
             {loading ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }

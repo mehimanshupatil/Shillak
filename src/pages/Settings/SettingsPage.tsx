@@ -254,8 +254,9 @@ export default function SettingsPage() {
     await db.groups.delete(activeGroupId)
 
     const remaining = await db.groups.toArray()
-    if (remaining.length > 0) {
-      useAppStore.getState().setActiveGroupId(remaining[0]!.groupId)
+    const nextGroup = remaining[0]
+    if (nextGroup) {
+      useAppStore.getState().setActiveGroupId(nextGroup.groupId)
     } else {
       localStorage.removeItem('shillak_group_id')
       useAppStore.setState({ activeGroupId: null })

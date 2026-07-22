@@ -7,7 +7,7 @@
 import { QrCodeIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import QRDisplay from '@/components/sync/QRDisplay'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { generateInvite } from '@/sync/invite'
 
 interface Props {
@@ -52,10 +52,8 @@ export default function InviteSheet({ open, onClose, groupId, userId }: Props) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                    border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
@@ -63,11 +61,11 @@ export default function InviteSheet({ open, onClose, groupId, userId }: Props) {
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="px-5 pb-8 flex flex-col gap-5">
-          <SheetHeader className="p-0">
-            <SheetTitle className="text-base font-semibold text-text-primary">
+          <DrawerHeader className="p-0">
+            <DrawerTitle className="text-base font-semibold text-text-primary">
               Invite member
-            </SheetTitle>
-          </SheetHeader>
+            </DrawerTitle>
+          </DrawerHeader>
 
           <p className="text-sm text-text-secondary">
             Show this QR code to the person you want to add. They'll scan it in the Shillak app to
@@ -103,7 +101,7 @@ export default function InviteSheet({ open, onClose, groupId, userId }: Props) {
             </p>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }

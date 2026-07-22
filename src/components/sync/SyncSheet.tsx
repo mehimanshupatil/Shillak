@@ -17,7 +17,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { db } from '@/db/db'
 import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
@@ -354,19 +354,17 @@ export default function SyncSheet({ open, onClose }: Props) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-2xl bg-surface
-                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92vh] overflow-y-auto"
+                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92dvh] overflow-y-auto"
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-surface-3" />
         </div>
 
-        <SheetHeader className="px-4 pb-3 text-left">
-          <SheetTitle className="text-lg font-bold text-text-primary">Sync</SheetTitle>
+        <DrawerHeader className="px-4 pb-3 text-left">
+          <DrawerTitle className="text-lg font-bold text-text-primary">Sync</DrawerTitle>
           <p className="text-xs text-text-tertiary">
             {group?.name}
             {lastSync && (
@@ -381,7 +379,7 @@ export default function SyncSheet({ open, onClose }: Props) {
               </>
             )}
           </p>
-        </SheetHeader>
+        </DrawerHeader>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mx-4 mb-4">
@@ -434,8 +432,8 @@ export default function SyncSheet({ open, onClose }: Props) {
           )}
           {tab === 'history' && <HistoryTab events={syncHistory ?? []} />}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }
 

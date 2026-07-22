@@ -11,9 +11,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
@@ -97,23 +97,21 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-surface
                    border-0 border-t border-border safe-bottom px-0 pb-0 gap-0"
       >
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
-        <div className="px-5 pb-6 flex flex-col gap-4 overflow-y-auto max-h-[85vh]">
-          <SheetHeader className="p-0 flex-row items-center gap-2">
+        <div className="px-5 pb-6 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
+          <DrawerHeader className="p-0 flex-row items-center gap-2">
             <ArrowClockwiseIcon size={14} className="text-accent" />
-            <SheetTitle className="text-base font-semibold text-text-primary">
+            <DrawerTitle className="text-base font-semibold text-text-primary">
               Edit recurring
-            </SheetTitle>
-          </SheetHeader>
+            </DrawerTitle>
+          </DrawerHeader>
 
           {/* Amount */}
           <div className="relative">
@@ -248,7 +246,7 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
             Stop recurring
           </Button>
         </div>
-      </SheetContent>
+      </DrawerContent>
 
       <AlertDialog open={confirmStopOpen} onOpenChange={setConfirmStopOpen}>
         <AlertDialogContent>
@@ -262,6 +260,6 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>
+    </Drawer>
   )
 }

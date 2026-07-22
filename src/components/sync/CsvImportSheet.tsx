@@ -15,6 +15,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import {
   Select,
   SelectContent,
@@ -22,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { db } from '@/db/db'
 import type { Account, Category } from '@/db/schema'
 import {
@@ -244,25 +244,23 @@ export default function CsvImportSheet({ open, onClose }: Props) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
+    <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent
         className="w-full max-w-[430px] mx-auto rounded-t-2xl bg-surface
-                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92vh] overflow-y-auto"
+                   border-0 border-t border-border px-0 pb-0 gap-0 max-h-[92dvh] overflow-y-auto"
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-surface-3" />
         </div>
 
-        <SheetHeader className="px-4 pb-3 text-left">
-          <SheetTitle className="text-lg font-bold text-text-primary text-left">
+        <DrawerHeader className="px-4 pb-3 text-left">
+          <DrawerTitle className="text-lg font-bold text-text-primary text-left">
             Import CSV
-          </SheetTitle>
+          </DrawerTitle>
           <p className="text-xs text-text-tertiary">
             Bank statements, other budget apps, or an AI-reformatted file.
           </p>
-        </SheetHeader>
+        </DrawerHeader>
 
         <div className="px-4 pb-8">
           {state.step === 'upload' && (
@@ -391,8 +389,8 @@ export default function CsvImportSheet({ open, onClose }: Props) {
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }
 

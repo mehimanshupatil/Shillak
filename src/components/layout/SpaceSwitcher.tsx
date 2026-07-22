@@ -4,7 +4,7 @@ import { useState } from 'react'
 import QRScanner from '@/components/sync/QRScanner'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { db } from '@/db/db'
 import CreateSpaceScreen from '@/pages/Onboarding/CreateSpaceScreen'
 import JoinSpacePreviewScreen from '@/pages/Onboarding/JoinSpacePreviewScreen'
@@ -99,7 +99,7 @@ export default function SpaceSwitcher() {
         </button>
       </div>
 
-      {/* Scanner lives outside Sheet so it can go full-screen */}
+      {/* Scanner lives outside Drawer so it can go full-screen */}
       {view === 'scan' && sheetOpen && (
         <QRScanner
           active
@@ -113,10 +113,8 @@ export default function SpaceSwitcher() {
         />
       )}
 
-      <Sheet open={sheetOpen && view !== 'scan'} onOpenChange={(v) => !v && setSheetOpen(false)}>
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
+      <Drawer open={sheetOpen && view !== 'scan'} onOpenChange={(v) => !v && setSheetOpen(false)}>
+        <DrawerContent
           className="w-full max-w-[430px] mx-auto rounded-t-3xl bg-bg
                      border-0 border-t border-border h-[90vh] px-0 pb-0 gap-0"
         >
@@ -126,11 +124,11 @@ export default function SpaceSwitcher() {
           <div className="overflow-y-auto h-full">
             {view === 'choice' && (
               <div className="px-6 py-4 flex flex-col gap-4">
-                <SheetHeader className="p-0">
-                  <SheetTitle className="text-base font-semibold text-text-primary">
+                <DrawerHeader className="p-0">
+                  <DrawerTitle className="text-base font-semibold text-text-primary">
                     Add space
-                  </SheetTitle>
-                </SheetHeader>
+                  </DrawerTitle>
+                </DrawerHeader>
 
                 <Button
                   variant="secondary"
@@ -190,8 +188,8 @@ export default function SpaceSwitcher() {
               />
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }

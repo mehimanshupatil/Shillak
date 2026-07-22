@@ -94,9 +94,9 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
   const swipeAxis = swipeDirection === 'down' || swipeDirection === 'up' ? 'y' : 'x'
 
   return (
-    <DrawerPortal data-slot="drawer-portal">
-      {modal === true && <DrawerOverlay data-snap-points={hasSnapPoints ? '' : undefined} />}
-      <DrawerPrimitive.VirtualKeyboardProvider>
+    <DrawerPrimitive.VirtualKeyboardProvider>
+      <DrawerPortal data-slot="drawer-portal">
+        {modal === true && <DrawerOverlay data-snap-points={hasSnapPoints ? '' : undefined} />}
         <DrawerPrimitive.Viewport
           data-slot="drawer-viewport"
           data-modal={modal}
@@ -146,8 +146,8 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
             </DrawerPrimitive.Content>
           </DrawerPrimitive.Popup>
         </DrawerPrimitive.Viewport>
-      </DrawerPrimitive.VirtualKeyboardProvider>
-    </DrawerPortal>
+      </DrawerPortal>
+    </DrawerPrimitive.VirtualKeyboardProvider>
   )
 }
 

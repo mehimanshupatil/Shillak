@@ -575,7 +575,6 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           value={amountStr}
           onChange={(e) => setAmountStr(e.target.value)}
           placeholder="0.00"
-          autoFocus
           className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
                      text-3xl font-mono font-bold text-text-primary
                      placeholder:text-text-tertiary

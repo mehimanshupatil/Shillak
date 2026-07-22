@@ -504,8 +504,8 @@ export default function SettingsPage() {
                        hover:bg-surface-2 disabled:opacity-50"
           >
             <div>
-              <p className="text-sm text-text-primary">Import CSV</p>
-              <p className="text-[11px] text-text-tertiary mt-0.5">
+              <p className="text-sm text-text-primary text-left">Import CSV</p>
+              <p className="text-[11px] text-text-tertiary mt-0.5 text-left">
                 Bank statements, other budget apps, or custom formats
               </p>
             </div>
@@ -655,8 +655,8 @@ export default function SettingsPage() {
                        hover:bg-danger/5 disabled:opacity-50"
           >
             <div className="flex flex-col items-start">
-              <span className="text-sm text-danger">Clear space data</span>
-              <span className="text-xs text-text-tertiary mt-0.5 ">
+              <span className="text-sm text-danger text-left">Clear space data</span>
+              <span className="text-xs text-text-tertiary mt-0.5 text-left">
                 Deletes all transactions, budgets & goals. Keeps space settings.
               </span>
             </div>

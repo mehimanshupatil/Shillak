@@ -1,6 +1,7 @@
 import {
   ArrowClockwiseIcon,
   ClipboardIcon,
+  InfoIcon,
   PaperclipIcon,
   PlusIcon,
   PushPinIcon,
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
@@ -837,6 +839,22 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                         EMI, SIP, rent — tracked separately
                       </p>
                     </div>
+                    <Popover>
+                      <PopoverTrigger
+                        aria-label="What does fixed outflow do?"
+                        className="text-text-tertiary"
+                      >
+                        <InfoIcon size={13} />
+                      </PopoverTrigger>
+                      <PopoverContent className="max-w-65">
+                        <p className="text-xs text-text-secondary leading-relaxed">
+                          Marks this as a committed expense you can't easily skip. Fixed outflows
+                          are broken out separately from discretionary spending in your Dashboard's
+                          monthly summary — they don't change which bills show up under Upcoming
+                          Bills.
+                        </p>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <Switch
                     checked={isFixed}

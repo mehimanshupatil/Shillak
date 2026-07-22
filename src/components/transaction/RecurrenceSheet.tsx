@@ -1,4 +1,4 @@
-import { ArrowClockwiseIcon, PushPinIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, InfoIcon, PushPinIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import {
   AlertDialog,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
@@ -206,6 +207,22 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
                     <span className="text-xs font-medium text-text-primary">Fixed outflow</span>
                     <p className="text-[10px] text-text-tertiary">EMI, SIP, rent</p>
                   </div>
+                  <Popover>
+                    <PopoverTrigger
+                      aria-label="What does fixed outflow do?"
+                      className="text-text-tertiary"
+                    >
+                      <InfoIcon size={13} />
+                    </PopoverTrigger>
+                    <PopoverContent className="max-w-65">
+                      <p className="text-xs text-text-secondary leading-relaxed">
+                        Marks this as a committed expense you can't easily skip. Fixed outflows are
+                        broken out separately from discretionary spending in your Dashboard's
+                        monthly summary — they don't change which bills show up under Upcoming
+                        Bills.
+                      </p>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <Switch checked={isFixed} onCheckedChange={setIsFixed} aria-label="Fixed outflow" />
               </div>

@@ -35,6 +35,7 @@ import {
   SparkleIcon,
   TelevisionIcon,
   TrendUpIcon,
+  VaultIcon,
   WrenchIcon,
 } from '@phosphor-icons/react'
 
@@ -53,6 +54,7 @@ const ICON_MAP: Record<string, Icon> = {
   Fuel: GasPumpIcon,
   Wrench: WrenchIcon,
   Sparkles: SparkleIcon,
+  Vault: VaultIcon,
   CircleDot: RadioButtonIcon,
   Briefcase: BriefcaseIcon,
   Laptop: LaptopIcon,

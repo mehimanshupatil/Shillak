@@ -72,6 +72,7 @@ export default function DemoDataSeeder() {
         { name: 'Health', min: 300, max: 2000, perMonth: 1 },
         { name: 'Insurance', min: 2000, max: 2000, perMonth: 1 },
         { name: 'Personal Care', min: 300, max: 1200, perMonth: 2 },
+        { name: 'Investment', min: 5000, max: 5000, perMonth: 1 },
       ]
 
       const notes: Record<string, string[]> = {
@@ -87,6 +88,7 @@ export default function DemoDataSeeder() {
         Health: ['Pharmacy', 'Doctor visit'],
         Insurance: ['Health insurance premium'],
         'Personal Care': ['Salon', 'Skincare'],
+        Investment: ['SIP - Index Fund'],
       }
 
       const months = monthStartsUTC(3) // this month + 3 previous

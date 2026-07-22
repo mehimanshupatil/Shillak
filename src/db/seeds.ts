@@ -15,6 +15,7 @@ const EXPENSE_SEEDS: Array<{ name: string; icon: string; color: string }> = [
   { name: 'Fuel', icon: 'Fuel', color: '#eab308' },
   { name: 'Household', icon: 'Wrench', color: '#64748b' },
   { name: 'Personal Care', icon: 'Sparkles', color: '#f43f5e' },
+  { name: 'Investment', icon: 'Vault', color: '#0ea5e9' },
   { name: 'Other', icon: 'CircleDot', color: '#888888' },
 ]
 

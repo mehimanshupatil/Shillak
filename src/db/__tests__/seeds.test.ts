@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createDefaultAccounts, createDefaultCategories } from '../seeds'
 
 describe('createDefaultCategories', () => {
-  it('seeds 15 expense and 4 income categories, all tagged isDefault', () => {
+  it('seeds 16 expense and 4 income categories, all tagged isDefault', () => {
     const categories = createDefaultCategories('g1', 'u1')
-    expect(categories.filter((c) => c.type === 'expense')).toHaveLength(15)
+    expect(categories.filter((c) => c.type === 'expense')).toHaveLength(16)
     expect(categories.filter((c) => c.type === 'income')).toHaveLength(4)
     expect(categories.every((c) => c.isDefault)).toBe(true)
   })

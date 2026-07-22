@@ -225,6 +225,22 @@ export function inferCategoryName(text: string): string | null {
       category: 'Household',
     },
     {
+      keywords: [
+        'sip',
+        'mutual fund purchase',
+        'mutual fund sip',
+        'zerodha',
+        'groww',
+        'upstox',
+        'stock purchase',
+        'demat',
+        'nps contribution',
+        'ppf deposit',
+        'elss investment',
+      ],
+      category: 'Investment',
+    },
+    {
       keywords: ['salary', 'payroll', 'monthly pay'],
       category: 'Salary',
     },

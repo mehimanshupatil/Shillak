@@ -216,10 +216,10 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
                     </PopoverTrigger>
                     <PopoverContent className="max-w-65">
                       <p className="text-xs text-text-secondary leading-relaxed">
-                        Marks this as a committed expense you can't easily skip. Fixed outflows are
-                        broken out separately from discretionary spending in your Dashboard's
-                        monthly summary — they don't change which bills show up under Upcoming
-                        Bills.
+                        Turn this on for bills you have to pay no matter what — like EMI, SIP, or
+                        rent. Your Dashboard then shows these separately from money you chose to
+                        spend, so you can see how much you actually have left over each month. It
+                        won't hide anything — your Upcoming Bills list stays the same either way.
                       </p>
                     </PopoverContent>
                   </Popover>

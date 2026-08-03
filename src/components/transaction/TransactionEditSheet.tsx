@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
 import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
-import { generateId, parseDateStr, toPaise } from '@/lib/utils'
+import { formatDateStr, generateId, parseDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 import { incrementVectorClock } from '@/sync/vector-clock'
 
@@ -101,10 +101,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       setNewAttachments([])
       setAttachmentWarn('')
       setError('')
-      const d = new Date(transaction.date)
-      setDateStr(
-        `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
-      )
+      setDateStr(formatDateStr(transaction.date))
     }
   }, [open, transaction])
 

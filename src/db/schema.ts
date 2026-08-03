@@ -130,7 +130,7 @@ export interface Transaction {
 }
 
 // ─── Recurrence ───────────────────────────────────────────────────────────────
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 
 type RecurrenceTemplate = Omit<
   Transaction,
@@ -144,6 +144,7 @@ export interface Recurrence {
   template: RecurrenceTemplate
   frequency: RecurrenceFrequency
   interval: number
+  dayOfWeek?: number // 0 (Sun) – 6 (Sat) — only meaningful when frequency === 'weekly'
   nextDue: number
   lastGeneratedAt: number | null
   endDate: number | null

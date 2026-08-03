@@ -4,22 +4,7 @@ import { Bar, BarChart, Tooltip, XAxis } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
-import { formatCurrency, toBaseCurrency } from '@/lib/utils'
-
-const MONTHS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
+import { formatCurrency, monthShort, toBaseCurrency } from '@/lib/utils'
 
 const NOW_YEAR = new Date().getFullYear()
 const NOW_MONTH = new Date().getMonth()
@@ -54,7 +39,7 @@ export default function MonthlyBar({ groupId, currency }: Props) {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(NOW_YEAR, NOW_MONTH - i, 1)
       buckets.push({
-        month: MONTHS_SHORT[d.getMonth()] ?? '',
+        month: monthShort(d.getMonth()),
         amount: 0,
         fill: i === 0 ? 'var(--color-accent)' : 'var(--color-surface-3)',
       })

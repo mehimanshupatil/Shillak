@@ -64,6 +64,22 @@ export function today(): number {
   return toDateOnly(new Date())
 }
 
+/** 1 → '1st', 2 → '2nd', 3 → '3rd', 4 → '4th', 11-13 → '11th'/'12th'/'13th', etc. */
+export function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`
+  switch (n % 10) {
+    case 1:
+      return `${n}st`
+    case 2:
+      return `${n}nd`
+    case 3:
+      return `${n}rd`
+    default:
+      return `${n}th`
+  }
+}
+
 /**
  * Advance a date by interval × frequency.
  * Clamps to last valid day of target month (Jan 31 + 1m = Feb 28/29, not Mar 2).
@@ -91,12 +107,36 @@ export function advanceDate(
       return Date.UTC(year, targetMonth, Math.min(day, lastDay))
     }
 
-    case 'yearly': {
-      const targetYear = year + interval
-      const lastDay = new Date(Date.UTC(targetYear, month + 1, 0)).getUTCDate()
-      return Date.UTC(targetYear, month, Math.min(day, lastDay))
+    case 'quarterly': {
+      const targetMonth = month + 3 * interval
+      const lastDay = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate()
+      return Date.UTC(year, targetMonth, Math.min(day, lastDay))
     }
   }
+}
+
+/** Smallest midnight-UTC timestamp ≥ `date` that falls on `dayOfWeek` (0 = Sun … 6 = Sat). */
+export function nextWeekday(date: number, dayOfWeek: number): number {
+  const d = new Date(date)
+  const diff = (dayOfWeek - d.getUTCDay() + 7) % 7
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff)
+}
+
+/**
+ * Next recurrence date strictly after `after` for a fixed-cadence (interval 1) recurrence.
+ * For weekly, aligns to `dayOfWeek` first, then skips forward a week if that lands on `after` itself.
+ */
+export function nextOccurrence(
+  after: number,
+  frequency: RecurrenceFrequency,
+  dayOfWeek?: number,
+): number {
+  if (frequency === 'weekly') {
+    const dow = dayOfWeek ?? new Date(after).getUTCDay()
+    const aligned = nextWeekday(after, dow)
+    return aligned === after ? advanceDate(aligned, 'weekly', 1) : aligned
+  }
+  return advanceDate(after, frequency, 1)
 }
 
 // ─── Date display ─────────────────────────────────────────────────────────────
@@ -133,6 +173,50 @@ export function parseDateStr(dateStr: string): number {
   const d = Number(parts[2])
   if (!y || !mo || !d) throw new Error(`Invalid date string: ${dateStr}`)
   return Date.UTC(y, mo - 1, d)
+}
+
+/** Midnight-UTC unix ms (or a UTC-anchored Date) → 'YYYY-MM-DD'. Inverse of parseDateStr. */
+export function formatDateStr(date: number | Date): string {
+  const d = typeof date === 'number' ? new Date(date) : date
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    d.getUTCDate(),
+  ).padStart(2, '0')}`
+}
+
+/**
+ * Today in the user's local calendar day, as 'YYYY-MM-DD' — for defaulting a date-input field
+ * to "today". NOT for reading a stored UTC-midnight timestamp; use formatDateStr for that.
+ */
+export function todayLocalDateStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+const MONTH_SHORT_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  month: 'short',
+  timeZone: 'UTC',
+})
+
+/** 0-indexed month (0 = Jan … 11 = Dec) → short label, e.g. 'Jan'. */
+export function monthShort(monthIndex: number): string {
+  return MONTH_SHORT_FORMATTER.format(new Date(Date.UTC(2000, monthIndex, 1)))
+}
+
+const WEEKDAY_SHORT_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  weekday: 'short',
+  timeZone: 'UTC',
+})
+const WEEKDAY_LONG_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  weekday: 'long',
+  timeZone: 'UTC',
+})
+
+/** 0 = Sun … 6 = Sat → weekday label. Jan 2 2000 (a UTC Sunday) is used as a stable anchor. */
+export function weekdayLabel(dayOfWeek: number, style: 'short' | 'long' = 'short'): string {
+  const anchor = new Date(Date.UTC(2000, 0, 2 + dayOfWeek))
+  return (style === 'long' ? WEEKDAY_LONG_FORMATTER : WEEKDAY_SHORT_FORMATTER).format(anchor)
 }
 
 // ─── Misc ─────────────────────────────────────────────────────────────────────

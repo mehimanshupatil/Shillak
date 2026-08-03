@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { generateId, parseDateStr, toPaise } from '@/lib/utils'
+import { formatDateStr, generateId, parseDateStr, todayLocalDateStr, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function ShareTargetPage() {
@@ -23,10 +23,7 @@ export default function ShareTargetPage() {
 
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
-  const [dateStr, setDateStr] = useState(() => {
-    const t = new Date()
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
-  })
+  const [dateStr, setDateStr] = useState(todayLocalDateStr)
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
@@ -76,10 +73,7 @@ export default function ShareTargetPage() {
         setAmountStr(parsed.amount != null ? String(parsed.amount) : '')
         setNote(parsed.note)
         if (parsed.date !== null) {
-          const d = new Date(parsed.date)
-          setDateStr(
-            `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
-          )
+          setDateStr(formatDateStr(parsed.date))
         }
         // category hint applied after categories load — stored in a ref
         pendingCategoryHintRef.current = parsed.categoryHint
@@ -108,10 +102,7 @@ export default function ShareTargetPage() {
         setAmountStr(parsed.amount != null ? String(parsed.amount) : '')
         setNote(parsed.note)
         if (parsed.date !== null) {
-          const d = new Date(parsed.date)
-          setDateStr(
-            `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
-          )
+          setDateStr(formatDateStr(parsed.date))
         }
         pendingCategoryHintRef.current = parsed.categoryHint
         setOcrStatus('done')
@@ -246,7 +237,7 @@ export default function ShareTargetPage() {
           {ocrDebugOpen && (
             <pre
               className="px-3 py-2 text-[10px] text-text-tertiary font-mono whitespace-pre-wrap
-                            break-words bg-surface max-h-40 overflow-y-auto leading-relaxed"
+                            wrap-break-word bg-surface max-h-40 overflow-y-auto leading-relaxed"
             >
               {ocrRawText}
             </pre>

@@ -17,23 +17,8 @@ import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
-import { formatCompact, formatCurrency, groupColor, toBaseCurrency } from '@/lib/utils'
+import { formatCompact, formatCurrency, groupColor, monthShort, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
-
-const MONTHS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
 
 export default function BudgetsPage() {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
@@ -196,7 +181,7 @@ export default function BudgetsPage() {
 
   const periodLabel =
     activePeriod === 'monthly'
-      ? `${MONTHS_SHORT[month]} ${year}`
+      ? `${monthShort(month)} ${year}`
       : `FY ${year}–${String(year + 1).slice(2)}`
 
   const isNavAtCurrent = activePeriod === 'monthly' ? isCurrent : isFiscalCurrent

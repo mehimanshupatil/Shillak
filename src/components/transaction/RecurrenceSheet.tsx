@@ -1,4 +1,5 @@
-import { ArrowClockwiseIcon, InfoIcon, PushPinIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, InfoIcon, PushPinIcon, XIcon } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import {
   AlertDialog,
@@ -11,20 +12,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
-import { toPaise } from '@/lib/utils'
+import {
+  formatDateStr,
+  nextOccurrence,
+  ordinal,
+  parseDateStr,
+  today,
+  toPaise,
+  weekdayLabel,
+} from '@/lib/utils'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   daily: 'Daily',
   weekly: 'Weekly',
   monthly: 'Monthly',
-  yearly: 'Yearly',
+  quarterly: 'Quarterly',
 }
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
 
 interface Props {
   open: boolean
@@ -34,8 +46,10 @@ interface Props {
 }
 
 export default function RecurrenceSheet({ open, onClose, recurrence, currency }: Props) {
+  const queryClient = useQueryClient()
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
-  const [every, setEvery] = useState(1)
+  const [dayOfWeek, setDayOfWeek] = useState(0)
+  const [endDateStr, setEndDateStr] = useState('')
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
   const [isFixed, setIsFixed] = useState(false)
@@ -48,7 +62,8 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
   useEffect(() => {
     if (open && recurrence) {
       setFrequency(recurrence.frequency)
-      setEvery(recurrence.interval)
+      setDayOfWeek(recurrence.dayOfWeek ?? new Date(recurrence.nextDue).getUTCDay())
+      setEndDateStr(recurrence.endDate ? formatDateStr(recurrence.endDate) : '')
       setAmountStr((recurrence.template.amount / 100).toFixed(2))
       setNote(recurrence.template.note)
       setIsFixed(recurrence.isFixed ?? false)
@@ -68,10 +83,15 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
     try {
       await db.recurrences.update(recurrence.recurrenceId, {
         frequency,
-        interval: every,
+        interval: 1,
+        ...(frequency === 'weekly'
+          ? { dayOfWeek, nextDue: nextOccurrence(today(), 'weekly', dayOfWeek) }
+          : {}),
+        endDate: endDateStr ? parseDateStr(endDateStr) : null,
         isFixed: recurrence.template.type === 'expense' ? isFixed : false,
         template: { ...recurrence.template, amount: toPaise(amount), note: note.trim() },
       })
+      queryClient.invalidateQueries({ queryKey: ['upcomingBills', recurrence.groupId] })
       onClose()
     } catch (e) {
       setError(String(e))
@@ -88,6 +108,7 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
         active: false,
         endDate: Date.now(),
       })
+      queryClient.invalidateQueries({ queryKey: ['upcomingBills', recurrence.groupId] })
       onClose()
     } catch (e) {
       setError(String(e))
@@ -161,36 +182,54 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-text-secondary">Every</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEvery((i) => Math.max(1, i - 1))}
-                  className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-                >
-                  −
-                </button>
-                <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
-                  {every}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEvery((i) => Math.min(99, i + 1))}
-                  className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-                >
-                  +
-                </button>
+            {frequency === 'weekly' && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-text-secondary">Repeats every</span>
+                <div className="flex gap-1">
+                  {WEEKDAYS.map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setDayOfWeek(i)}
+                      className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                        dayOfWeek === i
+                          ? 'bg-accent text-black'
+                          : 'bg-surface-3 text-text-secondary'
+                      }`}
+                    >
+                      {weekdayLabel(i)}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <span className="text-xs text-text-secondary">
-                {frequency === 'daily'
-                  ? 'day(s)'
-                  : frequency === 'weekly'
-                    ? 'week(s)'
-                    : frequency === 'monthly'
-                      ? 'month(s)'
-                      : 'year(s)'}
-              </span>
+            )}
+
+            {frequency === 'monthly' && recurrence && (
+              <p className="text-xs text-text-secondary">
+                Repeats monthly, on the {ordinal(new Date(recurrence.nextDue).getUTCDate())}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-text-secondary">Ends</span>
+              <div className="flex items-center gap-2">
+                <DatePicker
+                  value={endDateStr}
+                  onChange={setEndDateStr}
+                  placeholder="Never"
+                  className="h-8 text-xs px-2.5"
+                />
+                {endDateStr && (
+                  <button
+                    type="button"
+                    onClick={() => setEndDateStr('')}
+                    className="text-text-tertiary"
+                    aria-label="Clear end date"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {recurrence?.template.type === 'expense' && (

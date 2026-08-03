@@ -11,23 +11,8 @@ import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
 import type { Account } from '@/db/schema'
 import { useNetWorthTrend } from '@/hooks/useNetWorthTrend'
-import { formatCurrency, toBaseCurrency } from '@/lib/utils'
+import { formatCurrency, monthShort, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
-
-const MONTHS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
 
 const netWorthChartConfig = { netWorth: { label: 'Net worth' } } satisfies ChartConfig
 
@@ -202,7 +187,7 @@ function NetWorthTrendCard({
   currency: string
 }) {
   const latest = points[points.length - 1]?.netWorth ?? 0
-  const chartData = points.map((p) => ({ month: MONTHS_SHORT[p.month], netWorth: p.netWorth }))
+  const chartData = points.map((p) => ({ month: monthShort(p.month), netWorth: p.netWorth }))
 
   return (
     <div className="p-4 rounded-2xl bg-surface border border-border">

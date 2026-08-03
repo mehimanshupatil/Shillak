@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from '@/db/schema'
-import { advanceDate, parseDateStr, toBaseCurrency, toPaise } from '../utils'
+import { advanceDate, nextWeekday, parseDateStr, toBaseCurrency, toPaise } from '../utils'
 
 // ─── toPaise ─────────────────────────────────────────────────────────────────
 
@@ -161,12 +161,12 @@ describe('advanceDate', () => {
     expect(d.getUTCDate()).toBe(30)
   })
 
-  it('Feb 28 + 1 year on non-leap = Feb 28', () => {
-    const feb28 = Date.UTC(2024, 1, 28)
-    const result = advanceDate(feb28, 'yearly', 1)
+  it('Nov 30 + 1 quarter = Feb 28 (non-leap, no overflow to Mar)', () => {
+    const nov30 = Date.UTC(2025, 10, 30)
+    const result = advanceDate(nov30, 'quarterly', 1)
     const d = new Date(result)
-    expect(d.getUTCFullYear()).toBe(2025)
-    expect(d.getUTCMonth()).toBe(1)
+    expect(d.getUTCFullYear()).toBe(2026)
+    expect(d.getUTCMonth()).toBe(1) // February
     expect(d.getUTCDate()).toBe(28)
   })
 
@@ -174,6 +174,29 @@ describe('advanceDate', () => {
     const base = Date.UTC(2025, 0, 15)
     expect(new Date(advanceDate(base, 'daily', 1)).getUTCDate()).toBe(16)
     expect(new Date(advanceDate(base, 'weekly', 1)).getUTCDate()).toBe(22)
+  })
+})
+
+// ─── nextWeekday — weekly recurrence day-of-week alignment ────────────────────
+
+describe('nextWeekday', () => {
+  it('returns the same date when it already falls on the target weekday', () => {
+    const wed = Date.UTC(2025, 0, 15) // Jan 15 2025 is a Wednesday (day 3)
+    expect(nextWeekday(wed, 3)).toBe(wed)
+  })
+
+  it('advances forward to the next occurrence of the target weekday', () => {
+    const wed = Date.UTC(2025, 0, 15)
+    const fri = nextWeekday(wed, 5) // Friday (day 5)
+    const d = new Date(fri)
+    expect(d.getUTCDate()).toBe(17)
+  })
+
+  it('wraps to next week when the target weekday already passed', () => {
+    const wed = Date.UTC(2025, 0, 15)
+    const mon = nextWeekday(wed, 1) // Monday (day 1) — already passed this week
+    const d = new Date(mon)
+    expect(d.getUTCDate()).toBe(20)
   })
 })
 

@@ -8,6 +8,7 @@ import {
   ScanIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -23,15 +24,25 @@ import { db } from '@/db/db'
 import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
 import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { advanceDate, generateId, parseDateStr, toPaise } from '@/lib/utils'
+import {
+  generateId,
+  nextOccurrence,
+  ordinal,
+  parseDateStr,
+  todayLocalDateStr,
+  toPaise,
+  weekdayLabel,
+} from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   daily: 'Daily',
   weekly: 'Weekly',
   monthly: 'Monthly',
-  yearly: 'Yearly',
+  quarterly: 'Quarterly',
 }
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
 
 type PendingAttachment = { mimeType: string; data: string; sizeBytes: number }
 
@@ -78,6 +89,7 @@ export default function QuickAddFAB() {
 function QuickAddForm({ onClose }: { onClose: () => void }) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
+  const queryClient = useQueryClient()
 
   const [txnType, setTxnType] = useState<TransactionType>('expense')
   const [toAccountId, setToAccountId] = useState<string | null>(null)
@@ -86,13 +98,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [paidBy, setPaidBy] = useState<string | null>(null)
-  const [dateStr, setDateStr] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
+  const [dateStr, setDateStr] = useState(todayLocalDateStr)
   const [repeat, setRepeat] = useState(false)
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
-  const [every, setEvery] = useState(1)
+  const [dayOfWeek, setDayOfWeek] = useState(() => new Date(parseDateStr(dateStr)).getUTCDay())
+  const [endDateStr, setEndDateStr] = useState('')
   const [isFixed, setIsFixed] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
@@ -302,14 +312,16 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             paidBy: paidBy ?? currentUserId,
           },
           frequency,
-          interval: every,
-          nextDue: advanceDate(txnDate, frequency, every),
+          interval: 1,
+          dayOfWeek: frequency === 'weekly' ? dayOfWeek : undefined,
+          nextDue: nextOccurrence(txnDate, frequency, dayOfWeek),
           lastGeneratedAt: txnDate,
-          endDate: null,
+          endDate: endDateStr ? parseDateStr(endDateStr) : null,
           active: true,
           isFixed: txnType === 'expense' ? isFixed : false,
           createdAt: Date.now(),
         })
+        queryClient.invalidateQueries({ queryKey: ['upcomingBills', activeGroupId] })
       }
 
       await db.transactions.put({
@@ -468,7 +480,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           {ocrDebugOpen && (
             <pre
               className="px-3 py-2 text-[10px] text-text-tertiary font-mono whitespace-pre-wrap
-                            break-words bg-surface max-h-36 overflow-y-auto leading-relaxed"
+                            wrap-break-word bg-surface max-h-36 overflow-y-auto leading-relaxed"
             >
               {ocrRawText}
             </pre>
@@ -809,36 +821,54 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-text-secondary">Every</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEvery((i) => Math.max(1, i - 1))}
-                    className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-                  >
-                    −
-                  </button>
-                  <span className="text-sm font-mono font-medium text-text-primary w-4 text-center">
-                    {every}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEvery((i) => Math.min(99, i + 1))}
-                    className="w-7 h-7 rounded-lg bg-surface-3 text-text-primary text-sm font-bold"
-                  >
-                    +
-                  </button>
+              {frequency === 'weekly' && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs text-text-secondary">Repeats every</span>
+                  <div className="flex gap-1">
+                    {WEEKDAYS.map((i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setDayOfWeek(i)}
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                          dayOfWeek === i
+                            ? 'bg-accent text-black'
+                            : 'bg-surface-3 text-text-secondary'
+                        }`}
+                      >
+                        {weekdayLabel(i)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-xs text-text-secondary">
-                  {frequency === 'daily'
-                    ? 'day(s)'
-                    : frequency === 'weekly'
-                      ? 'week(s)'
-                      : frequency === 'monthly'
-                        ? 'month(s)'
-                        : 'year(s)'}
-                </span>
+              )}
+
+              {frequency === 'monthly' && (
+                <p className="text-xs text-text-secondary">
+                  Repeats monthly, on the {ordinal(Number(dateStr.split('-')[2]))}
+                </p>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary">Ends</span>
+                <div className="flex items-center gap-2">
+                  <DatePicker
+                    value={endDateStr}
+                    onChange={setEndDateStr}
+                    placeholder="Never"
+                    className="h-8 text-xs px-2.5"
+                  />
+                  {endDateStr && (
+                    <button
+                      type="button"
+                      onClick={() => setEndDateStr('')}
+                      className="text-text-tertiary"
+                      aria-label="Clear end date"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {txnType === 'expense' && (

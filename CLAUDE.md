@@ -125,11 +125,16 @@ interface Transaction {
 interface Recurrence {
   recurrenceId: string; groupId: string; ownerId: string
   template: Omit<Transaction, 'txnId'|'date'|'recurrenceId'|'authorSeq'|'createdAt'|'updatedAt'|'deletedAt'>
-  frequency: 'daily'|'weekly'|'monthly'|'yearly'; interval: number
+  frequency: 'daily'|'weekly'|'monthly'|'quarterly'; interval: number
+  dayOfWeek?: number  // 0 (Sun)-6 (Sat) — only set/used when frequency === 'weekly'
   nextDue: number; lastGeneratedAt: number | null; endDate: number | null
   active: boolean; isFixed: boolean; createdAt: number
 }
 // Only process recurrences where ownerId === currentUserId.
+// interval always 1 — fixed-cadence model, no user-facing "every N" stepper.
+// Anchor day: monthly/quarterly silently reuse the day-of-month from the original
+// transaction (advanceDate clamps for short months). Weekly is the one frequency with
+// an explicit, editable anchor (dayOfWeek) — nextOccurrence() aligns nextDue to it.
 
 interface Attachment {
   attachmentId: string; groupId: string; txnId: string

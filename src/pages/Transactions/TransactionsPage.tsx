@@ -255,7 +255,7 @@ export default function TransactionsPage() {
               >
                 <SelectTrigger className="w-full h-9">
                   <SelectValue>
-                    {(v: string) => (v ? catMap[v]?.name ?? v : 'All categories')}
+                    {(v: string) => (v ? (catMap[v]?.name ?? v) : 'All categories')}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>

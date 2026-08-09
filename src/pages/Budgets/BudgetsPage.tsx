@@ -284,12 +284,7 @@ export default function BudgetsPage() {
 
         {/* Navigator */}
         <div className="flex items-center gap-2 mt-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={prevPeriod}
-            className="text-text-secondary"
-          >
+          <Button variant="ghost" size="icon" onClick={prevPeriod} className="text-text-secondary">
             <CaretLeftIcon size={18} />
           </Button>
           <span className="flex-1 text-center text-sm font-medium text-text-primary">

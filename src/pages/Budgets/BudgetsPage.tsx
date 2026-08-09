@@ -286,7 +286,7 @@ export default function BudgetsPage() {
         <div className="flex items-center gap-2 mt-3">
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={prevPeriod}
             className="text-text-secondary"
           >
@@ -297,7 +297,7 @@ export default function BudgetsPage() {
           </span>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={nextPeriod}
             disabled={isNavAtCurrent}
             className="text-text-secondary"

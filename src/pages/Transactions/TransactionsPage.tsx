@@ -254,7 +254,9 @@ export default function TransactionsPage() {
                 onValueChange={(v) => v !== null && setCategoryFilter(v)}
               >
                 <SelectTrigger className="w-full h-9">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string) => (v ? catMap[v]?.name ?? v : 'All categories')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All categories</SelectItem>

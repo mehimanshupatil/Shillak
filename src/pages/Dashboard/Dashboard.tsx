@@ -216,8 +216,17 @@ export default function Dashboard() {
     if (entries.length <= 5) return entries
 
     const top = entries.slice(0, 5)
-    const otherAmount = entries.slice(5).reduce((s, e) => s + e.amount, 0)
-    return [...top, { name: 'Other', color: '#64748b', amount: otherAmount }]
+    const rest = entries.slice(5)
+    const otherAmount = rest.reduce((s, e) => s + e.amount, 0)
+    return [
+      ...top,
+      {
+        name: 'Other',
+        color: '#64748b',
+        amount: otherAmount,
+        breakdown: rest.map((e) => ({ name: e.name, amount: e.amount })),
+      },
+    ]
   }, [categorySpend, catMap])
 
   function prevMonth() {
@@ -283,7 +292,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={prevMonth}
             className="text-text-secondary"
           >
@@ -294,7 +303,7 @@ export default function Dashboard() {
           </span>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={nextMonth}
             disabled={isCurrent}
             className="text-text-secondary"

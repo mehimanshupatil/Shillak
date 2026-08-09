@@ -7,6 +7,7 @@ interface Slice {
   name: string
   color: string
   amount: number
+  breakdown?: { name: string; amount: number }[]
 }
 
 interface Props {
@@ -44,12 +45,25 @@ export default function SpendingDonut({ slices, total, currency }: Props) {
               if (!active || !payload?.length) return null
               const item = payload[0]
               if (!item) return null
+              const slice = slices.find((s) => s.name === item.name)
               return (
                 <div className="px-2.5 py-1.5 rounded-lg bg-surface-2 border border-border text-xs">
                   <p className="font-medium text-text-primary">{item.name}</p>
                   <p className="font-mono text-text-secondary">
                     {formatCurrency(item.value as number, currency)}
                   </p>
+                  {slice?.breakdown && slice.breakdown.length > 0 && (
+                    <div className="mt-1 pt-1 border-t border-border flex flex-col gap-0.5">
+                      {slice.breakdown.map((b) => (
+                        <div key={b.name} className="flex items-center justify-between gap-3">
+                          <span className="text-text-tertiary">{b.name}</span>
+                          <span className="font-mono text-text-secondary">
+                            {formatCurrency(b.amount, currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             }}

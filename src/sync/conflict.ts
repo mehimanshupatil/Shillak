@@ -9,6 +9,7 @@
  */
 import { db } from '@/db/db'
 import type { ConflictLog, SyncEvent } from '@/db/schema'
+import { activeAdmins } from '@/lib/adminInvariant'
 import type { SyncDelta } from './vector-clock'
 import { mergeClock } from './vector-clock'
 
@@ -284,7 +285,7 @@ async function logConflict(
  */
 async function enforceAdminInvariant(groupId: string): Promise<void> {
   const members = await db.members.where((m) => m.groupId === groupId && m.status === 'active')
-  const admins = members.filter((m) => m.role === 'admin')
+  const admins = activeAdmins(members)
 
   if (admins.length === 0 && members.length > 0) {
     // Promote oldest member

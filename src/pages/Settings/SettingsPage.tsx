@@ -37,6 +37,7 @@ import { broadcastLock } from '@/crypto/keystore'
 import { db } from '@/db/db'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
+import { changeMemberRole, clearGroupData, deleteGroup, removeMember } from '@/lib/spaceLifecycle'
 import { isStoragePersisted } from '@/lib/storagePersistence'
 import useAppStore from '@/stores/app.store'
 import useKeyStore from '@/stores/key.store'
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null)
+  const [memberActionError, setMemberActionError] = useState('')
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<string | null>(null)
   const [confirmClearDataOpen, setConfirmClearDataOpen] = useState(false)
   const [confirmDeleteSpaceOpen, setConfirmDeleteSpaceOpen] = useState(false)
@@ -142,41 +144,35 @@ export default function SettingsPage() {
 
   async function handlePromote(memberId: string, _userId: string) {
     if (!activeGroupId) return
-    await db.members.update(memberId, { role: 'admin', updatedAt: Date.now() })
+    await changeMemberRole(activeGroupId, memberId, 'admin')
     setMemberActionsFor(null)
   }
 
   async function handleDemote(memberId: string, _userId: string) {
     if (!activeGroupId) return
-    const admins = (members ?? []).filter((m) => m.role === 'admin')
-    if (admins.length <= 1) {
-      alert('Cannot demote — space must have at least one admin.')
+    const result = await changeMemberRole(activeGroupId, memberId, 'member')
+    if (!result.ok) {
+      setMemberActionError('Cannot demote — space must have at least one admin.')
       return
     }
-    await db.members.update(memberId, { role: 'member', updatedAt: Date.now() })
     setMemberActionsFor(null)
   }
 
   function handleRemoveMember(memberId: string, _userId: string) {
     if (!activeGroupId) return
-    const target = (members ?? []).find((m) => m.id === memberId)
-    if (!target) return
-    if (target.role === 'admin') {
-      const admins = (members ?? []).filter((m) => m.role === 'admin')
-      if (admins.length <= 1) {
-        alert('Cannot remove last admin. Promote another member first.')
-        return
-      }
-    }
     setConfirmRemoveMemberId(memberId)
   }
 
   async function doRemoveMember() {
     const memberId = confirmRemoveMemberId
-    if (!memberId) return
-    await db.members.update(memberId, { status: 'left', leftAt: Date.now(), updatedAt: Date.now() })
-    setMemberActionsFor(null)
+    if (!activeGroupId || !memberId) return
+    const result = await removeMember(activeGroupId, memberId)
     setConfirmRemoveMemberId(null)
+    if (!result.ok) {
+      setMemberActionError('Cannot remove last admin. Promote another member first.')
+      return
+    }
+    setMemberActionsFor(null)
   }
 
   function handleLock() {
@@ -186,72 +182,12 @@ export default function SettingsPage() {
 
   async function doClearSpaceData() {
     if (!activeGroupId) return
-
-    const [txns, budgets, goals, attachments, recurrences, syncEvents, conflicts] =
-      await Promise.all([
-        db.transactions.where((t) => t.groupId === activeGroupId),
-        db.budgets.where((b) => b.groupId === activeGroupId),
-        db.goals.where((g) => g.groupId === activeGroupId),
-        db.attachments.where((a) => a.groupId === activeGroupId),
-        db.recurrences.where((r) => r.groupId === activeGroupId),
-        db.syncEvents.where((e) => e.groupId === activeGroupId),
-        db.conflicts.where((c) => c.groupId === activeGroupId),
-      ])
-
-    await Promise.all([
-      ...txns.map((t) => db.transactions.delete(t.txnId)),
-      ...budgets.map((b) => db.budgets.delete(b.budgetId)),
-      ...goals.map((g) => db.goals.delete(g.goalId)),
-      ...attachments.map((a) => db.attachments.delete(a.attachmentId)),
-      ...recurrences.map((r) => db.recurrences.delete(r.recurrenceId)),
-      ...syncEvents.map((e) => db.syncEvents.delete(e.syncId)),
-      ...conflicts.map((c) => db.conflicts.delete(c.conflictId)),
-    ])
+    await clearGroupData(activeGroupId)
   }
 
   async function doDeleteSpace() {
     if (!activeGroupId) return
-
-    const [
-      txns,
-      budgets,
-      goals,
-      attachments,
-      recurrences,
-      syncEvents,
-      conflicts,
-      mems,
-      cats,
-      accs,
-      invitesList,
-    ] = await Promise.all([
-      db.transactions.where((t) => t.groupId === activeGroupId),
-      db.budgets.where((b) => b.groupId === activeGroupId),
-      db.goals.where((g) => g.groupId === activeGroupId),
-      db.attachments.where((a) => a.groupId === activeGroupId),
-      db.recurrences.where((r) => r.groupId === activeGroupId),
-      db.syncEvents.where((e) => e.groupId === activeGroupId),
-      db.conflicts.where((c) => c.groupId === activeGroupId),
-      db.members.where((m) => m.groupId === activeGroupId),
-      db.categories.where((c) => c.groupId === activeGroupId),
-      db.accounts.where((a) => a.groupId === activeGroupId),
-      db.invites.where((i) => i.groupId === activeGroupId),
-    ])
-
-    await Promise.all([
-      ...txns.map((t) => db.transactions.delete(t.txnId)),
-      ...budgets.map((b) => db.budgets.delete(b.budgetId)),
-      ...goals.map((g) => db.goals.delete(g.goalId)),
-      ...attachments.map((a) => db.attachments.delete(a.attachmentId)),
-      ...recurrences.map((r) => db.recurrences.delete(r.recurrenceId)),
-      ...syncEvents.map((e) => db.syncEvents.delete(e.syncId)),
-      ...conflicts.map((c) => db.conflicts.delete(c.conflictId)),
-      ...mems.map((m) => db.members.delete(m.id)),
-      ...cats.map((c) => db.categories.delete(c.categoryId)),
-      ...accs.map((a) => db.accounts.delete(a.accountId)),
-      ...invitesList.map((i) => db.invites.delete(i.inviteId)),
-    ])
-    await db.groups.delete(activeGroupId)
+    await deleteGroup(activeGroupId)
 
     const remaining = await db.groups.toArray()
     const nextGroup = remaining[0]
@@ -392,7 +328,10 @@ export default function SettingsPage() {
                   ) : isAdmin ? (
                     <button
                       type="button"
-                      onClick={() => setMemberActionsFor(actionsOpen ? null : member.id)}
+                      onClick={() => {
+                        setMemberActionsFor(actionsOpen ? null : member.id)
+                        setMemberActionError('')
+                      }}
                       className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-surface-2 transition-colors"
                       aria-label="Member actions"
                     >
@@ -435,6 +374,9 @@ export default function SettingsPage() {
             )
           })}
         </div>
+        {memberActionError && (
+          <p className="text-xs text-danger px-1 mt-1.5">{memberActionError}</p>
+        )}
       </section>
 
       {/* ── Profile ── */}

@@ -189,6 +189,13 @@ export class EncryptedTable<T extends Record<string, any>> {
     await this.table.delete(id)
   }
 
+  /** Deletes every record matching predicate. Staging-aware, like where(). */
+  async deleteWhere(predicate: (record: T) => boolean): Promise<number> {
+    const matches = await this.where(predicate)
+    for (const record of matches) await this.delete(record[this.keyField] as string)
+    return matches.length
+  }
+
   /**
    * Tests whether a specific key (not necessarily the currently active one)
    * can decrypt one existing row, without going through the global key

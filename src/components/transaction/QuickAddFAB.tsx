@@ -24,15 +24,8 @@ import { db } from '@/db/db'
 import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
 import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { buildRecurrenceTemplate } from '@/lib/recurrenceTemplate'
-import {
-  generateId,
-  ordinal,
-  parseDateStr,
-  todayLocalDateStr,
-  toPaise,
-  weekdayLabel,
-} from '@/lib/utils'
+import { createQuickTransaction } from '@/lib/transactionIntake'
+import { ordinal, parseDateStr, todayLocalDateStr, toPaise, weekdayLabel } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
@@ -257,94 +250,38 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       setError('Select a category')
       return
     }
+    if (!group) return
     setLoading(true)
     setError('')
 
     try {
-      const grp = await db.groups.get(activeGroupId)
-      if (!grp) throw new Error('Group not found')
-      const newSeq = (grp.vectorClock[currentUserId] ?? 0) + 1
-      await db.groups.update(activeGroupId, {
-        vectorClock: { ...grp.vectorClock, [currentUserId]: newSeq },
-        updatedAt: Date.now(),
-      })
-
-      const txnDate = parseDateStr(dateStr)
-      const txnId = generateId()
-
-      // Save attachments first
-      const attachmentIds: string[] = []
-      for (const att of pendingAttachments) {
-        const attachmentId = generateId()
-        await db.attachments.put({
-          attachmentId,
-          groupId: activeGroupId,
-          txnId,
-          mimeType: att.mimeType,
-          data: att.data,
-          sizeBytes: att.sizeBytes,
-          createdAt: Date.now(),
-        })
-        attachmentIds.push(attachmentId)
-      }
-
-      let recurrenceId: string | null = null
-
-      if (repeat) {
-        recurrenceId = generateId()
-        await db.recurrences.put(
-          buildRecurrenceTemplate({
-            recurrenceId,
-            groupId: activeGroupId,
-            ownerId: currentUserId,
-            frequency,
-            dayOfWeek,
-            txnDate,
-            endDate: endDateStr ? parseDateStr(endDateStr) : null,
-            isFixed: txnType === 'expense' ? isFixed : false,
-            template: {
-              groupId: activeGroupId,
-              ownerId: currentUserId,
-              categoryId: selectedCatId ?? '',
-              type: txnType,
-              amount: toPaise(amount),
-              currency: grp.currency,
-              fxRate: null,
-              originalAmount: null,
-              note: note.trim(),
-              tags,
-              attachmentIds: [],
-              accountId: selectedAccountId,
-              paidBy: paidBy ?? currentUserId,
-            },
-          }),
-        )
-        queryClient.invalidateQueries({ queryKey: ['upcomingBills', activeGroupId] })
-      }
-
-      await db.transactions.put({
-        txnId,
+      const result = await createQuickTransaction({
         groupId: activeGroupId,
-        ownerId: currentUserId,
-        authorSeq: newSeq,
-        categoryId: txnType === 'transfer' ? '' : (selectedCatId ?? ''),
+        userId: currentUserId,
         type: txnType,
         amount: toPaise(amount),
-        currency: grp.currency,
-        fxRate: null,
-        originalAmount: null,
-        note: note.trim(),
-        tags,
-        date: txnDate,
-        attachmentIds,
-        recurrenceId,
+        currency: group.currency,
+        categoryId: txnType === 'transfer' ? '' : (selectedCatId ?? ''),
         accountId: selectedAccountId,
         toAccountId: txnType === 'transfer' ? toAccountId : null,
         paidBy: txnType === 'transfer' ? null : (paidBy ?? currentUserId),
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        deletedAt: null,
+        note: note.trim(),
+        tags,
+        date: parseDateStr(dateStr),
+        pendingAttachments,
+        recurrence: repeat
+          ? {
+              frequency,
+              dayOfWeek,
+              endDate: endDateStr ? parseDateStr(endDateStr) : null,
+              isFixed: txnType === 'expense' ? isFixed : false,
+            }
+          : null,
       })
+
+      if (result.recurrenceId) {
+        queryClient.invalidateQueries({ queryKey: ['upcomingBills', activeGroupId] })
+      }
 
       setSelectedAccountId(null)
       setToAccountId(null)

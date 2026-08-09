@@ -9,11 +9,11 @@ function Calendar({ className, classNames, ...props }: DayPickerProps) {
       showOutsideDays
       className={cn('p-1', className)}
       classNames={{
-        months: 'flex flex-col gap-2',
+        months: 'relative flex flex-col gap-2',
         month: 'flex flex-col gap-2',
         month_caption: 'flex justify-center items-center h-9 relative',
         caption_label: 'text-sm font-medium text-text-primary',
-        nav: 'flex items-center justify-between absolute inset-x-0 top-0 h-9 px-1',
+        nav: 'flex items-center justify-between absolute inset-x-0 top-0 h-9 px-1 z-1',
         button_previous:
           'w-7 h-7 rounded-lg flex items-center justify-center text-text-secondary hover:bg-surface-2 disabled:opacity-30',
         button_next:

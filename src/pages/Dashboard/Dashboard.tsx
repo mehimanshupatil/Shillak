@@ -26,6 +26,7 @@ import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
 import { useMonthlyRecap } from '@/hooks/useMonthlyRecap'
 import { useUpcomingBills } from '@/hooks/useUpcomingBills'
+import { computeDashboardMetrics } from '@/lib/dashboardMetrics'
 import type { RecapBudgetItem, RecapCategoryItem, RecapGoalItem } from '@/lib/monthlyRecap'
 import type { UpcomingBillItem } from '@/lib/upcomingBills'
 import {
@@ -148,51 +149,24 @@ export default function Dashboard() {
     [members],
   )
 
-  const { totalExpense, totalIncome, categorySpend } = useMemo(() => {
-    const txns = allTransactions ?? []
-    const base = currency
-    const totalExpense = txns
-      .filter((t) => t.type === 'expense')
-      .reduce((s, t) => s + toBaseCurrency(t, base), 0)
-    const totalIncome = txns
-      .filter((t) => t.type === 'income')
-      .reduce((s, t) => s + toBaseCurrency(t, base), 0)
-    const categorySpend: Record<string, number> = {}
-    txns
-      .filter((t) => t.type === 'expense')
-      .forEach((t) => {
-        categorySpend[t.categoryId] = (categorySpend[t.categoryId] ?? 0) + toBaseCurrency(t, base)
-      })
-    return { totalExpense, totalIncome, categorySpend }
-  }, [allTransactions, currency])
-
-  const { fixedExpense, fixedItems } = useMemo(() => {
-    const fixedRecurrences = (allRecurrences ?? []).filter(
-      (r) => r.isFixed && r.template.type === 'expense',
-    )
-    const fixedIds = new Set(fixedRecurrences.map((r) => r.recurrenceId))
-    const fixedTxns = (allTransactions ?? []).filter(
-      (t) => t.type === 'expense' && t.recurrenceId !== null && fixedIds.has(t.recurrenceId),
-    )
-    const fixedExpense = fixedTxns.reduce((s, t) => s + toBaseCurrency(t, currency), 0)
-    // Per-recurrence: use actual transaction amount this month (falls back to template if not yet generated)
-    const txnByRecurrence = new Map(fixedTxns.map((t) => [t.recurrenceId, t]))
-    const fixedItems = fixedRecurrences.map((r) => {
-      const actualTxn = txnByRecurrence.get(r.recurrenceId)
-      return {
-        recurrenceId: r.recurrenceId,
-        categoryId: r.template.categoryId,
-        amount: actualTxn ? toBaseCurrency(actualTxn, currency) : r.template.amount,
-        note: r.template.note,
-        frequency: r.frequency,
-      }
-    })
-    return { fixedExpense, fixedItems }
-  }, [allRecurrences, allTransactions, currency])
-
-  const totalBudget = useMemo(
-    () => (budgets ?? []).filter((b) => b.period === 'monthly').reduce((s, b) => s + b.limit, 0),
-    [budgets],
+  const {
+    totalExpense,
+    totalIncome,
+    categorySpend,
+    fixedExpense,
+    fixedItems,
+    totalBudget,
+    donutSlices,
+  } = useMemo(
+    () =>
+      computeDashboardMetrics(
+        allTransactions ?? [],
+        allRecurrences ?? [],
+        budgets ?? [],
+        categories ?? [],
+        currency,
+      ),
+    [allTransactions, allRecurrences, budgets, categories, currency],
   )
 
   const catMap = useMemo(() => {
@@ -202,32 +176,6 @@ export default function Dashboard() {
     })
     return m
   }, [categories])
-
-  // Build donut slices: top 5 categories + "Other" bucket
-  const donutSlices = useMemo(() => {
-    const entries = Object.entries(categorySpend)
-      .map(([catId, amount]) => ({
-        name: catMap[catId]?.name ?? 'Unknown',
-        color: catMap[catId]?.color ?? '#888',
-        amount,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-
-    if (entries.length <= 5) return entries
-
-    const top = entries.slice(0, 5)
-    const rest = entries.slice(5)
-    const otherAmount = rest.reduce((s, e) => s + e.amount, 0)
-    return [
-      ...top,
-      {
-        name: 'Other',
-        color: '#64748b',
-        amount: otherAmount,
-        breakdown: rest.map((e) => ({ name: e.name, amount: e.amount })),
-      },
-    ]
-  }, [categorySpend, catMap])
 
   function prevMonth() {
     if (month === 0) {

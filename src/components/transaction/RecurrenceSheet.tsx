@@ -19,15 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
-import {
-  formatDateStr,
-  nextOccurrence,
-  ordinal,
-  parseDateStr,
-  today,
-  toPaise,
-  weekdayLabel,
-} from '@/lib/utils'
+import { applyRecurrenceEdit } from '@/lib/recurrenceTemplate'
+import { formatDateStr, ordinal, parseDateStr, toPaise, weekdayLabel } from '@/lib/utils'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   daily: 'Daily',
@@ -81,16 +74,17 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
     setLoading(true)
     setError('')
     try {
-      await db.recurrences.update(recurrence.recurrenceId, {
-        frequency,
-        interval: 1,
-        ...(frequency === 'weekly'
-          ? { dayOfWeek, nextDue: nextOccurrence(today(), 'weekly', dayOfWeek) }
-          : {}),
-        endDate: endDateStr ? parseDateStr(endDateStr) : null,
-        isFixed: recurrence.template.type === 'expense' ? isFixed : false,
-        template: { ...recurrence.template, amount: toPaise(amount), note: note.trim() },
-      })
+      await db.recurrences.update(
+        recurrence.recurrenceId,
+        applyRecurrenceEdit(recurrence, {
+          frequency,
+          dayOfWeek,
+          endDate: endDateStr ? parseDateStr(endDateStr) : null,
+          isFixed,
+          amount: toPaise(amount),
+          note: note.trim(),
+        }),
+      )
       queryClient.invalidateQueries({ queryKey: ['upcomingBills', recurrence.groupId] })
       onClose()
     } catch (e) {

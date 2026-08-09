@@ -132,7 +132,7 @@ export interface Transaction {
 // ─── Recurrence ───────────────────────────────────────────────────────────────
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 
-type RecurrenceTemplate = Omit<
+export type RecurrenceTemplate = Omit<
   Transaction,
   'txnId' | 'date' | 'recurrenceId' | 'authorSeq' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >

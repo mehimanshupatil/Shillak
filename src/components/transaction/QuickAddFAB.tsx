@@ -24,9 +24,9 @@ import { db } from '@/db/db'
 import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
 import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
+import { buildRecurrenceTemplate } from '@/lib/recurrenceTemplate'
 import {
   generateId,
-  nextOccurrence,
   ordinal,
   parseDateStr,
   todayLocalDateStr,
@@ -292,35 +292,33 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
 
       if (repeat) {
         recurrenceId = generateId()
-        await db.recurrences.put({
-          recurrenceId,
-          groupId: activeGroupId,
-          ownerId: currentUserId,
-          template: {
+        await db.recurrences.put(
+          buildRecurrenceTemplate({
+            recurrenceId,
             groupId: activeGroupId,
             ownerId: currentUserId,
-            categoryId: selectedCatId ?? '',
-            type: txnType,
-            amount: toPaise(amount),
-            currency: grp.currency,
-            fxRate: null,
-            originalAmount: null,
-            note: note.trim(),
-            tags,
-            attachmentIds: [],
-            accountId: selectedAccountId,
-            paidBy: paidBy ?? currentUserId,
-          },
-          frequency,
-          interval: 1,
-          dayOfWeek: frequency === 'weekly' ? dayOfWeek : undefined,
-          nextDue: nextOccurrence(txnDate, frequency, dayOfWeek),
-          lastGeneratedAt: txnDate,
-          endDate: endDateStr ? parseDateStr(endDateStr) : null,
-          active: true,
-          isFixed: txnType === 'expense' ? isFixed : false,
-          createdAt: Date.now(),
-        })
+            frequency,
+            dayOfWeek,
+            txnDate,
+            endDate: endDateStr ? parseDateStr(endDateStr) : null,
+            isFixed: txnType === 'expense' ? isFixed : false,
+            template: {
+              groupId: activeGroupId,
+              ownerId: currentUserId,
+              categoryId: selectedCatId ?? '',
+              type: txnType,
+              amount: toPaise(amount),
+              currency: grp.currency,
+              fxRate: null,
+              originalAmount: null,
+              note: note.trim(),
+              tags,
+              attachmentIds: [],
+              accountId: selectedAccountId,
+              paidBy: paidBy ?? currentUserId,
+            },
+          }),
+        )
         queryClient.invalidateQueries({ queryKey: ['upcomingBills', activeGroupId] })
       }
 

@@ -30,6 +30,20 @@ export interface SyncDelta {
   accounts: Account[]
 }
 
+/** Total record count across every entity array in a delta — the one place this is computed. */
+export function countDeltaRecords(delta: SyncDelta): number {
+  return (
+    delta.transactions.length +
+    delta.categories.length +
+    delta.members.length +
+    delta.users.length +
+    delta.budgets.length +
+    delta.goals.length +
+    delta.recurrences.length +
+    delta.accounts.length
+  )
+}
+
 /**
  * Increment this user's entry in the group vector clock.
  * Throws if userId !== currentUserId — never increment another user's clock.

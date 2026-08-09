@@ -11,7 +11,7 @@ import { db } from '@/db/db'
 import type { ConflictLog, SyncEvent } from '@/db/schema'
 import { activeAdmins } from '@/lib/adminInvariant'
 import type { SyncDelta } from './vector-clock'
-import { mergeClock } from './vector-clock'
+import { countDeltaRecords, mergeClock } from './vector-clock'
 
 interface ApplyResult {
   recordsApplied: number
@@ -244,7 +244,7 @@ async function applyDeltaUnguarded(
     method,
     syncedWith: delta.fromUserId,
     recordsSent: 0, // caller fills this in after the fact
-    recordsReceived: delta.transactions.length + delta.categories.length + delta.members.length,
+    recordsReceived: countDeltaRecords(delta),
     conflictsFound: conflicts,
     status: conflicts > 0 ? 'partial' : 'ok',
     syncedAt: Date.now(),

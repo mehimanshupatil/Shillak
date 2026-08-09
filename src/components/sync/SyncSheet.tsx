@@ -35,9 +35,10 @@ import {
   isSDP,
   reassembleChunks,
 } from '@/sync/qr'
+import { getSyncErrorMessage } from '@/sync/syncErrors'
 import { decryptPayload, deriveTransportKey, encryptPayload } from '@/sync/transport'
 import type { SyncDelta } from '@/sync/vector-clock'
-import { computeDelta, computeSince } from '@/sync/vector-clock'
+import { computeDelta, computeSince, countDeltaRecords } from '@/sync/vector-clock'
 import type { WebRTCOfferSession } from '@/sync/webrtc'
 import {
   applyAnswer,
@@ -78,25 +79,6 @@ type QRBatchState =
 interface Props {
   open: boolean
   onClose: () => void
-}
-
-function friendlyError(e: unknown): string {
-  const msg = String(e)
-  if (msg.includes('not in the same')) return msg
-  if (msg.includes('OperationError') || msg.includes('decrypt'))
-    return 'Decryption failed — both devices must be in the same space. Make sure you joined via an invite QR, not by creating a separate space.'
-  if (msg.includes('RTCPeerConnection') || msg.includes('ICE') || msg.includes('WebRTC connection'))
-    return 'Connection failed — make sure both devices are on the same WiFi network and try again.'
-  if (msg.includes('Data channel timeout'))
-    return 'Connection timed out — the other device did not complete the QR scan. Try again.'
-  if (msg.includes('Message timeout'))
-    return 'Sync timed out — both devices must stay on the sync screen until complete.'
-  if (msg.includes('InvalidStateError')) return 'Connection closed unexpectedly. Try again.'
-  if (msg.includes('Expected clock') || msg.includes('Expected delta'))
-    return 'Sync handshake failed. Try again — both devices must stay on the sync screen.'
-  if (msg.includes('Group not found'))
-    return 'Space not found — make sure both devices have the same space open before syncing.'
-  return `Sync failed: ${msg}`
 }
 
 export default function SyncSheet({ open, onClose }: Props) {
@@ -174,14 +156,14 @@ export default function SyncSheet({ open, onClose }: Props) {
         await msgQueue.waitForMessage()
 
         await db.syncEvents.update(syncId, {
-          recordsSent: delta.transactions.length + delta.categories.length,
+          recordsSent: countDeltaRecords(delta),
         })
 
         setWifi({ step: 'done', applied: result.recordsApplied, conflicts: result.conflictsFound })
         if (result.conflictsFound > 0) setTab('history')
         channel.close()
       } catch (e) {
-        setWifi({ step: 'error', message: friendlyError(e) })
+        setWifi({ step: 'error', message: getSyncErrorMessage(e) })
         try {
           channel.close()
         } catch {
@@ -199,7 +181,7 @@ export default function SyncSheet({ open, onClose }: Props) {
       const session = await createOffer()
       setWifi({ step: 'offering', session })
     } catch (e) {
-      setWifi({ step: 'error', message: friendlyError(e) })
+      setWifi({ step: 'error', message: getSyncErrorMessage(e) })
     }
   }
 
@@ -217,7 +199,7 @@ export default function SyncSheet({ open, onClose }: Props) {
         const channel = await applyAnswer(wifi.session, scanned)
         await runSyncProtocol(channel, 'webrtc')
       } catch (e) {
-        setWifi({ step: 'error', message: friendlyError(e) })
+        setWifi({ step: 'error', message: getSyncErrorMessage(e) })
       }
     },
     [wifi, activeGroupId, currentUserId, group, runSyncProtocol],
@@ -239,7 +221,7 @@ export default function SyncSheet({ open, onClose }: Props) {
         setWifi({ step: 'syncing' })
         await runSyncProtocol(channel, 'webrtc')
       } catch (e) {
-        setWifi({ step: 'error', message: friendlyError(e) })
+        setWifi({ step: 'error', message: getSyncErrorMessage(e) })
       }
     },
     [wifi, activeGroupId, currentUserId, group, runSyncProtocol],
@@ -261,14 +243,7 @@ export default function SyncSheet({ open, onClose }: Props) {
         const { clock: theirClock, since } = decodeClockQR(scanned)
         const transportKey = await deriveTransportKey(group.groupSecret)
         const delta = await computeDelta(activeGroupId, theirClock, currentUserId, since)
-        const totalRecords =
-          delta.transactions.length +
-          delta.categories.length +
-          delta.members.length +
-          delta.budgets.length +
-          delta.goals.length +
-          delta.recurrences.length +
-          delta.users.length
+        const totalRecords = countDeltaRecords(delta)
         if (totalRecords === 0) {
           setQRBatch({ step: 'sender-up-to-date' })
           return
@@ -277,7 +252,7 @@ export default function SyncSheet({ open, onClose }: Props) {
         const chunks = chunkPayload(encrypted).map(encodeChunk)
         setQRBatch({ step: 'sender-show-data', chunks, chunkIndex: 0, recordCount: totalRecords })
       } catch (e) {
-        setQRBatch({ step: 'error', message: friendlyError(e) })
+        setQRBatch({ step: 'error', message: getSyncErrorMessage(e) })
       }
     },
     [qrBatch, activeGroupId, currentUserId, group],
@@ -297,7 +272,7 @@ export default function SyncSheet({ open, onClose }: Props) {
       const clockQR = encodeClockQR(activeGroupId, grp.vectorClock, since)
       setQRBatch({ step: 'receiver-show-clock', clockQR })
     } catch (e) {
-      setQRBatch({ step: 'error', message: friendlyError(e) })
+      setQRBatch({ step: 'error', message: getSyncErrorMessage(e) })
     }
   }
 
@@ -336,7 +311,7 @@ export default function SyncSheet({ open, onClose }: Props) {
           setQRBatch({ step: 'receiver-scanning', collected: new Map(collectedRef.current), total })
         }
       } catch (e) {
-        setQRBatch({ step: 'error', message: friendlyError(e) })
+        setQRBatch({ step: 'error', message: getSyncErrorMessage(e) })
       }
     },
     [activeGroupId, currentUserId, group],

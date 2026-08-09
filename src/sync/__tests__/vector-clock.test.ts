@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Account, Budget, Category, Group, GroupMember, Transaction, User } from '@/db/schema'
-import { computeDelta, computeSince, incrementVectorClock, mergeClock } from '../vector-clock'
+import type { SyncDelta } from '../vector-clock'
+import {
+  computeDelta,
+  computeSince,
+  countDeltaRecords,
+  incrementVectorClock,
+  mergeClock,
+} from '../vector-clock'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -291,5 +298,76 @@ describe('computeSince', () => {
     mockDb.recurrences.where.mockResolvedValue([])
 
     expect(await computeSince('g1')).toBe(0)
+  })
+})
+
+function makeDelta(overrides: Partial<SyncDelta> = {}): SyncDelta {
+  return {
+    fromUserId: 'u1',
+    vectorClock: {},
+    transactions: [],
+    categories: [],
+    members: [],
+    users: [],
+    budgets: [],
+    goals: [],
+    recurrences: [],
+    accounts: [],
+    ...overrides,
+  }
+}
+
+describe('countDeltaRecords', () => {
+  it('returns 0 for a delta with no records', () => {
+    expect(countDeltaRecords(makeDelta())).toBe(0)
+  })
+
+  it('sums every one of the 8 entity arrays, not just some', () => {
+    const delta = makeDelta({
+      transactions: [makeTxn()],
+      categories: [makeCategory(), makeCategory({ categoryId: 'cat-2' })],
+      members: [makeMember()],
+      users: [makeUser()],
+      budgets: [
+        {
+          budgetId: 'b1',
+          groupId: 'g1',
+          categoryId: 'cat-1',
+          limit: 0,
+          period: 'monthly',
+          updatedAt: 0,
+        },
+      ],
+      goals: [
+        {
+          goalId: 'go1',
+          groupId: 'g1',
+          name: 'Trip',
+          target: 0,
+          saved: 0,
+          deadline: null,
+          categoryId: null,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+      recurrences: [],
+      accounts: [
+        {
+          accountId: 'a1',
+          groupId: 'g1',
+          name: 'Cash',
+          type: 'cash',
+          color: '#000',
+          icon: 'wallet',
+          sortOrder: 0,
+          isDefault: false,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+    // 1 + 2 + 1 + 1 + 1 + 1 + 0 + 1 = 8
+    expect(countDeltaRecords(delta)).toBe(8)
   })
 })

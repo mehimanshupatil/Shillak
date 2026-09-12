@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import MonthlyBar from '@/components/charts/MonthlyBar'
 import SpendingDonut from '@/components/charts/SpendingDonut'
 import ThisMonthSummary from '@/components/charts/ThisMonthSummary'

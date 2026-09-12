@@ -9,7 +9,7 @@ import {
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import ConflictSeeder from '@/components/dev/ConflictSeeder'
 import DemoDataSeeder from '@/components/dev/DemoDataSeeder'
 import ChangePinSheet from '@/components/security/ChangePinSheet'

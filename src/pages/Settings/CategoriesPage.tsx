@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import CategorySheet from '@/components/category/CategorySheet'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'

@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import NoSpaceScreen from '@/pages/Onboarding/NoSpaceScreen'
 import useAppStore from '@/stores/app.store'
 import BottomNav from './BottomNav'

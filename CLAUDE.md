@@ -273,3 +273,19 @@ pnpm lint      # biome lint
 ## Status
 
 Phases 1–4 complete. PIN-only unlock (biometric/WebAuthn removed).
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `mehimanshupatil/Shillak`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, used as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

@@ -12,17 +12,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     permissions:
       contents: "read"
       id-token: "write"
       pages: "write"
-      actions: "write"
-      checks: "write"
-      deployments: "write"
     strategy:
       matrix:
         node-version: [ 24 ]
@@ -59,6 +53,26 @@ jobs:
         with:
           # Upload build directory content
           path: "dist/"
+
+  # Split out so pull requests can run the checks above without touching the
+  # github-pages environment, whose protection rules only allow deploys from
+  # main. A job-level `environment:` is evaluated before any step runs, so
+  # keeping it on `build` failed every PR before a single test executed.
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+
+    permissions:
+      id-token: "write"
+      pages: "write"
+      deployments: "write"
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

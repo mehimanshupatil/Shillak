@@ -1,3 +1,4 @@
+import { useTimeout } from '@mantine/hooks'
 import {
   ArrowCircleDownIcon,
   CaretRightIcon,
@@ -56,6 +57,8 @@ export default function SettingsPage() {
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [importMsg, setImportMsg] = useState('')
+  // useTimeout clears on unmount, which a bare setTimeout here did not.
+  const clearImportMsg = useTimeout(() => setImportMsg(''), 4000)
   const [changePinOpen, setChangePinOpen] = useState(false)
   const [syncSheetOpen, setSyncSheetOpen] = useState(false)
   const [csvImportOpen, setCsvImportOpen] = useState(false)
@@ -127,7 +130,10 @@ export default function SettingsPage() {
     try {
       const { imported } = await importGroupSnapshot(file)
       setImportMsg(`Imported ${imported} records.`)
-      setTimeout(() => setImportMsg(''), 4000)
+      // clear before start: start() no-ops while a timer is pending, so a second
+      // import inside the 4s window would otherwise keep the first deadline.
+      clearImportMsg.clear()
+      clearImportMsg.start()
     } catch (err) {
       alert(`Import failed: ${String(err)}`)
     }

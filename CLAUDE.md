@@ -244,6 +244,7 @@ db.open() → throws → StorageErrorScreen (dead end)
 - **Attachment limit: 5MB.** Warn at 80% quota. Block at 90%.
 - **Schema versioning:** version 1 locked. Future changes via `db.version(N).stores().upgrade()`.
 - **`groupSecret` as HMAC key.** Never `groupId`.
+- **Reach for `@mantine/hooks` and `es-toolkit` before hand-writing.** React hooks (debounce, media query, click-outside, timeout, clipboard, hotkeys) come from `@mantine/hooks`; data/function utilities (debounce, throttle, groupBy, chunk, uniqBy, deep merge) from `es-toolkit`. Don't add Lodash — es-toolkit covers it and tree-shakes. Domain logic in `utils.ts` (`toPaise`, `toBaseCurrency`, `advanceDate`, `today`) stays hand-written; these libraries have no finance/UTC-date equivalents.
 
 ---
 

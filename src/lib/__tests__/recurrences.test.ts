@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Recurrence, Transaction } from '@/db/schema'
 import { processRecurrences } from '../recurrences'
+import { today } from '../utils'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -146,5 +147,28 @@ describe('processRecurrences', () => {
     // Jan 1 generated, advance to Feb 1 (<= endDate) generated, advance to Mar 1 (> endDate) stop
     expect(transactions).toHaveLength(2)
     expect(transactions.map((t) => t.date)).toEqual([Date.UTC(2020, 0, 1), Date.UTC(2020, 1, 1)])
+  })
+
+  it('retires the recurrence once it advances past endDate', async () => {
+    recurrences.push(
+      makeRecurrence({
+        nextDue: Date.UTC(2020, 0, 1),
+        endDate: Date.UTC(2020, 1, 15),
+        frequency: 'monthly',
+        interval: 1,
+      }),
+    )
+
+    await processRecurrences('g1', 'u1')
+
+    expect(recurrences[0]?.active).toBe(false)
+  })
+
+  it('leaves an open-ended recurrence active after catching up', async () => {
+    recurrences.push(makeRecurrence({ nextDue: today(), endDate: null, frequency: 'monthly' }))
+
+    await processRecurrences('g1', 'u1')
+
+    expect(recurrences[0]?.active).toBe(true)
   })
 })

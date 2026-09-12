@@ -40,6 +40,9 @@ export async function processRecurrences(groupId: string, userId: string): Promi
       await db.recurrences.update(rec.recurrenceId, {
         nextDue: dueDate,
         lastGeneratedAt: Date.now(),
+        // Advancing past endDate exhausts the recurrence — retire it so it stops
+        // surfacing as an active rule with a meaningless nextDue.
+        active: rec.endDate === null || dueDate <= rec.endDate,
       })
     }
   })

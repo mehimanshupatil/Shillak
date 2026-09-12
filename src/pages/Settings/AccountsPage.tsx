@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { Area, AreaChart, Tooltip, XAxis, YAxis } from 'recharts'
 import AccountSheet, { ICON_MAP } from '@/components/account/AccountSheet'
 import { Badge } from '@/components/ui/badge'

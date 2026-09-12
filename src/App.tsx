@@ -1,4 +1,5 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import AppBootstrap from './components/layout/AppBootstrap'
 import AppLayout from './components/layout/AppLayout'
 import BudgetsPage from './pages/Budgets/BudgetsPage'

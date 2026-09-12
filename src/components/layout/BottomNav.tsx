@@ -4,7 +4,7 @@ import {
   PiggyBankIcon,
   SquaresFourIcon,
 } from '@phosphor-icons/react'
-import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router'
 import { usePendingConflictsCount } from '@/hooks/usePendingConflictsCount'
 import { cn } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'

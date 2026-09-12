@@ -123,6 +123,15 @@ describe('computeUpcomingBills', () => {
     expect(result.upcoming).toHaveLength(2)
   })
 
+  it('excludes a finished recurrence whose stale nextDue sits past endDate', async () => {
+    // Only the owner's device advances nextDue, so a peer's ended recurrence
+    // keeps a past nextDue forever — it must not read as overdue here.
+    recurrences.push(makeRecurrence({ nextDue: today() - 3 * DAY, endDate: today() - 10 * DAY }))
+    const result = await computeUpcomingBills('g1', 'INR')
+    expect(result.overdue).toHaveLength(0)
+    expect(result.upcoming).toHaveLength(0)
+  })
+
   it('sums upcomingTotal in base currency, using toBaseCurrency conversion', async () => {
     recurrences.push(
       makeRecurrence({

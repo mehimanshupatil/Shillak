@@ -5,7 +5,7 @@ const FIVE_MINUTES = 5 * 60 * 1000
 
 export function useNetWorthTrend(groupId: string | null, currency: string) {
   return useQuery({
-    queryKey: ['netWorthTrend', groupId],
+    queryKey: ['netWorthTrend', groupId, currency],
     queryFn: () => computeNetWorthTrend(groupId as string, currency),
     enabled: groupId !== null,
     staleTime: FIVE_MINUTES,

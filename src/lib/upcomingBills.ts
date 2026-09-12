@@ -52,6 +52,11 @@ export async function computeUpcomingBills(
   const upcoming: UpcomingBillItem[] = []
 
   for (const rec of recurrences) {
+    // Past endDate the recurrence is finished: neither overdue nor upcoming.
+    // nextDue can still sit in the past here — only the owner's device runs
+    // processRecurrences, so a peer's ended recurrence never advances locally.
+    if (rec.endDate !== null && rec.nextDue > rec.endDate) continue
+
     if (rec.nextDue < now) {
       overdue.push(toItem(rec, rec.nextDue, currency))
       continue

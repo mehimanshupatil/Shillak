@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   formatDateFull,
   formatDateShort,
+  formatDateStr,
   GROUP_COLORS,
   groupColor,
   relativeDate,
   toDateOnly,
+  today,
 } from '../utils'
 
 describe('groupColor', () => {
@@ -84,5 +86,41 @@ describe('relativeDate', () => {
   it('treats the boundary day as a weekday, not a short date', () => {
     expect(relativeDate(Date.UTC(2026, 5, 9))).toBe('Tuesday')
     expect(relativeDate(Date.UTC(2026, 5, 8))).toBe('08 Jun')
+  })
+})
+
+describe('today is the user’s calendar day', () => {
+  // The suite runs in America/New_York, so late-evening local time is already
+  // tomorrow in UTC. That gap is where the two readings of "today" differ.
+  const LATE_EVENING_LOCAL = Date.UTC(2026, 5, 16, 2, 0) // 15 Jun, 22:00 in New York
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(LATE_EVENING_LOCAL))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('names the day on the wall calendar, not the UTC day', () => {
+    expect(today()).toBe(Date.UTC(2026, 5, 15))
+    expect(today()).not.toBe(Date.UTC(2026, 5, 16))
+  })
+
+  it('is still a midnight-UTC timestamp, so it round-trips like any stored date', () => {
+    expect(toDateOnly(today())).toBe(today())
+    expect(formatDateStr(today())).toBe('2026-06-15')
+  })
+
+  it('agrees with what a new transaction is dated', () => {
+    // The form seeds its date field from formatDateStr(today()); a transaction
+    // entered now must therefore read as "Today", not as a weekday name.
+    const entered = Date.UTC(2026, 5, 15)
+    expect(relativeDate(entered)).toBe('Today')
+  })
+
+  it('puts the true UTC day in the future, not in the past', () => {
+    expect(relativeDate(Date.UTC(2026, 5, 16))).not.toBe('Today')
   })
 })

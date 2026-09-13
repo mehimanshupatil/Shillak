@@ -12,7 +12,7 @@ import { suggestCategoryId } from '@/lib/categorize'
 import { ledgerFailureMessage } from '@/lib/ledger/messages'
 import { commitTransaction } from '@/lib/ledger/write'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { formatDateStr, parseDateStr, todayLocalDateStr } from '@/lib/utils'
+import { formatDateStr, parseDateStr, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function ShareTargetPage() {
@@ -26,7 +26,7 @@ export default function ShareTargetPage() {
 
   const [amountStr, setAmountStr] = useState('')
   const [note, setNote] = useState('')
-  const [dateStr, setDateStr] = useState(todayLocalDateStr)
+  const [dateStr, setDateStr] = useState(() => formatDateStr(today()))
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')

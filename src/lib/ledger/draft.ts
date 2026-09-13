@@ -2,7 +2,7 @@ import type { Category, RecurrenceFrequency, Transaction, TransactionType } from
 import { suggestCategoryId } from '@/lib/categorize'
 import type { PendingAttachment, TransactionDraft } from '@/lib/ledger/write'
 import type { ParsedReceipt } from '@/lib/ocr'
-import { formatDateStr, parseDateStr, todayLocalDateStr } from '@/lib/utils'
+import { formatDateStr, parseDateStr, today } from '@/lib/utils'
 
 /**
  * Everything a transaction form holds. Deliberately not React state: it's a
@@ -66,7 +66,7 @@ export function emptyDraft(): DraftState {
     type: 'expense',
     amount: '',
     note: '',
-    dateStr: todayLocalDateStr(),
+    dateStr: formatDateStr(today()),
     categoryId: null,
     categoryHint: null,
     accountId: null,

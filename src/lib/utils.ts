@@ -62,9 +62,18 @@ export function toDateOnly(date: Date | number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
 }
 
-/** Today at midnight UTC. */
+/**
+ * Today, as the day on the user's own calendar.
+ *
+ * A stored date is a midnight-UTC timestamp, but what it encodes is a calendar
+ * day, not a moment — so "today" has to be the day the user would name, read
+ * from their local clock and then encoded the same way everything else is.
+ * Deriving it from the UTC instant instead would put anyone east of UTC a day
+ * behind their own calendar for the first hours of every day.
+ */
 export function today(): number {
-  return toDateOnly(new Date())
+  const d = new Date()
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
 /** 1 → '1st', 2 → '2nd', 3 → '3rd', 4 → '4th', 11-13 → '11th'/'12th'/'13th', etc. */
@@ -207,17 +216,6 @@ export function formatDateStr(date: number | Date): string {
   const d = typeof date === 'number' ? new Date(date) : date
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
     d.getUTCDate(),
-  ).padStart(2, '0')}`
-}
-
-/**
- * Today in the user's local calendar day, as 'YYYY-MM-DD' — for defaulting a date-input field
- * to "today". NOT for reading a stored UTC-midnight timestamp; use formatDateStr for that.
- */
-export function todayLocalDateStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
   ).padStart(2, '0')}`
 }
 

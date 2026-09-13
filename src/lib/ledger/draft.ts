@@ -1,4 +1,10 @@
-import type { Category, RecurrenceFrequency, Transaction, TransactionType } from '@/db/schema'
+import type {
+  Category,
+  DateOnly,
+  RecurrenceFrequency,
+  Transaction,
+  TransactionType,
+} from '@/db/schema'
 import { suggestCategoryId } from '@/lib/categorize'
 import type { PendingAttachment, TransactionDraft } from '@/lib/ledger/write'
 import type { ParsedReceipt } from '@/lib/ocr'
@@ -191,12 +197,12 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
 
 // ─── Reading the Draft ────────────────────────────────────────────────────────
 
-/** Invalid input becomes NaN, which the write seam refuses by name. */
-function parseDateOrNaN(dateStr: string): number {
+/** An unreadable date field is null, which the write seam refuses by name. */
+function readDate(dateStr: string): DateOnly | null {
   try {
     return parseDateStr(dateStr)
   } catch {
-    return Number.NaN
+    return null
   }
 }
 
@@ -216,7 +222,7 @@ export function toTransactionDraft(state: DraftState, categories: Category[]): T
     amount: state.amount,
     note: state.note,
     tags: state.tags,
-    date: parseDateOrNaN(state.dateStr),
+    date: readDate(state.dateStr),
     attachments: state.attachments,
   }
 
@@ -239,7 +245,7 @@ export function toTransactionDraft(state: DraftState, categories: Category[]): T
       ? {
           frequency: state.frequency,
           ...(state.dayOfWeek !== null && { dayOfWeek: state.dayOfWeek }),
-          endDate: state.endDateStr ? parseDateOrNaN(state.endDateStr) : null,
+          endDate: state.endDateStr ? readDate(state.endDateStr) : null,
           isFixed: state.isFixed,
         }
       : null,

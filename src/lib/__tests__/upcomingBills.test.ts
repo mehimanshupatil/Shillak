@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Recurrence } from '@/db/schema'
 import { computeUpcomingBills } from '../upcomingBills'
-import { today } from '../utils'
+import { addDays, today } from '../utils'
 
 let recurrences: Recurrence[] = []
 
@@ -40,11 +40,9 @@ beforeEach(() => {
   recurrences = []
 })
 
-const DAY = 86_400_000
-
 describe('computeUpcomingBills', () => {
   it('includes a recurrence due within the 30-day window', () => {
-    recurrences.push(makeRecurrence({ nextDue: today() + 10 * DAY }))
+    recurrences.push(makeRecurrence({ nextDue: addDays(today(), 10) }))
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(1)
     expect(result.upcoming[0]?.amount).toBe(50000)
@@ -52,13 +50,13 @@ describe('computeUpcomingBills', () => {
   })
 
   it('excludes a recurrence due beyond the 30-day window', () => {
-    recurrences.push(makeRecurrence({ nextDue: today() + 40 * DAY }))
+    recurrences.push(makeRecurrence({ nextDue: addDays(today(), 40) }))
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(0)
   })
 
   it('puts a recurrence with nextDue in the past into the overdue bucket, not upcoming', () => {
-    recurrences.push(makeRecurrence({ nextDue: today() - 3 * DAY }))
+    recurrences.push(makeRecurrence({ nextDue: addDays(today(), -3) }))
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.overdue).toHaveLength(1)
     expect(result.upcoming).toHaveLength(0)
@@ -67,7 +65,7 @@ describe('computeUpcomingBills', () => {
   it('excludes income recurrences', () => {
     recurrences.push(
       makeRecurrence({
-        nextDue: today() + 5 * DAY,
+        nextDue: addDays(today(), 5),
         template: { ...makeRecurrence().template, type: 'income' },
       }),
     )
@@ -77,20 +75,20 @@ describe('computeUpcomingBills', () => {
   })
 
   it('excludes inactive recurrences', () => {
-    recurrences.push(makeRecurrence({ nextDue: today() + 5 * DAY, active: false }))
+    recurrences.push(makeRecurrence({ nextDue: addDays(today(), 5), active: false }))
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(0)
   })
 
   it('does not filter by isFixed — includes discretionary recurrences too', () => {
-    recurrences.push(makeRecurrence({ nextDue: today() + 5 * DAY, isFixed: false }))
+    recurrences.push(makeRecurrence({ nextDue: addDays(today(), 5), isFixed: false }))
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(1)
   })
 
   it('projects every occurrence landing in the window for a weekly recurrence', () => {
     recurrences.push(
-      makeRecurrence({ nextDue: today() + 2 * DAY, frequency: 'weekly', interval: 1 }),
+      makeRecurrence({ nextDue: addDays(today(), 2), frequency: 'weekly', interval: 1 }),
     )
     const result = computeUpcomingBills(recurrences, 'INR', today())
     // weekly for 30 days from day 2: day 2, 9, 16, 23, 30 -> 5 occurrences (30 <= windowEnd)
@@ -102,10 +100,10 @@ describe('computeUpcomingBills', () => {
   it('stops projecting once past endDate, even within the 30-day window', () => {
     recurrences.push(
       makeRecurrence({
-        nextDue: today() + 2 * DAY,
+        nextDue: addDays(today(), 2),
         frequency: 'weekly',
         interval: 1,
-        endDate: today() + 10 * DAY,
+        endDate: addDays(today(), 10),
       }),
     )
     const result = computeUpcomingBills(recurrences, 'INR', today())
@@ -116,7 +114,9 @@ describe('computeUpcomingBills', () => {
   it('excludes a finished recurrence whose stale nextDue sits past endDate', () => {
     // Only the owner's device advances nextDue, so a peer's ended recurrence
     // keeps a past nextDue forever — it must not read as overdue here.
-    recurrences.push(makeRecurrence({ nextDue: today() - 3 * DAY, endDate: today() - 10 * DAY }))
+    recurrences.push(
+      makeRecurrence({ nextDue: addDays(today(), -3), endDate: addDays(today(), -10) }),
+    )
     const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.overdue).toHaveLength(0)
     expect(result.upcoming).toHaveLength(0)
@@ -125,7 +125,7 @@ describe('computeUpcomingBills', () => {
   it('sums upcomingTotal in base currency, using toBaseCurrency conversion', () => {
     recurrences.push(
       makeRecurrence({
-        nextDue: today() + 5 * DAY,
+        nextDue: addDays(today(), 5),
         template: {
           ...makeRecurrence().template,
           amount: 10000,

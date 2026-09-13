@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { goalPace } from '@/lib/goalPace'
+import { dateOnly } from '@/lib/utils'
 
 const DAY = 86_400_000
-const CREATED = Date.UTC(2026, 0, 1)
-const DEADLINE = Date.UTC(2026, 11, 31)
+const CREATED = dateOnly(2026, 0, 1)
+const DEADLINE = dateOnly(2026, 11, 31)
 
 function goal(overrides: Partial<Parameters<typeof goalPace>[0]> = {}) {
   return { target: 100_000, deadline: DEADLINE, createdAt: CREATED, ...overrides }

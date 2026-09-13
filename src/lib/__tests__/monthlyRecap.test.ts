@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Budget, SavingsGoal, Transaction } from '@/db/schema'
 import { ledgerFrom } from '@/lib/ledger/read'
+import { dateOnly } from '@/lib/utils'
 import { computeMonthlyRecap } from '../monthlyRecap'
 
 let transactions: Transaction[] = []
@@ -25,7 +26,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: '',
     tags: [],
-    date: Date.UTC(2026, 5, 15),
+    date: dateOnly(2026, 5, 15),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,
@@ -46,9 +47,9 @@ beforeEach(() => {
 describe('computeMonthlyRecap', () => {
   it('sums income and expense for the target month, excluding other months', () => {
     transactions.push(
-      makeTxn({ type: 'income', amount: 50000, date: Date.UTC(2026, 5, 1) }),
-      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }),
-      makeTxn({ type: 'expense', amount: 999999, date: Date.UTC(2026, 4, 15) }), // May, excluded
+      makeTxn({ type: 'income', amount: 50000, date: dateOnly(2026, 5, 1) }),
+      makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2026, 5, 15) }),
+      makeTxn({ type: 'expense', amount: 999999, date: dateOnly(2026, 4, 15) }), // May, excluded
     )
     const result = recapFor(2026, 5)
     expect(result.income).toBe(50000)
@@ -58,9 +59,9 @@ describe('computeMonthlyRecap', () => {
 
   it('excludes transfers from both income and expense totals', () => {
     transactions.push(
-      makeTxn({ type: 'income', amount: 50000, date: Date.UTC(2026, 5, 1) }),
-      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }),
-      makeTxn({ type: 'transfer', amount: 999999, date: Date.UTC(2026, 5, 10) }),
+      makeTxn({ type: 'income', amount: 50000, date: dateOnly(2026, 5, 1) }),
+      makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2026, 5, 15) }),
+      makeTxn({ type: 'transfer', amount: 999999, date: dateOnly(2026, 5, 10) }),
     )
     const result = recapFor(2026, 5)
     expect(result.income).toBe(50000)
@@ -68,7 +69,7 @@ describe('computeMonthlyRecap', () => {
   })
 
   it('hides the comparison when the previous month has no expense', () => {
-    transactions.push(makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }))
+    transactions.push(makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2026, 5, 15) }))
     const result = recapFor(2026, 5)
     expect(result.hasPreviousMonth).toBe(false)
     expect(result.expenseDeltaPct).toBeNull()
@@ -76,8 +77,8 @@ describe('computeMonthlyRecap', () => {
 
   it('computes a percentage delta vs the previous month when data exists', () => {
     transactions.push(
-      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 5, 15) }), // June
-      makeTxn({ type: 'expense', amount: 10000, date: Date.UTC(2026, 4, 15) }), // May
+      makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2026, 5, 15) }), // June
+      makeTxn({ type: 'expense', amount: 10000, date: dateOnly(2026, 4, 15) }), // May
     )
     const result = recapFor(2026, 5)
     expect(result.hasPreviousMonth).toBe(true)
@@ -86,8 +87,8 @@ describe('computeMonthlyRecap', () => {
 
   it('handles the January -> December-of-previous-year rollover for comparison', () => {
     transactions.push(
-      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2026, 0, 15) }), // Jan 2026
-      makeTxn({ type: 'expense', amount: 20000, date: Date.UTC(2025, 11, 15) }), // Dec 2025
+      makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2026, 0, 15) }), // Jan 2026
+      makeTxn({ type: 'expense', amount: 20000, date: dateOnly(2025, 11, 15) }), // Dec 2025
     )
     const result = recapFor(2026, 0)
     expect(result.hasPreviousMonth).toBe(true)

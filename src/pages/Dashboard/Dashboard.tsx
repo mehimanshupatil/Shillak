@@ -32,7 +32,14 @@ import { computeMonthlyRecap } from '@/lib/monthlyRecap'
 import { daysLabel, describeRecurrence } from '@/lib/recurrenceLabels'
 import type { UpcomingBillItem } from '@/lib/upcomingBills'
 import { computeUpcomingBills } from '@/lib/upcomingBills'
-import { formatCurrency, monthShort, relativeDate, toBaseCurrency, today } from '@/lib/utils'
+import {
+  dateOnly,
+  formatCurrency,
+  monthShort,
+  relativeDate,
+  toBaseCurrency,
+  today,
+} from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function Dashboard() {
@@ -43,7 +50,7 @@ export default function Dashboard() {
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth()) // 0-indexed
 
-  const startOfMonth = Date.UTC(year, month, 1)
+  const startOfMonth = dateOnly(year, month, 1)
 
   const group = useLiveQuery(
     () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),

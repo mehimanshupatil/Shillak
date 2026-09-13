@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Account, Budget, Category, Group, GroupMember, Transaction, User } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import type { SyncDelta } from '../vector-clock'
 import {
   computeDelta,
@@ -64,7 +65,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: '',
     tags: [],
-    date: Date.UTC(2025, 0, 1),
+    date: dateOnly(2025, 0, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,

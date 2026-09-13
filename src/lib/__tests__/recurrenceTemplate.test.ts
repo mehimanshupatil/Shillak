@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Recurrence } from '@/db/schema'
 import { applyRecurrenceEdit } from '@/lib/recurrenceTemplate'
-import { nextOccurrence, today } from '@/lib/utils'
+import { dateOnly, nextOccurrence, today } from '@/lib/utils'
 
 function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
   return {
@@ -25,7 +25,7 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
     } as Recurrence['template'],
     frequency: 'monthly',
     interval: 1,
-    nextDue: Date.UTC(2020, 5, 15),
+    nextDue: dateOnly(2020, 5, 15),
     lastGeneratedAt: null,
     endDate: null,
     active: true,
@@ -45,7 +45,7 @@ describe('applyRecurrenceEdit', () => {
   }
 
   it('preserves the existing nextDue/anchor when frequency is unchanged', () => {
-    const existing = makeRecurrence({ frequency: 'monthly', nextDue: Date.UTC(2020, 5, 15) })
+    const existing = makeRecurrence({ frequency: 'monthly', nextDue: dateOnly(2020, 5, 15) })
     const result = applyRecurrenceEdit(existing, basePatch)
     expect(result.nextDue).toBe(existing.nextDue)
   })
@@ -54,7 +54,7 @@ describe('applyRecurrenceEdit', () => {
     const existing = makeRecurrence({
       frequency: 'weekly',
       dayOfWeek: 2,
-      nextDue: Date.UTC(2020, 5, 16),
+      nextDue: dateOnly(2020, 5, 16),
     })
     const result = applyRecurrenceEdit(existing, {
       ...basePatch,
@@ -68,7 +68,7 @@ describe('applyRecurrenceEdit', () => {
     const existing = makeRecurrence({
       frequency: 'weekly',
       dayOfWeek: 2,
-      nextDue: Date.UTC(2020, 5, 16),
+      nextDue: dateOnly(2020, 5, 16),
     })
     const result = applyRecurrenceEdit(existing, {
       ...basePatch,
@@ -80,7 +80,7 @@ describe('applyRecurrenceEdit', () => {
 
   it('realigns nextDue to today when frequency is switched (the stale-nextDue bug)', () => {
     // Existing monthly recurrence anchored far in the future relative to today.
-    const staleNextDue = Date.UTC(2099, 0, 1)
+    const staleNextDue = dateOnly(2099, 0, 1)
     const existing = makeRecurrence({ frequency: 'monthly', nextDue: staleNextDue })
 
     const result = applyRecurrenceEdit(existing, { ...basePatch, frequency: 'daily', dayOfWeek: 0 })

@@ -1,6 +1,6 @@
 import { db } from '@/db/db'
 import type { Account, Category, GroupMember, Transaction, TransactionType } from '@/db/schema'
-import { toBaseCurrency, toDateOnly } from '@/lib/utils'
+import { dateOnly, toBaseCurrency, toDateOnly } from '@/lib/utils'
 
 /**
  * A Space's live Ledger, decrypted once. Every question below reads this array
@@ -151,7 +151,7 @@ export function monthlyTotals(
   const indexByKey = new Map<string, number>()
 
   for (let i = options.months - 1; i >= 0; i--) {
-    const start = new Date(Date.UTC(year, month - i, 1))
+    const start = new Date(dateOnly(year, month - i, 1))
     const y = start.getUTCFullYear()
     const m = start.getUTCMonth()
     indexByKey.set(`${y}-${m}`, buckets.length)
@@ -186,7 +186,7 @@ export function monthlySpendByCategory(
 
   const indexByKey = new Map<string, number>()
   for (let i = options.months - 1; i >= 0; i--) {
-    const start = new Date(Date.UTC(year, month - i, 1))
+    const start = new Date(dateOnly(year, month - i, 1))
     indexByKey.set(`${start.getUTCFullYear()}-${start.getUTCMonth()}`, options.months - 1 - i)
   }
 
@@ -208,7 +208,7 @@ export function monthRange(date: number): Required<DateRange> {
   const d = new Date(date)
   const year = d.getUTCFullYear()
   const month = d.getUTCMonth()
-  return { from: Date.UTC(year, month, 1), to: Date.UTC(year, month + 1, 0) }
+  return { from: dateOnly(year, month, 1), to: dateOnly(year, month + 1, 0) }
 }
 
 // ─── Account balances ─────────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ export function boundFromInput(dateStr: string): number | undefined {
   const mo = Number(parts[1])
   const d = Number(parts[2])
   if (!y || !mo || !d) return undefined
-  return toDateOnly(Date.UTC(y, mo - 1, d))
+  return toDateOnly(dateOnly(y, mo - 1, d))
 }
 
 // ─── Stated income ────────────────────────────────────────────────────────────

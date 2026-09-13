@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { Transaction } from '@/db/schema'
-import { advanceDate, nextWeekday, parseDateStr, toBaseCurrency, toPaise } from '../utils'
+import { advanceDate, dateOnly, nextWeekday, parseDateStr, toBaseCurrency, toPaise } from '../utils'
 
 // ─── toPaise ─────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ describe('parseDateStr', () => {
 
 describe('advanceDate', () => {
   it('Jan 31 + 1 month = Feb 28 (no overflow to Mar)', () => {
-    const jan31 = Date.UTC(2025, 0, 31)
+    const jan31 = dateOnly(2025, 0, 31)
     const result = advanceDate(jan31, 'monthly', 1)
     const d = new Date(result)
     expect(d.getUTCMonth()).toBe(1) // February
@@ -119,7 +119,7 @@ describe('advanceDate', () => {
   })
 
   it('Jan 31 + 1 month on leap year = Feb 29', () => {
-    const jan31 = Date.UTC(2024, 0, 31)
+    const jan31 = dateOnly(2024, 0, 31)
     const result = advanceDate(jan31, 'monthly', 1)
     const d = new Date(result)
     expect(d.getUTCMonth()).toBe(1)
@@ -127,7 +127,7 @@ describe('advanceDate', () => {
   })
 
   it('Mar 31 + 1 month = Apr 30', () => {
-    const mar31 = Date.UTC(2025, 2, 31)
+    const mar31 = dateOnly(2025, 2, 31)
     const result = advanceDate(mar31, 'monthly', 1)
     const d = new Date(result)
     expect(d.getUTCMonth()).toBe(3) // April
@@ -135,7 +135,7 @@ describe('advanceDate', () => {
   })
 
   it('Nov 30 + 1 quarter = Feb 28 (non-leap, no overflow to Mar)', () => {
-    const nov30 = Date.UTC(2025, 10, 30)
+    const nov30 = dateOnly(2025, 10, 30)
     const result = advanceDate(nov30, 'quarterly', 1)
     const d = new Date(result)
     expect(d.getUTCFullYear()).toBe(2026)
@@ -144,7 +144,7 @@ describe('advanceDate', () => {
   })
 
   it('daily and weekly advance correctly', () => {
-    const base = Date.UTC(2025, 0, 15)
+    const base = dateOnly(2025, 0, 15)
     expect(new Date(advanceDate(base, 'daily', 1)).getUTCDate()).toBe(16)
     expect(new Date(advanceDate(base, 'weekly', 1)).getUTCDate()).toBe(22)
   })
@@ -154,19 +154,19 @@ describe('advanceDate', () => {
 
 describe('nextWeekday', () => {
   it('returns the same date when it already falls on the target weekday', () => {
-    const wed = Date.UTC(2025, 0, 15) // Jan 15 2025 is a Wednesday (day 3)
+    const wed = dateOnly(2025, 0, 15) // Jan 15 2025 is a Wednesday (day 3)
     expect(nextWeekday(wed, 3)).toBe(wed)
   })
 
   it('advances forward to the next occurrence of the target weekday', () => {
-    const wed = Date.UTC(2025, 0, 15)
+    const wed = dateOnly(2025, 0, 15)
     const fri = nextWeekday(wed, 5) // Friday (day 5)
     const d = new Date(fri)
     expect(d.getUTCDate()).toBe(17)
   })
 
   it('wraps to next week when the target weekday already passed', () => {
-    const wed = Date.UTC(2025, 0, 15)
+    const wed = dateOnly(2025, 0, 15)
     const mon = nextWeekday(wed, 1) // Monday (day 1) — already passed this week
     const d = new Date(mon)
     expect(d.getUTCDate()).toBe(20)

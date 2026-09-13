@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { dateOnly } from '@/lib/utils'
 import { parseReceiptText } from '../ocr'
 
 describe('parseReceiptText — amount extraction', () => {
@@ -53,22 +54,22 @@ describe('parseReceiptText — merchant extraction', () => {
 describe('parseReceiptText — date extraction', () => {
   it('parses DD/MM/YYYY', () => {
     const { date } = parseReceiptText('Paid on 05/03/2026')
-    expect(date).toBe(Date.UTC(2026, 2, 5))
+    expect(date).toBe(dateOnly(2026, 2, 5))
   })
 
   it('parses ISO YYYY-MM-DD', () => {
     const { date } = parseReceiptText('2026-03-05')
-    expect(date).toBe(Date.UTC(2026, 2, 5))
+    expect(date).toBe(dateOnly(2026, 2, 5))
   })
 
   it('parses an ordinal date with 2-digit year — "5th May 26"', () => {
     const { date } = parseReceiptText('5th May 26')
-    expect(date).toBe(Date.UTC(2026, 4, 5))
+    expect(date).toBe(dateOnly(2026, 4, 5))
   })
 
   it('parses "Month D, YYYY" — "May 5, 2025"', () => {
     const { date } = parseReceiptText('May 5, 2025')
-    expect(date).toBe(Date.UTC(2025, 4, 5))
+    expect(date).toBe(dateOnly(2025, 4, 5))
   })
 
   it('rejects a date more than a year in the future as OCR noise', () => {

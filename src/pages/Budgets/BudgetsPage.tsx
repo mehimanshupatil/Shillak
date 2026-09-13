@@ -22,6 +22,7 @@ import { goalPace } from '@/lib/goalPace'
 import type { Ledger } from '@/lib/ledger/read'
 import { earnedInCategory, monthlySpendByCategory, spendByCategory } from '@/lib/ledger/read'
 import {
+  dateOnly,
   formatCompact,
   formatCurrency,
   formatDateFull,
@@ -51,11 +52,11 @@ export default function BudgetsPage() {
 
   // Fiscal year window
   const fiscalStart = (group?.fiscalYearStart ?? 4) - 1 // 0-indexed
-  const fiscalYearStart = Date.UTC(year, fiscalStart, 1)
-  const fiscalYearEnd = Date.UTC(year + 1, fiscalStart, 1) - 1
+  const fiscalYearStart = dateOnly(year, fiscalStart, 1)
+  const fiscalYearEnd = dateOnly(year + 1, fiscalStart, 1) - 1
 
-  const startOfMonth = Date.UTC(year, month, 1)
-  const endOfMonth = Date.UTC(year, month + 1, 1) - 1
+  const startOfMonth = dateOnly(year, month, 1)
+  const endOfMonth = dateOnly(year, month + 1, 1) - 1
 
   const windowStart = activePeriod === 'yearly' ? fiscalYearStart : startOfMonth
   const windowEnd = activePeriod === 'yearly' ? fiscalYearEnd : endOfMonth

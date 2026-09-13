@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Budget, Category, Recurrence, Transaction } from '@/db/schema'
 import { computeDashboardMetrics } from '@/lib/dashboardMetrics'
+import { dateOnly } from '@/lib/utils'
 
 function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -16,7 +17,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: '',
     tags: [],
-    date: Date.UTC(2026, 5, 15),
+    date: dateOnly(2026, 5, 15),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,
@@ -66,7 +67,7 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
     } as Recurrence['template'],
     frequency: 'monthly',
     interval: 1,
-    nextDue: Date.UTC(2026, 6, 1),
+    nextDue: dateOnly(2026, 6, 1),
     lastGeneratedAt: null,
     endDate: null,
     active: true,

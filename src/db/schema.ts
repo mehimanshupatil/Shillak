@@ -1,3 +1,15 @@
+declare const dateOnlyBrand: unique symbol
+
+/**
+ * A calendar day, stored as its midnight-UTC unix ms.
+ *
+ * Branded so it can't be confused with an instant. `Date.now()` and `today()`
+ * are both numbers and were freely interchangeable, which is how a wall-clock
+ * instant ended up compared against a midnight deadline. Only the constructors
+ * in `lib/utils` can produce one.
+ */
+export type DateOnly = number & { readonly [dateOnlyBrand]: true }
+
 // ─── Keystore (unencrypted bootstrap) ────────────────────────────────────────
 export interface KeystoreRecord {
   id: 1
@@ -118,7 +130,7 @@ export interface Transaction {
   originalAmount: number | null // integer paise in original currency
   note: string
   tags: string[]
-  date: number // midnight UTC unix ms
+  date: DateOnly
   attachmentIds: string[]
   recurrenceId: string | null
   accountId: string | null // which account was debited/credited (source for transfers)
@@ -145,9 +157,9 @@ export interface Recurrence {
   frequency: RecurrenceFrequency
   interval: number
   dayOfWeek?: number // 0 (Sun) – 6 (Sat) — only meaningful when frequency === 'weekly'
-  nextDue: number
+  nextDue: DateOnly
   lastGeneratedAt: number | null
-  endDate: number | null
+  endDate: DateOnly | null
   active: boolean
   isFixed?: boolean // true = committed outflow (EMI, SIP, rent) — separates from discretionary spend
   createdAt: number
@@ -181,7 +193,7 @@ export interface SavingsGoal {
   name: string
   target: number // paise
   saved: number // paise — used only when categoryId is null (manual tracking)
-  deadline: number | null
+  deadline: DateOnly | null
   categoryId: string | null // income category to auto-derive progress from
   createdAt: number // lower bound for auto-tracked income sum
   updatedAt: number

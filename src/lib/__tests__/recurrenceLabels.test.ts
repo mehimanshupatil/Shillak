@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Recurrence } from '@/db/schema'
 import { daysLabel, describeRecurrence } from '@/lib/recurrenceLabels'
+import { dateOnly } from '@/lib/utils'
 
 const DAY = 86_400_000
-const TODAY = Date.UTC(2026, 5, 15) // Monday
+const TODAY = dateOnly(2026, 5, 15) // Monday
 
 describe('daysLabel', () => {
   it('names today', () => {
@@ -25,7 +26,7 @@ describe('daysLabel', () => {
 
 describe('describeRecurrence', () => {
   function rec(overrides: Partial<Recurrence> = {}) {
-    return { frequency: 'monthly', nextDue: Date.UTC(2026, 5, 15), ...overrides } as Recurrence
+    return { frequency: 'monthly', nextDue: dateOnly(2026, 5, 15), ...overrides } as Recurrence
   }
 
   it('names a daily and a quarterly cadence', () => {
@@ -43,8 +44,8 @@ describe('describeRecurrence', () => {
   })
 
   it('names the monthly anchor from the next due date, read as UTC', () => {
-    expect(describeRecurrence(rec({ nextDue: Date.UTC(2026, 5, 1) }))).toBe('Monthly, on the 1st')
-    expect(describeRecurrence(rec({ nextDue: Date.UTC(2026, 5, 22) }))).toBe('Monthly, on the 22nd')
-    expect(describeRecurrence(rec({ nextDue: Date.UTC(2026, 5, 3) }))).toBe('Monthly, on the 3rd')
+    expect(describeRecurrence(rec({ nextDue: dateOnly(2026, 5, 1) }))).toBe('Monthly, on the 1st')
+    expect(describeRecurrence(rec({ nextDue: dateOnly(2026, 5, 22) }))).toBe('Monthly, on the 22nd')
+    expect(describeRecurrence(rec({ nextDue: dateOnly(2026, 5, 3) }))).toBe('Monthly, on the 3rd')
   })
 })

@@ -19,7 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
 import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
 import { applyRecurrenceEdit } from '@/lib/recurrenceTemplate'
-import { formatDateStr, ordinal, parseDateStr, toPaise, weekdayLabel } from '@/lib/utils'
+import { formatDateStr, ordinal, parseDateStr, today, toPaise, weekdayLabel } from '@/lib/utils'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   daily: 'Daily',
@@ -97,7 +97,9 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
     try {
       await db.recurrences.update(recurrence.recurrenceId, {
         active: false,
-        endDate: Date.now(),
+        // endDate is a calendar day, not a moment — this used to stamp Date.now(),
+        // which left a recurrence due today still projecting as upcoming.
+        endDate: today(),
       })
       onClose()
     } catch (e) {

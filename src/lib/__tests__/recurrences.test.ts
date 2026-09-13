@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Recurrence, Transaction } from '@/db/schema'
 import { processRecurrences } from '../recurrences'
-import { today } from '../utils'
+import { dateOnly, today } from '../utils'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
     } as Recurrence['template'],
     frequency: 'monthly',
     interval: 1,
-    nextDue: Date.UTC(2020, 0, 1),
+    nextDue: dateOnly(2020, 0, 1),
     lastGeneratedAt: null,
     endDate: null,
     active: true,
@@ -76,20 +76,20 @@ describe('processRecurrences', () => {
   it('generates a transaction for a single due recurrence and advances nextDue', async () => {
     // endDate cuts off right after the first period so only one txn generates
     recurrences.push(
-      makeRecurrence({ nextDue: Date.UTC(2020, 0, 1), endDate: Date.UTC(2020, 0, 2) }),
+      makeRecurrence({ nextDue: dateOnly(2020, 0, 1), endDate: dateOnly(2020, 0, 2) }),
     )
 
     await processRecurrences('g1', 'u1')
 
     expect(transactions).toHaveLength(1)
-    expect(transactions[0]?.date).toBe(Date.UTC(2020, 0, 1))
+    expect(transactions[0]?.date).toBe(dateOnly(2020, 0, 1))
     expect(transactions[0]?.recurrenceId).toBe('rec-1')
-    expect(recurrences[0]?.nextDue).toBe(Date.UTC(2020, 1, 1))
+    expect(recurrences[0]?.nextDue).toBe(dateOnly(2020, 1, 1))
   })
 
   it('catches up multiple missed periods in one pass', async () => {
     recurrences.push(
-      makeRecurrence({ nextDue: Date.UTC(2020, 0, 1), frequency: 'monthly', interval: 1 }),
+      makeRecurrence({ nextDue: dateOnly(2020, 0, 1), frequency: 'monthly', interval: 1 }),
     )
 
     await processRecurrences('g1', 'u1')
@@ -101,8 +101,8 @@ describe('processRecurrences', () => {
   })
 
   it('does not duplicate a transaction that already exists for recurrenceId+date', async () => {
-    const dueDate = Date.UTC(2020, 0, 1)
-    recurrences.push(makeRecurrence({ nextDue: dueDate, endDate: Date.UTC(2020, 0, 2) }))
+    const dueDate = dateOnly(2020, 0, 1)
+    recurrences.push(makeRecurrence({ nextDue: dueDate, endDate: dateOnly(2020, 0, 2) }))
     transactions.push({
       txnId: 'existing',
       groupId: 'g1',
@@ -135,8 +135,8 @@ describe('processRecurrences', () => {
   it('stops generating once advancing past endDate', async () => {
     recurrences.push(
       makeRecurrence({
-        nextDue: Date.UTC(2020, 0, 1),
-        endDate: Date.UTC(2020, 1, 15),
+        nextDue: dateOnly(2020, 0, 1),
+        endDate: dateOnly(2020, 1, 15),
         frequency: 'monthly',
         interval: 1,
       }),
@@ -146,14 +146,14 @@ describe('processRecurrences', () => {
 
     // Jan 1 generated, advance to Feb 1 (<= endDate) generated, advance to Mar 1 (> endDate) stop
     expect(transactions).toHaveLength(2)
-    expect(transactions.map((t) => t.date)).toEqual([Date.UTC(2020, 0, 1), Date.UTC(2020, 1, 1)])
+    expect(transactions.map((t) => t.date)).toEqual([dateOnly(2020, 0, 1), dateOnly(2020, 1, 1)])
   })
 
   it('retires the recurrence once it advances past endDate', async () => {
     recurrences.push(
       makeRecurrence({
-        nextDue: Date.UTC(2020, 0, 1),
-        endDate: Date.UTC(2020, 1, 15),
+        nextDue: dateOnly(2020, 0, 1),
+        endDate: dateOnly(2020, 1, 15),
         frequency: 'monthly',
         interval: 1,
       }),

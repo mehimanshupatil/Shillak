@@ -8,8 +8,8 @@ import { FlaskIcon, TrashIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/db'
-import type { Budget, Category, SavingsGoal, Transaction } from '@/db/schema'
-import { generateId, toPaise } from '@/lib/utils'
+import type { Budget, Category, DateOnly, SavingsGoal, Transaction } from '@/db/schema'
+import { addDays, dateOnly, generateId, today, toPaise } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 import { incrementVectorClock } from '@/sync/vector-clock'
 
@@ -17,19 +17,18 @@ const DEMO_TXN_PREFIX = 'demo-txn-'
 const DEMO_BUDGET_PREFIX = 'demo-budget-'
 const DEMO_GOAL_PREFIX = 'demo-goal-'
 
-function monthStartsUTC(monthsBack: number): number[] {
+function monthStartsUTC(monthsBack: number): DateOnly[] {
   const now = new Date()
-  const months: number[] = []
+  const months: DateOnly[] = []
   for (let i = monthsBack; i >= 0; i--) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
-    months.push(d.getTime())
+    months.push(dateOnly(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
   }
   return months
 }
 
-function dayInMonth(monthStart: number, day: number): number {
+function dayInMonth(monthStart: DateOnly, day: number): DateOnly {
   const d = new Date(monthStart)
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), day)
+  return dateOnly(d.getUTCFullYear(), d.getUTCMonth(), day)
 }
 
 function pick<T>(arr: T[]): T {
@@ -214,7 +213,7 @@ export default function DemoDataSeeder() {
           name: 'Goa Trip',
           target: toPaise(100000),
           saved: toPaise(42000),
-          deadline: Date.now() + 60 * 86400_000,
+          deadline: addDays(today(), 60),
           categoryId: null,
           createdAt: Date.now() - 90 * 86400_000,
           updatedAt: Date.now(),

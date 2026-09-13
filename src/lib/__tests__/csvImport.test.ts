@@ -18,6 +18,7 @@ vi.mock('@/db/db', () => ({ db: mockDb }))
 vi.mock('@/lib/ledger/write', () => ({ commitMany: vi.fn() }))
 
 import { commitMany } from '@/lib/ledger/write'
+import { dateOnly } from '@/lib/utils'
 
 describe('parseCsvText', () => {
   it('splits headers and rows, skipping blank lines', () => {
@@ -51,19 +52,19 @@ describe('autoDetectColumns', () => {
 
 describe('parseDateWithFormat', () => {
   it('parses YYYY-MM-DD', () => {
-    expect(parseDateWithFormat('2026-07-21', 'YYYY-MM-DD')).toBe(Date.UTC(2026, 6, 21))
+    expect(parseDateWithFormat('2026-07-21', 'YYYY-MM-DD')).toBe(dateOnly(2026, 6, 21))
   })
 
   it('parses DD/MM/YYYY', () => {
-    expect(parseDateWithFormat('21/07/2026', 'DD/MM/YYYY')).toBe(Date.UTC(2026, 6, 21))
+    expect(parseDateWithFormat('21/07/2026', 'DD/MM/YYYY')).toBe(dateOnly(2026, 6, 21))
   })
 
   it('parses MM/DD/YYYY', () => {
-    expect(parseDateWithFormat('07/21/2026', 'MM/DD/YYYY')).toBe(Date.UTC(2026, 6, 21))
+    expect(parseDateWithFormat('07/21/2026', 'MM/DD/YYYY')).toBe(dateOnly(2026, 6, 21))
   })
 
   it('parses DD MMM YYYY', () => {
-    expect(parseDateWithFormat('21 Jul 2026', 'DD MMM YYYY')).toBe(Date.UTC(2026, 6, 21))
+    expect(parseDateWithFormat('21 Jul 2026', 'DD MMM YYYY')).toBe(dateOnly(2026, 6, 21))
   })
 
   it('rejects an out-of-range day/month instead of silently rolling over', () => {
@@ -120,12 +121,12 @@ describe('amountToPaiseAndType', () => {
 
 describe('isDuplicateTransaction', () => {
   const existing: Array<Pick<Transaction, 'date' | 'amount' | 'note'>> = [
-    { date: Date.UTC(2026, 6, 1), amount: 45050, note: 'Weekly shop' },
+    { date: dateOnly(2026, 6, 1), amount: 45050, note: 'Weekly shop' },
   ]
 
   it('matches on exact date + amount + note (case-insensitive)', () => {
     const dup = isDuplicateTransaction(
-      { date: Date.UTC(2026, 6, 1), amount: 45050, note: 'weekly shop' },
+      { date: dateOnly(2026, 6, 1), amount: 45050, note: 'weekly shop' },
       existing,
     )
     expect(dup).toBe(true)
@@ -133,7 +134,7 @@ describe('isDuplicateTransaction', () => {
 
   it('does not match when the amount differs', () => {
     const dup = isDuplicateTransaction(
-      { date: Date.UTC(2026, 6, 1), amount: 999, note: 'Weekly shop' },
+      { date: dateOnly(2026, 6, 1), amount: 999, note: 'Weekly shop' },
       existing,
     )
     expect(dup).toBe(false)
@@ -143,7 +144,7 @@ describe('isDuplicateTransaction', () => {
 describe('commitCsvImport', () => {
   function row(overrides: Partial<Parameters<typeof commitCsvImport>[3][number]> = {}) {
     return {
-      date: Date.UTC(2026, 0, 1),
+      date: dateOnly(2026, 0, 1),
       amount: 10000,
       type: 'expense' as const,
       categoryId: 'cat-1',
@@ -170,7 +171,7 @@ describe('commitCsvImport', () => {
 
   it('skips a row that matches an existing transaction on date, amount and note', async () => {
     mockDb.transactions.where.mockResolvedValue([
-      { date: Date.UTC(2026, 0, 1), amount: 10000, note: ' coffee ' } as Transaction,
+      { date: dateOnly(2026, 0, 1), amount: 10000, note: ' coffee ' } as Transaction,
     ])
     const result = await commitCsvImport('g1', 'u1', 'INR', [row()])
     expect(result).toEqual({ imported: 0, skipped: 1 })
@@ -204,7 +205,7 @@ describe('commitCsvImport', () => {
       originalAmount: null,
       note: 'Coffee',
       tags: [],
-      date: Date.UTC(2026, 0, 1),
+      date: dateOnly(2026, 0, 1),
       attachmentIds: [],
       recurrenceId: null,
       accountId: 'acc-1',
@@ -231,7 +232,7 @@ describe('buildPreviewRows', () => {
 
   function build(
     rows: string[][],
-    existing: Array<{ date: number; amount: number; note: string }> = [],
+    existing: Array<Pick<Transaction, 'date' | 'amount' | 'note'>> = [],
   ) {
     return buildPreviewRows(rows, MAPPING, 'signed', 'YYYY-MM-DD', CATEGORIES, existing)
   }
@@ -240,7 +241,7 @@ describe('buildPreviewRows', () => {
     const { rows } = build([['2026-01-01', '-250.50', 'Coffee']])
     expect(rows[0]).toMatchObject({
       ok: true,
-      date: Date.UTC(2026, 0, 1),
+      date: dateOnly(2026, 0, 1),
       amountPaise: 25050,
       type: 'expense',
       note: 'Coffee',
@@ -261,7 +262,7 @@ describe('buildPreviewRows', () => {
   it('flags a row that matches something already in the Ledger', () => {
     const { rows } = build(
       [['2026-01-01', '-250.50', 'Coffee']],
-      [{ date: Date.UTC(2026, 0, 1), amount: 25050, note: 'Coffee' }],
+      [{ date: dateOnly(2026, 0, 1), amount: 25050, note: 'Coffee' }],
     )
     expect(rows[0]).toMatchObject({ isDuplicate: true })
   })
@@ -278,12 +279,12 @@ describe('buildPreviewRows', () => {
   it('agrees with the commit about whitespace — the two rules used to differ', () => {
     // The preview trims the note; the stored row may not be trimmed. The preview
     // verdict is what the user approves, so it has to match what commit will do.
-    const existing = [{ date: Date.UTC(2026, 0, 1), amount: 25050, note: '  Coffee  ' }]
+    const existing = [{ date: dateOnly(2026, 0, 1), amount: 25050, note: '  Coffee  ' }]
     const { rows } = build([['2026-01-01', '-250.50', 'Coffee']], existing)
     expect(rows[0]).toMatchObject({ isDuplicate: true })
     expect(
       isDuplicateTransaction(
-        { date: Date.UTC(2026, 0, 1), amount: 25050, note: 'Coffee' },
+        { date: dateOnly(2026, 0, 1), amount: 25050, note: 'Coffee' },
         existing,
       ),
     ).toBe(true)

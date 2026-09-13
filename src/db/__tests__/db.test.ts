@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { deriveKey } from '@/crypto/pin'
 import type { Budget, Transaction } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import useKeyStore from '@/stores/key.store'
 import { AppLockedError, db } from '../db'
 
@@ -19,7 +20,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'test',
     tags: [],
-    date: Date.UTC(2026, 0, 1),
+    date: dateOnly(2026, 0, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,

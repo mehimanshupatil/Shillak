@@ -9,6 +9,7 @@ import type {
   SavingsGoal,
   Transaction,
 } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import { applyDelta } from '../conflict'
 import type { SyncDelta } from '../vector-clock'
 
@@ -64,7 +65,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'coffee',
     tags: [],
-    date: Date.UTC(2025, 0, 1),
+    date: dateOnly(2025, 0, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,
@@ -142,7 +143,7 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
     } as Recurrence['template'],
     frequency: 'monthly',
     interval: 1,
-    nextDue: 10_000,
+    nextDue: dateOnly(2026, 0, 10),
     lastGeneratedAt: null,
     endDate: null,
     active: true,
@@ -633,8 +634,8 @@ describe('recurrences', () => {
   })
 
   it('incoming createdAt >= existing → applied', async () => {
-    const existing = makeRecurrence({ createdAt: 1000, nextDue: 5000 })
-    const incoming = makeRecurrence({ createdAt: 1000, nextDue: 8000 })
+    const existing = makeRecurrence({ createdAt: 1000, nextDue: dateOnly(2026, 0, 5) })
+    const incoming = makeRecurrence({ createdAt: 1000, nextDue: dateOnly(2026, 0, 8) })
     mockDb.recurrences.get.mockResolvedValue(existing)
 
     await applyDelta(makeDelta({ recurrences: [incoming] }), GROUP_ID, SYNC_ID, 'webrtc', 'user-a')

@@ -1,6 +1,7 @@
 import type { Account, Transaction } from '@/db/schema'
 import type { Ledger } from '@/lib/ledger/read'
 import { balanceDelta } from '@/lib/ledger/read'
+import { dateOnly } from '@/lib/utils'
 
 const WINDOW_MONTHS = 12
 
@@ -21,11 +22,11 @@ function monthBuckets(now: number): Array<{ year: number; month: number; cutoff:
 
   const buckets: Array<{ year: number; month: number; cutoff: number }> = []
   for (let i = WINDOW_MONTHS - 1; i >= 0; i--) {
-    const d = new Date(Date.UTC(nowYear, nowMonth - i, 1))
+    const d = new Date(dateOnly(nowYear, nowMonth - i, 1))
     const year = d.getUTCFullYear()
     const month = d.getUTCMonth()
     const isCurrentMonth = i === 0
-    const cutoff = isCurrentMonth ? now : Date.UTC(year, month + 1, 1) - 1
+    const cutoff = isCurrentMonth ? now : dateOnly(year, month + 1, 1) - 1
     buckets.push({ year, month, cutoff })
   }
   return buckets

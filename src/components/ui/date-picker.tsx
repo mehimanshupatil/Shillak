@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn, formatDateStr } from '@/lib/utils'
+import { cn, dateOnly, formatDateStr } from '@/lib/utils'
 
 interface DatePickerProps {
   value: string // 'YYYY-MM-DD', or '' for unset
@@ -16,7 +16,7 @@ function parseYMD(value: string): Date | undefined {
   if (!value) return undefined
   const [y, m, d] = value.split('-').map(Number)
   if (!y || !m || !d) return undefined
-  return new Date(Date.UTC(y, m - 1, d))
+  return new Date(dateOnly(y, m - 1, d))
 }
 
 function formatDisplay(date: Date): string {

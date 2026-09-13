@@ -122,7 +122,7 @@ interface Transaction {
   amount: number        // INTEGER paise — never decimal rupees
   currency: string; fxRate: number | null  // basis points: 1.23 → 12300
   originalAmount: number | null
-  note: string; tags: string[]; date: number  // midnight UTC unix ms
+  note: string; tags: string[]; date: DateOnly  // branded midnight-UTC calendar day
   attachmentIds: string[]; recurrenceId: string | null
   accountId: string | null; paidBy: string
   createdAt: number; updatedAt: number; deletedAt: number | null
@@ -230,10 +230,12 @@ db.open() → throws → StorageErrorScreen (dead end)
 
 - **Amounts: integers (paise).** Never decimal rupees. `toPaise()` immediately on user input.
 - **Dates: midnight UTC.** `Date.UTC(y, m, d)` always. Never `Date.now()` for transaction date.
-- **A stored date is a calendar day, not an instant.** `today()` reads the user's local
-  calendar day and encodes it as midnight UTC — so a 2am entry in IST lands on the day the
-  user would name, not the previous one. Everything that asks "what day is it" goes through
-  `today()`; nothing derives a day from a UTC instant.
+- **A stored date is a calendar day, not an instant** — and `DateOnly` says so in the type.
+  `today()` reads the user's local calendar day and encodes it as midnight UTC, so a 2am
+  entry in IST lands on the day the user would name. Only `lib/utils` can mint a `DateOnly`
+  (`toDateOnly`, `dateOnly`, `today`, `parseDateStr`, `addDays`, `advanceDate`,
+  `nextWeekday`, `nextOccurrence`); nowhere else calls `Date.UTC` or hands `Date.now()` to
+  a date field. A `DateOnly` is midnight UTC by construction, so nothing re-checks it.
 - **`advanceDate()`** for all recurrence arithmetic. Never raw `setMonth()` — month overflow.
 - **Soft deletes only.** Never `db.transactions.delete()`. Always `deletedAt = Date.now()`.
 - **No backend.** No Express, Supabase, Firebase. Dexie only.

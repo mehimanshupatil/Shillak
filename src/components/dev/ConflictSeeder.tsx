@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/db'
 import type { Budget, ConflictLog, SavingsGoal, Transaction } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function ConflictSeeder() {
@@ -38,7 +39,7 @@ export default function ConflictSeeder() {
         originalAmount: null,
         note: 'Dinner at Suzette',
         tags: [],
-        date: Date.UTC(2025, 4, 15),
+        date: dateOnly(2025, 4, 15),
         attachmentIds: [],
         recurrenceId: null,
         accountId: null,

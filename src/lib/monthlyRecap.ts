@@ -1,6 +1,7 @@
 import type { Budget, SavingsGoal } from '@/db/schema'
 import type { Ledger } from '@/lib/ledger/read'
 import { earnedInCategory, monthRange, spendByCategory, totals } from '@/lib/ledger/read'
+import { dateOnly } from '@/lib/utils'
 
 export interface RecapBudgetItem {
   categoryId: string
@@ -47,8 +48,8 @@ export function computeMonthlyRecap(
   period: { year: number; month: number },
 ): MonthlyRecapResult {
   const { year, month } = period
-  const range = monthRange(Date.UTC(year, month, 1))
-  const previousRange = monthRange(Date.UTC(year, month - 1, 1))
+  const range = monthRange(dateOnly(year, month, 1))
+  const previousRange = monthRange(dateOnly(year, month - 1, 1))
 
   const { income, expense } = totals(ledger, range)
   const prevExpense = totals(ledger, previousRange).expense

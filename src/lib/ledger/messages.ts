@@ -12,7 +12,7 @@ const MESSAGES: Record<LedgerFailure, string> = {
   'transfer-same-account': 'Source and destination must differ',
   'attachment-too-large': 'Attachment too large (max 5 MB each)',
   'quota-exceeded': 'Storage above 90% — attachment uploads blocked.',
-  'date-not-utc-midnight': 'Pick a valid date',
+  'invalid-date': 'Pick a valid date',
   'transaction-not-found': 'That transaction no longer exists',
   'type-change-not-allowed': "A transaction's type can't be changed",
 }

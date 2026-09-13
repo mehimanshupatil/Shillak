@@ -8,7 +8,7 @@ import {
   commitTransaction,
   voidTransaction,
 } from '@/lib/ledger/write'
-import { nextOccurrence } from '@/lib/utils'
+import { dateOnly, nextOccurrence } from '@/lib/utils'
 
 let transactions: Transaction[] = []
 let attachments: Attachment[] = []
@@ -33,7 +33,7 @@ vi.mock('@/lib/attachments', async (importOriginal) => {
 import { checkStorageQuota } from '@/lib/attachments'
 import { incrementVectorClock } from '@/sync/vector-clock'
 
-const DATE = Date.UTC(2026, 5, 15) // Mon 15 Jun 2026
+const DATE = dateOnly(2026, 5, 15) // Mon 15 Jun 2026
 
 function spendDraft(overrides: Partial<SpendDraft> = {}): SpendDraft {
   return {
@@ -83,7 +83,7 @@ function existingTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'Old note',
     tags: [],
-    date: Date.UTC(2026, 4, 1),
+    date: dateOnly(2026, 4, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: 'acc-1',
@@ -177,9 +177,12 @@ describe('validation', () => {
     expect(result).toEqual({ ok: false, failure: 'transfer-same-account' })
   })
 
-  it('refuses a date that is not midnight UTC', async () => {
-    const result = await commit(spendDraft({ date: DATE + 1 }))
-    expect(result).toEqual({ ok: false, failure: 'date-not-utc-midnight' })
+  it('refuses a date the form could not read', async () => {
+    // A non-midnight timestamp can no longer reach here at all: DateOnly is
+    // branded and only lib/utils can mint one, so the old runtime check has
+    // become a compile-time one. Null is what an unreadable field looks like.
+    const result = await commit(spendDraft({ date: null }))
+    expect(result).toEqual({ ok: false, failure: 'invalid-date' })
   })
 
   it('refuses an attachment over the size limit', async () => {
@@ -354,7 +357,7 @@ describe('recurrence anchoring', () => {
   })
 
   it('derives the weekly anchor from a future transaction date, not from today', async () => {
-    const future = Date.UTC(2026, 5, 25) // Thursday, ten days out
+    const future = dateOnly(2026, 5, 25) // Thursday, ten days out
     await commit(
       spendDraft({
         date: future,
@@ -367,12 +370,12 @@ describe('recurrence anchoring', () => {
   it('clamps a monthly anchor into short months instead of overflowing', async () => {
     await commit(
       spendDraft({
-        date: Date.UTC(2020, 0, 31), // Jan 31
+        date: dateOnly(2020, 0, 31), // Jan 31
         repeat: { frequency: 'monthly', endDate: null, isFixed: false },
       }),
     )
     // Feb 2020 has 29 days — clamped, not spilled into March
-    expect(recurrences[0]?.nextDue).toBe(Date.UTC(2020, 1, 29))
+    expect(recurrences[0]?.nextDue).toBe(dateOnly(2020, 1, 29))
   })
 
   it('forces isFixed false for income, which is never a fixed outflow', async () => {

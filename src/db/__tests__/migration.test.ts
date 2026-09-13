@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { encryptRecord } from '@/crypto/encrypt'
 import { deriveKey } from '@/crypto/pin'
 import type { Transaction } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import useKeyStore from '@/stores/key.store'
 
 const DB_NAME = 'Shillak_migration_test_db'
@@ -22,7 +23,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'pre-migration transaction',
     tags: [],
-    date: Date.UTC(2025, 5, 1),
+    date: dateOnly(2025, 5, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,

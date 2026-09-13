@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { db } from '@/db/db'
 import type { Category, SavingsGoal } from '@/db/schema'
-import { generateId, toPaise } from '@/lib/utils'
+import { formatDateStr, generateId, parseDateStr, toPaise } from '@/lib/utils'
 
 interface Props {
   open: boolean
@@ -40,7 +40,7 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal, cate
       setName(goal?.name ?? '')
       setTargetStr(goal ? String(goal.target / 100) : '')
       setSavedStr(goal?.categoryId ? '' : goal ? String(goal.saved / 100) : '')
-      setDeadline(goal?.deadline ? (new Date(goal.deadline).toISOString().split('T')[0] ?? '') : '')
+      setDeadline(goal?.deadline ? formatDateStr(goal.deadline) : '')
       setLinkedCategoryId(goal?.categoryId ?? null)
       setError('')
     }
@@ -61,7 +61,7 @@ export default function GoalSheet({ open, onClose, groupId, currency, goal, cate
     setLoading(true)
     setError('')
     try {
-      const deadlineMs = deadline ? new Date(deadline).getTime() : null
+      const deadlineMs = deadline ? parseDateStr(deadline) : null
       if (isEdit && goal) {
         await db.goals.update(goal.goalId, {
           name: name.trim(),

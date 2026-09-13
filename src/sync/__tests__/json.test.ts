@@ -8,6 +8,7 @@ import type {
   SavingsGoal,
   Transaction,
 } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import { applyDelta } from '@/sync/conflict'
 import { exportGroupSnapshot, importGroupSnapshot } from '../json'
 
@@ -59,7 +60,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'Coffee',
     tags: ['cafe'],
-    date: Date.UTC(2025, 0, 1),
+    date: dateOnly(2025, 0, 1),
     attachmentIds: [],
     recurrenceId: null,
     accountId: null,

@@ -1,4 +1,6 @@
 import { createWorker } from 'tesseract.js'
+import type { DateOnly } from '@/db/schema'
+import { dateOnly } from '@/lib/utils'
 import { inferCategoryName } from './categorize'
 
 /**
@@ -99,7 +101,7 @@ export async function extractTextFromImage(
 export interface ParsedReceipt {
   amount: number | null // rupees (float), not paise
   note: string // merchant name, normalized
-  date: number | null // unix ms midnight UTC, or null if not found
+  date: DateOnly | null // unix ms midnight UTC, or null if not found
   categoryHint: string | null // category name suggestion, or null
 }
 
@@ -270,7 +272,7 @@ function expandYear(y: number): number {
   return y < 50 ? 2000 + y : 1900 + y
 }
 
-const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number | null }> = [
+const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => DateOnly | null }> = [
   // YYYY-MM-DD (ISO — check first to avoid ambiguity with DD/MM/YYYY)
   {
     re: /\b(\d{4})[/-](\d{2})[/-](\d{2})\b/,
@@ -279,7 +281,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
         mo = Number(m[2] ?? 0),
         d = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
-      return Date.UTC(y, mo - 1, d)
+      return dateOnly(y, mo - 1, d)
     },
   },
   // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY (4-digit year)
@@ -290,7 +292,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
         mo = Number(m[2] ?? 0),
         y = Number(m[3] ?? 0)
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
-      return Date.UTC(y, mo - 1, d)
+      return dateOnly(y, mo - 1, d)
     },
   },
   // "5th May 2026" or "05 May, 26" — ordinal suffix + optional comma + 2 or 4 digit year
@@ -300,7 +302,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
       const mo = MONTH_MAP[(m[2] ?? '').toLowerCase().slice(0, 3)]
       if (mo === undefined) return null
       const y = expandYear(Number(m[3] ?? 0))
-      return Date.UTC(y, mo, Number(m[1] ?? 0))
+      return dateOnly(y, mo, Number(m[1] ?? 0))
     },
   },
   // "May 5, 2025" or "May 05 26"
@@ -310,12 +312,12 @@ const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => number 
       const mo = MONTH_MAP[(m[1] ?? '').toLowerCase().slice(0, 3)]
       if (mo === undefined) return null
       const y = expandYear(Number(m[3] ?? 0))
-      return Date.UTC(y, mo, Number(m[2] ?? 0))
+      return dateOnly(y, mo, Number(m[2] ?? 0))
     },
   },
 ]
 
-function extractDate(text: string): number | null {
+function extractDate(text: string): DateOnly | null {
   for (const { re, parse } of DATE_PATTERNS) {
     const m = text.match(re)
     if (m) {

@@ -9,6 +9,7 @@ import {
   toTransactionDraft,
 } from '@/lib/ledger/draft'
 import type { ParsedReceipt } from '@/lib/ocr'
+import { dateOnly } from '@/lib/utils'
 
 const CATEGORIES: Category[] = [
   { categoryId: 'c1', name: 'Groceries', type: 'expense' } as Category,
@@ -34,7 +35,7 @@ function txn(overrides: Partial<Transaction> = {}): Transaction {
     originalAmount: null,
     note: 'Rent',
     tags: ['home'],
-    date: Date.UTC(2026, 5, 15),
+    date: dateOnly(2026, 5, 15),
     attachmentIds: ['att-1', 'att-2'],
     recurrenceId: null,
     accountId: 'acc-1',
@@ -150,7 +151,7 @@ describe('draftReducer', () => {
       return {
         amount: 250,
         note: 'Swiggy',
-        date: Date.UTC(2026, 2, 3),
+        date: dateOnly(2026, 2, 3),
         categoryHint: 'Dining',
         ...overrides,
       }
@@ -264,7 +265,7 @@ describe('toTransactionDraft', () => {
       type: 'expense',
       amount: '10',
       categoryId: 'c1',
-      date: Date.UTC(2026, 5, 15),
+      date: dateOnly(2026, 5, 15),
       repeat: null,
     })
   })
@@ -305,9 +306,14 @@ describe('toTransactionDraft', () => {
     expect(draft.type !== 'transfer' && draft.repeat?.dayOfWeek).toBe(3)
   })
 
-  it('turns an unparseable date into NaN, which the write seam refuses by name', () => {
+  it('reports an unreadable date as null, which the write seam refuses by name', () => {
     const s = run(emptyDraft(), { kind: 'set-date', value: '' })
-    expect(Number.isNaN(toTransactionDraft(s, CATEGORIES).date)).toBe(true)
+    expect(toTransactionDraft(s, CATEGORIES).date).toBeNull()
+  })
+
+  it('reads a well-formed date as a calendar day', () => {
+    const s = run(emptyDraft(), { kind: 'set-date', value: '2026-06-15' })
+    expect(toTransactionDraft(s, CATEGORIES).date).toBe(dateOnly(2026, 5, 15))
   })
 
   it('leaves the end date null when none is set', () => {

@@ -1,10 +1,10 @@
-import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
+import type { DateOnly, Recurrence, RecurrenceFrequency } from '@/db/schema'
 import { nextOccurrence, today } from '@/lib/utils'
 
 export interface RecurrenceEditPatch {
   frequency: RecurrenceFrequency
   dayOfWeek: number
-  endDate: number | null
+  endDate: DateOnly | null
   isFixed: boolean
   amount: number
   note: string

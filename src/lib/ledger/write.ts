@@ -1,5 +1,6 @@
 import { db } from '@/db/db'
 import type {
+  DateOnly,
   Recurrence,
   RecurrenceFrequency,
   RecurrenceTemplate,
@@ -7,7 +8,7 @@ import type {
   TransactionType,
 } from '@/db/schema'
 import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
-import { generateId, nextOccurrence, toDateOnly, toPaise } from '@/lib/utils'
+import { generateId, nextOccurrence, toPaise } from '@/lib/utils'
 import { incrementVectorClock } from '@/sync/vector-clock'
 
 // ─── Result ───────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ export type LedgerFailure =
   | 'transfer-same-account'
   | 'attachment-too-large'
   | 'quota-exceeded'
-  | 'date-not-utc-midnight'
+  | 'invalid-date'
   | 'transaction-not-found'
   | 'type-change-not-allowed'
 
@@ -55,7 +56,7 @@ export interface RepeatSpec {
   frequency: RecurrenceFrequency
   /** Weekly anchor. Omit and it's derived from the Draft's own date. */
   dayOfWeek?: number
-  endDate: number | null
+  endDate: DateOnly | null
   isFixed: boolean
 }
 
@@ -64,8 +65,8 @@ interface DraftBase {
   amount: string
   note: string
   tags: string[]
-  /** Midnight UTC unix ms. Anything else is refused. */
-  date: number
+  /** The calendar day, or null when the field could not be read. */
+  date: DateOnly | null
   attachments: AttachmentPlan
 }
 
@@ -102,9 +103,12 @@ function parseAmount(raw: string): number | null {
   return toPaise(rupees)
 }
 
-/** Returns the amount in paise, or the first reason the Draft is refused. */
-function validateDraft(draft: TransactionDraft): LedgerResult<number> {
-  if (draft.date !== toDateOnly(draft.date)) return fail('date-not-utc-midnight')
+/** Returns the validated money and day, or the first reason the Draft is refused. */
+function validateDraft(draft: TransactionDraft): LedgerResult<{ amount: number; date: DateOnly }> {
+  // A DateOnly can only be built by the constructors in lib/utils, so if one
+  // exists at all it is already a midnight-UTC calendar day — the type carries
+  // what a runtime check used to. Null means the field couldn't be read.
+  if (draft.date === null) return fail('invalid-date')
 
   const amount = parseAmount(draft.amount)
   if (amount === null) return fail('invalid-amount')
@@ -120,7 +124,7 @@ function validateDraft(draft: TransactionDraft): LedgerResult<number> {
     if (isAttachmentTooLarge(att.sizeBytes)) return fail('attachment-too-large')
   }
 
-  return { ok: true, value: amount }
+  return { ok: true, value: { amount, date: draft.date } }
 }
 
 /**
@@ -173,7 +177,7 @@ function buildRecurrence(args: {
   groupId: string
   ownerId: string
   type: TransactionType
-  txnDate: number
+  txnDate: DateOnly
   repeat: RepeatSpec
   template: RecurrenceTemplate
 }): Recurrence {
@@ -269,7 +273,7 @@ export async function commitTransaction(input: CommitInput): Promise<LedgerResul
   if (quota) return fail(quota)
 
   const { groupId, userId, currency, draft } = input
-  const amount = validated.value
+  const { amount, date } = validated.value
   const fields = shape(draft, userId)
 
   const value = await db.atomically(async () => {
@@ -303,7 +307,7 @@ export async function commitTransaction(input: CommitInput): Promise<LedgerResul
           groupId,
           ownerId: userId,
           type: draft.type,
-          txnDate: draft.date,
+          txnDate: date,
           repeat: draft.repeat,
           template: { ...common, attachmentIds: [] },
         }),
@@ -312,7 +316,7 @@ export async function commitTransaction(input: CommitInput): Promise<LedgerResul
 
     const transaction = buildLedgerRow(
       txnId,
-      { ...common, attachmentIds, date: draft.date, recurrenceId },
+      { ...common, attachmentIds, date, recurrenceId },
       authorSeq,
     )
     await db.transactions.put(transaction)
@@ -348,7 +352,7 @@ export async function amendTransaction(input: AmendInput): Promise<LedgerResult<
   if (quota) return fail(quota)
 
   const { userId, txnId, draft } = input
-  const amount = validated.value
+  const { amount, date } = validated.value
 
   return db.atomically(async (): Promise<LedgerResult<Transaction>> => {
     // Both refusals below must stay ahead of every write in this block — a
@@ -375,7 +379,7 @@ export async function amendTransaction(input: AmendInput): Promise<LedgerResult<
       amount,
       note: draft.note.trim(),
       tags: draft.tags,
-      date: draft.date,
+      date,
       attachmentIds: [...keptIds, ...addedIds],
       accountId: fields.accountId,
       toAccountId: fields.toAccountId,

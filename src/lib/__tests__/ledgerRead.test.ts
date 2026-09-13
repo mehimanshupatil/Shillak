@@ -16,9 +16,10 @@ import {
   statedIncomeBaseline,
   totals,
 } from '@/lib/ledger/read'
+import { dateOnly } from '@/lib/utils'
 
-const JUN = (day: number) => Date.UTC(2026, 5, day)
-const MAY = (day: number) => Date.UTC(2026, 4, day)
+const JUN = (day: number) => dateOnly(2026, 5, day)
+const MAY = (day: number) => dateOnly(2026, 4, day)
 
 let nextId = 0
 
@@ -200,7 +201,7 @@ describe('monthlyTotals', () => {
   })
 
   it('crosses a year boundary backwards', () => {
-    const buckets = monthlyTotals(ledgerOf([]), { today: Date.UTC(2026, 1, 10), months: 4 })
+    const buckets = monthlyTotals(ledgerOf([]), { today: dateOnly(2026, 1, 10), months: 4 })
     expect(buckets.map((b) => [b.year, b.month])).toEqual([
       [2025, 10],
       [2025, 11],
@@ -221,7 +222,7 @@ describe('monthlyTotals', () => {
   })
 
   it('drops transactions outside the window rather than folding them into an edge', () => {
-    const ledger = ledgerOf([txn({ date: Date.UTC(2025, 0, 1), amount: 100 })])
+    const ledger = ledgerOf([txn({ date: dateOnly(2025, 0, 1), amount: 100 })])
     const buckets = monthlyTotals(ledger, { today: JUN(15), months: 2 })
     expect(buckets.every((b) => b.expense === 0)).toBe(true)
   })
@@ -249,16 +250,16 @@ describe('monthRange', () => {
   })
 
   it('handles February in a leap year', () => {
-    expect(monthRange(Date.UTC(2024, 1, 10))).toEqual({
-      from: Date.UTC(2024, 1, 1),
-      to: Date.UTC(2024, 1, 29),
+    expect(monthRange(dateOnly(2024, 1, 10))).toEqual({
+      from: dateOnly(2024, 1, 1),
+      to: dateOnly(2024, 1, 29),
     })
   })
 
   it('handles December without spilling into the next year', () => {
-    expect(monthRange(Date.UTC(2026, 11, 5))).toEqual({
-      from: Date.UTC(2026, 11, 1),
-      to: Date.UTC(2026, 11, 31),
+    expect(monthRange(dateOnly(2026, 11, 5))).toEqual({
+      from: dateOnly(2026, 11, 1),
+      to: dateOnly(2026, 11, 31),
     })
   })
 })
@@ -445,7 +446,7 @@ describe('monthlySpendByCategory', () => {
   })
 
   it('leaves out categories with no spending in the window', () => {
-    const ledger = ledgerOf([txn({ categoryId: 'a', date: Date.UTC(2020, 0, 1), amount: 100 })])
+    const ledger = ledgerOf([txn({ categoryId: 'a', date: dateOnly(2020, 0, 1), amount: 100 })])
     expect(monthlySpendByCategory(ledger, { today: JUN(15), months: 3 })).toEqual({})
   })
 

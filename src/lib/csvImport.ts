@@ -1,10 +1,10 @@
 import Papa from 'papaparse'
 import { db } from '@/db/db'
-import type { Category, Transaction } from '@/db/schema'
+import type { Category, DateOnly, Transaction } from '@/db/schema'
 import { resolveCategory } from '@/lib/categorize'
 import type { LedgerRowSpec } from '@/lib/ledger/write'
 import { commitMany } from '@/lib/ledger/write'
-import { toPaise } from '@/lib/utils'
+import { dateOnly, toPaise } from '@/lib/utils'
 
 // ─── Parsing ──────────────────────────────────────────────────────────────────
 
@@ -86,9 +86,9 @@ const MONTH_NAMES = [
   'dec',
 ]
 
-function buildUtcDate(y: number, mo: number, d: number): number | null {
+function buildUtcDate(y: number, mo: number, d: number): DateOnly | null {
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
-  const ts = Date.UTC(y, mo - 1, d)
+  const ts = dateOnly(y, mo - 1, d)
   const check = new Date(ts)
   // Reject silently-rolled-over dates (e.g. 31 Feb -> 3 Mar).
   if (check.getUTCFullYear() !== y || check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) {
@@ -98,7 +98,7 @@ function buildUtcDate(y: number, mo: number, d: number): number | null {
 }
 
 /** Parse a raw date cell using an explicit, user-confirmed format. Returns null if it doesn't match. */
-export function parseDateWithFormat(raw: string, format: DateFormat): number | null {
+export function parseDateWithFormat(raw: string, format: DateFormat): DateOnly | null {
   const s = raw.trim()
   if (!s) return null
 
@@ -184,7 +184,7 @@ export function amountToPaiseAndType(rupees: number): {
 // ─── Duplicate detection ──────────────────────────────────────────────────────
 
 export function isDuplicateTransaction(
-  candidate: { date: number; amount: number; note: string },
+  candidate: Pick<Transaction, 'date' | 'amount' | 'note'>,
   existing: Array<Pick<Transaction, 'date' | 'amount' | 'note'>>,
 ): boolean {
   const note = candidate.note.trim().toLowerCase()
@@ -200,7 +200,7 @@ export function isDuplicateTransaction(
 
 export interface PreviewRow {
   ok: true
-  date: number
+  date: DateOnly
   note: string
   amountPaise: number
   type: 'expense' | 'income'
@@ -226,11 +226,11 @@ export function buildPreviewRows(
   amountMode: AmountMode,
   dateFormat: DateFormat,
   categories: Category[],
-  existing: Array<{ date: number; amount: number; note: string }>,
+  existing: Array<Pick<Transaction, 'date' | 'amount' | 'note'>>,
 ): { rows: Array<PreviewRow | PreviewRowError>; categoryOverride: Record<number, string> } {
   const rows: Array<PreviewRow | PreviewRowError> = []
   const categoryOverride: Record<number, string> = {}
-  const seen = [...existing]
+  const seen: Array<Pick<Transaction, 'date' | 'amount' | 'note'>> = [...existing]
 
   dataRows.forEach((cells, i) => {
     const dateRaw = mapping.date !== null ? (cells[mapping.date] ?? '') : ''
@@ -271,7 +271,7 @@ export function buildPreviewRows(
 // ─── Import commit ────────────────────────────────────────────────────────────
 
 export interface ResolvedCsvRow {
-  date: number
+  date: DateOnly
   amount: number // integer paise, always positive
   type: 'expense' | 'income'
   categoryId: string
@@ -293,7 +293,7 @@ export async function commitCsvImport(
   const existing = await db.transactions.where((t) => t.groupId === groupId && t.deletedAt === null)
 
   const specs: LedgerRowSpec[] = []
-  const seen: Array<{ date: number; amount: number; note: string }> = existing
+  const seen: Array<Pick<Transaction, 'date' | 'amount' | 'note'>> = existing
   let skipped = 0
 
   for (const row of rows) {

@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { RecurrenceFrequency, Transaction } from '@/db/schema'
+import type { DateOnly, RecurrenceFrequency, Transaction } from '@/db/schema'
 
 // ─── Tailwind class merge ──────────────────────────────────────────────────────
 export function cn(...inputs: ClassValue[]) {
@@ -52,14 +52,29 @@ export function toBaseCurrency(
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
+//
+// A stored date is a calendar day, not an instant. `DateOnly` is branded so the
+// two can't be swapped by accident; this is the only module that can mint one.
+
+function brand(ms: number): DateOnly {
+  return ms as DateOnly
+}
 
 /**
  * Strip time — returns midnight UTC unix ms for a given date. The canonical
  * conversion: anything comparing or storing a transaction date goes through here.
  */
-export function toDateOnly(date: Date | number): number {
+export function toDateOnly(date: Date | number): DateOnly {
   const d = typeof date === 'number' ? new Date(date) : date
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  return brand(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+}
+
+/**
+ * Builds a calendar day from its parts. The only other way in besides
+ * `toDateOnly` — everything else composes from these two.
+ */
+export function dateOnly(year: number, month: number, day: number): DateOnly {
+  return brand(Date.UTC(year, month, day))
 }
 
 /**
@@ -71,9 +86,9 @@ export function toDateOnly(date: Date | number): number {
  * Deriving it from the UTC instant instead would put anyone east of UTC a day
  * behind their own calendar for the first hours of every day.
  */
-export function today(): number {
+export function today(): DateOnly {
   const d = new Date()
-  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  return dateOnly(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
 /** 1 → '1st', 2 → '2nd', 3 → '3rd', 4 → '4th', 11-13 → '11th'/'12th'/'13th', etc. */
@@ -97,10 +112,10 @@ export function ordinal(n: number): string {
  * Clamps to last valid day of target month (Jan 31 + 1m = Feb 28/29, not Mar 2).
  */
 export function advanceDate(
-  date: number,
+  date: DateOnly,
   frequency: RecurrenceFrequency,
   interval: number,
-): number {
+): DateOnly {
   const d = new Date(date)
   const year = d.getUTCFullYear()
   const month = d.getUTCMonth()
@@ -108,30 +123,36 @@ export function advanceDate(
 
   switch (frequency) {
     case 'daily':
-      return Date.UTC(year, month, day + interval)
+      return dateOnly(year, month, day + interval)
 
     case 'weekly':
-      return Date.UTC(year, month, day + 7 * interval)
+      return dateOnly(year, month, day + 7 * interval)
 
     case 'monthly': {
       const targetMonth = month + interval
-      const lastDay = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate()
-      return Date.UTC(year, targetMonth, Math.min(day, lastDay))
+      const lastDay = new Date(dateOnly(year, targetMonth + 1, 0)).getUTCDate()
+      return dateOnly(year, targetMonth, Math.min(day, lastDay))
     }
 
     case 'quarterly': {
       const targetMonth = month + 3 * interval
-      const lastDay = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate()
-      return Date.UTC(year, targetMonth, Math.min(day, lastDay))
+      const lastDay = new Date(dateOnly(year, targetMonth + 1, 0)).getUTCDate()
+      return dateOnly(year, targetMonth, Math.min(day, lastDay))
     }
   }
 }
 
+/** Moves a calendar day forward (or back) by whole days. */
+export function addDays(day: DateOnly, days: number): DateOnly {
+  const d = new Date(day)
+  return dateOnly(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days)
+}
+
 /** Smallest midnight-UTC timestamp ≥ `date` that falls on `dayOfWeek` (0 = Sun … 6 = Sat). */
-export function nextWeekday(date: number, dayOfWeek: number): number {
+export function nextWeekday(date: DateOnly, dayOfWeek: number): DateOnly {
   const d = new Date(date)
   const diff = (dayOfWeek - d.getUTCDay() + 7) % 7
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff)
+  return dateOnly(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff)
 }
 
 /**
@@ -139,10 +160,10 @@ export function nextWeekday(date: number, dayOfWeek: number): number {
  * For weekly, aligns to `dayOfWeek` first, then skips forward a week if that lands on `after` itself.
  */
 export function nextOccurrence(
-  after: number,
+  after: DateOnly,
   frequency: RecurrenceFrequency,
   dayOfWeek?: number,
-): number {
+): DateOnly {
   if (frequency === 'weekly') {
     const dow = dayOfWeek ?? new Date(after).getUTCDay()
     const aligned = nextWeekday(after, dow)
@@ -177,23 +198,22 @@ const WEEKDAY_FULL_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 })
 
 /** A midnight-UTC date → '15 Jun'. */
-export function formatDateShort(unixMs: number): string {
-  return DATE_SHORT_FORMATTER.format(new Date(unixMs))
+export function formatDateShort(day: DateOnly): string {
+  return DATE_SHORT_FORMATTER.format(new Date(day))
 }
 
 /** A midnight-UTC date → '15 Jun 2026'. Never for an instant. */
-export function formatDateFull(unixMs: number): string {
-  return DATE_FULL_FORMATTER.format(new Date(unixMs))
+export function formatDateFull(day: DateOnly): string {
+  return DATE_FULL_FORMATTER.format(new Date(day))
 }
 
 /** Returns 'Today', 'Yesterday', a weekday name, or a short date. */
-export function relativeDate(unixMs: number): string {
+export function relativeDate(day: DateOnly): string {
   const t = today()
-  const d = toDateOnly(new Date(unixMs))
-  if (d === t) return 'Today'
-  if (d === t - 86_400_000) return 'Yesterday'
-  if (d >= t - 6 * 86_400_000) return WEEKDAY_FULL_FORMATTER.format(new Date(unixMs))
-  return formatDateShort(unixMs)
+  if (day === t) return 'Today'
+  if (day === t - 86_400_000) return 'Yesterday'
+  if (day >= t - 6 * 86_400_000) return WEEKDAY_FULL_FORMATTER.format(new Date(day))
+  return formatDateShort(day)
 }
 
 // ─── Date input parsing ───────────────────────────────────────────────────────
@@ -202,17 +222,17 @@ export function relativeDate(unixMs: number): string {
  * Parse a `YYYY-MM-DD` date input string to midnight UTC unix ms.
  * Throws if the string is not a valid date.
  */
-export function parseDateStr(dateStr: string): number {
+export function parseDateStr(dateStr: string): DateOnly {
   const parts = dateStr.split('-')
   const y = Number(parts[0])
   const mo = Number(parts[1])
   const d = Number(parts[2])
   if (!y || !mo || !d) throw new Error(`Invalid date string: ${dateStr}`)
-  return Date.UTC(y, mo - 1, d)
+  return dateOnly(y, mo - 1, d)
 }
 
 /** Midnight-UTC unix ms (or a UTC-anchored Date) → 'YYYY-MM-DD'. Inverse of parseDateStr. */
-export function formatDateStr(date: number | Date): string {
+export function formatDateStr(date: DateOnly | Date): string {
   const d = typeof date === 'number' ? new Date(date) : date
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
     d.getUTCDate(),
@@ -226,7 +246,7 @@ const MONTH_SHORT_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 
 /** 0-indexed month (0 = Jan … 11 = Dec) → short label, e.g. 'Jan'. */
 export function monthShort(monthIndex: number): string {
-  return MONTH_SHORT_FORMATTER.format(new Date(Date.UTC(2000, monthIndex, 1)))
+  return MONTH_SHORT_FORMATTER.format(new Date(dateOnly(2000, monthIndex, 1)))
 }
 
 const WEEKDAY_SHORT_FORMATTER = new Intl.DateTimeFormat('en-IN', {
@@ -240,7 +260,7 @@ const WEEKDAY_LONG_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 
 /** 0 = Sun … 6 = Sat → weekday label. Jan 2 2000 (a UTC Sunday) is used as a stable anchor. */
 export function weekdayLabel(dayOfWeek: number, style: 'short' | 'long' = 'short'): string {
-  const anchor = new Date(Date.UTC(2000, 0, 2 + dayOfWeek))
+  const anchor = new Date(dateOnly(2000, 0, 2 + dayOfWeek))
   return (style === 'long' ? WEEKDAY_LONG_FORMATTER : WEEKDAY_SHORT_FORMATTER).format(anchor)
 }
 

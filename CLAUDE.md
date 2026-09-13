@@ -39,17 +39,25 @@ Household finance for couples and families with **pooled finances**. Both partne
 | Local DB | Dexie.js v4 |
 | Encryption | Web Crypto API (AES-GCM) |
 | Reactive queries | `useLiveQuery` (dexie-react-hooks) |
-| Derived cache | TanStack Query v5 |
+| Derived reads | `src/lib/ledger/read.ts` over a live `Ledger` |
 | App state | Zustand |
 | Sync P2P | Native `RTCPeerConnection` + `RTCDataChannel` |
 | QR | qrcode + html5-qrcode |
 | Compression | lz-string |
 | PWA | vite-plugin-pwa + Workbox |
 
-**`useLiveQuery` vs TanStack Query rule:**
+**Ledger reads are live.** Anything derived from transactions, accounts, budgets or
+goals goes through `src/lib/ledger/read.ts`: one `useLiveQuery` per space builds a
+`Ledger`, and every figure is a pure question over it. Dexie invalidates on write, so
+there is no cache key to keep in sync and nothing to invalidate by hand.
+
 - Raw Dexie table reads → `useLiveQuery`
-- Derived/computed values (balances, summaries, totals) → TanStack Query
-- Never mix both for the same data source — double subscription causes stale reads.
+- Derived ledger figures → a question in `ledger/read.ts`, over a live `Ledger`
+- Never read the same table through two mechanisms — double subscription causes stale reads.
+
+TanStack Query has been removed — every derived read is live, so it had no callers left.
+If a future derived value is genuinely *not* backed by Dexie, bring it back for that;
+don't reintroduce it for ledger figures.
 
 ---
 
@@ -237,7 +245,8 @@ db.open() → throws → StorageErrorScreen (dead end)
 - **Never increment another user's vector clock.**
 - **Admin invariant after every sync apply.** 0 admins → promote oldest. 2+ → keep newest updatedAt.
 - **Budget/goal conflicts never auto-resolved.** Always ConflictLog + user prompt.
-- **`useLiveQuery` for raw reads. TanStack Query for derived only.** Never mix for same source.
+- **`useLiveQuery` for raw reads. Derived ledger figures go through `ledger/read.ts`.** Never read one table through two mechanisms.
+- **Derived-read questions take `today` as a parameter.** Nothing in `ledger/read.ts` reads the clock — that is what makes every caller testable at an arbitrary date.
 - **Seed via `createDefaultCategories(groupId, userId)`.** Never spread raw seed constants.
 - **QR chunk ≤600 bytes raw** (encryption + base64 + JSON wrapper fits QR capacity).
 - **DB open failure → full-screen error.** Never proceed silently without storage.
@@ -252,6 +261,9 @@ db.open() → throws → StorageErrorScreen (dead end)
 
 Before shipping any code that touches amounts, dates, filters, or totals, verify:
 
+0. **Writes go through `ledger/write.ts`, reads through `ledger/read.ts`.** Items 1–4 below are
+   enforced inside those two modules. Code that hand-rolls a transaction record or sums
+   `txn.amount` in a page is the bug, regardless of whether it happens to be correct today.
 1. **Amounts use `toPaise()`** — every user-input path calls `toPaise()` immediately; no raw float stored.
 2. **Totals use `toBaseCurrency()`** — every sum/aggregation of `txn.amount` uses `toBaseCurrency(txn, currency)` not `txn.amount` directly. Applies to charts, budgets, goal tracking, account balances.
 3. **Transfers excluded from expense/income totals** — any filter or aggregate that counts "expenses" or "income" must guard with `t.type !== 'transfer'`. Budget spend, summary cards, category breakdowns all apply.

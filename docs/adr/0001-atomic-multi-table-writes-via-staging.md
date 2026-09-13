@@ -37,3 +37,29 @@ scoped.
   don't write to it from inside an atomic block.
 - Callers write normal-looking code (`await db.transactions.put(x)` etc.) inside
   `db.atomically(fn)` — the staging/replay split is invisible to them.
+
+## Amendment — the consequences are now enforced, not advisory
+
+The design above is unchanged. What changed is that the facts a caller had to hold in
+their head are held by the code instead, after each one turned out to be reachable:
+
+- **Atomic blocks cannot nest.** Staging is one shared buffer per table, so a second
+  block opened while one is in flight overwrote it and the inner completion discarded
+  the outer's writes. Reachable in the UI: the conflict resolver renders above the sync
+  tabs while an apply is running. `atomically` now throws rather than silently losing
+  writes. Compose by passing one block down, not by nesting.
+- **The keystore rule is enforced.** Writes go through `db.keystore()`, which throws
+  inside a block. Reads stay on `db.keystoreTable` and are always safe. `ChangePinSheet`
+  and `importIdentityBackup` both write it deliberately after the block closes.
+- **Reads no longer disagree with each other.** `first()` honours staged writes like
+  `get`/`toArray`/`where`/`count` already did. `canDecryptWithKey` deliberately does
+  not — a staged row was encrypted with the *active* key, so testing a candidate key
+  against it would prove nothing — and now says so.
+- **`endStaging()` was two operations wearing one name** — discard, and collect for
+  replay — told apart only by whether the caller used the return value. It is now
+  `discardStaged()` and `collectStaged()`.
+- **Replay order is documented where it is enforced.** `conflict.ts` says categories
+  must precede transactions; what actually guarantees it is the array order in
+  `encryptedTables()`, which now carries the reason.
+- **`where()` stopped claiming to filter soft-deletes.** It never did. The Ledger's
+  own `ledgerFrom` is what decides which rows still count.

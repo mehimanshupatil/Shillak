@@ -111,10 +111,10 @@ export default function SettingsPage() {
   }, [activeGroupId])
 
   async function handleExport() {
-    if (!activeGroupId || !group) return
+    if (!activeGroupId || !group || !currentUserId) return
     setExportLoading(true)
     try {
-      const snapshot = await exportGroupSnapshot(activeGroupId)
+      const snapshot = await exportGroupSnapshot(activeGroupId, currentUserId)
       downloadSnapshot(snapshot, group.name)
     } catch (e) {
       alert(`Export failed: ${String(e)}`)
@@ -128,7 +128,8 @@ export default function SettingsPage() {
     if (!file) return
     e.target.value = ''
     try {
-      const { imported } = await importGroupSnapshot(file)
+      if (!currentUserId) return
+      const { imported } = await importGroupSnapshot(file, currentUserId)
       setImportMsg(`Imported ${imported} records.`)
       // clear before start: start() no-ops while a timer is pending, so a second
       // import inside the 4s window would otherwise keep the first deadline.

@@ -45,7 +45,7 @@ export default function CreateProfileScreen({ onNext }: Props) {
       setKey(key)
 
       const userId = generateId()
-      await db.keystoreTable.put({ id: 1, salt, pinCheck, pinChangeInProgress: false, userId })
+      await db.keystore().put({ id: 1, salt, pinCheck, pinChangeInProgress: false, userId })
 
       await db.users.put({
         userId,

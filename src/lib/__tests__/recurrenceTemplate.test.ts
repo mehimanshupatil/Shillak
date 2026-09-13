@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Recurrence } from '@/db/schema'
-import { applyRecurrenceEdit, buildRecurrenceTemplate } from '@/lib/recurrenceTemplate'
+import { applyRecurrenceEdit } from '@/lib/recurrenceTemplate'
 import { nextOccurrence, today } from '@/lib/utils'
 
 function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
@@ -33,45 +33,6 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
     ...overrides,
   }
 }
-
-describe('buildRecurrenceTemplate', () => {
-  const baseInput = {
-    recurrenceId: 'rec-1',
-    groupId: 'g1',
-    ownerId: 'u1',
-    txnDate: Date.UTC(2020, 5, 15),
-    endDate: null,
-    isFixed: false,
-    template: makeRecurrence().template,
-  }
-
-  it('derives nextDue one period after the anchor transaction date, for each frequency', () => {
-    for (const frequency of ['daily', 'weekly', 'monthly', 'quarterly'] as const) {
-      const rec = buildRecurrenceTemplate({ ...baseInput, frequency, dayOfWeek: 1 })
-      expect(rec.nextDue).toBe(nextOccurrence(baseInput.txnDate, frequency, 1))
-    }
-  })
-
-  it('only sets dayOfWeek when frequency is weekly', () => {
-    const weekly = buildRecurrenceTemplate({ ...baseInput, frequency: 'weekly', dayOfWeek: 3 })
-    expect(weekly.dayOfWeek).toBe(3)
-
-    const monthly = buildRecurrenceTemplate({ ...baseInput, frequency: 'monthly', dayOfWeek: 3 })
-    expect(monthly.dayOfWeek).toBeUndefined()
-  })
-
-  it('anchors monthly/quarterly to the transaction day-of-month via nextOccurrence/advanceDate', () => {
-    const txnDate = Date.UTC(2020, 0, 31) // Jan 31
-    const rec = buildRecurrenceTemplate({
-      ...baseInput,
-      txnDate,
-      frequency: 'monthly',
-      dayOfWeek: 0,
-    })
-    // Feb has 29 days in 2020 (leap year) — clamped, not overflowed into March
-    expect(rec.nextDue).toBe(Date.UTC(2020, 1, 29))
-  })
-})
 
 describe('applyRecurrenceEdit', () => {
   const basePatch = {

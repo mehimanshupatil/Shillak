@@ -1,6 +1,6 @@
 import { PaperclipIcon, XIcon } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
@@ -9,10 +9,16 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
-import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
-import { formatDateStr, generateId, parseDateStr, toPaise } from '@/lib/utils'
+import { checkStorageQuota, fileToBase64, isAttachmentTooLarge } from '@/lib/attachments'
+import {
+  draftFromTransaction,
+  draftReducer,
+  emptyDraft,
+  toTransactionDraft,
+} from '@/lib/ledger/draft'
+import { ledgerFailureMessage } from '@/lib/ledger/messages'
+import { amendTransaction } from '@/lib/ledger/write'
 import useAppStore from '@/stores/app.store'
-import { incrementVectorClock } from '@/sync/vector-clock'
 
 interface Props {
   open: boolean
@@ -23,30 +29,19 @@ interface Props {
 
 type PendingAttachment = { mimeType: string; data: string; sizeBytes: number }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function TransactionEditSheet({ open, onClose, transaction, currency }: Props) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
 
-  const [amountStr, setAmountStr] = useState('')
-  const [note, setNote] = useState('')
-  const [dateStr, setDateStr] = useState('')
-  const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [toAccountId, setToAccountId] = useState<string | null>(null)
-  const [paidBy, setPaidBy] = useState<string | null>(null)
-  const [tags, setTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
-  const [toDelete, setToDelete] = useState<string[]>([])
-  const [newAttachments, setNewAttachments] = useState<PendingAttachment[]>([])
+  const [draft, dispatch] = useReducer(draftReducer, undefined, emptyDraft)
+  // Read-only aliases: the rules live in the reducer, the markup below just reads.
+  const { amount: amountStr, note, dateStr, tags, tagInput } = draft
+  const selectedCatId = draft.categoryId
+  const selectedAccountId = draft.accountId
+  const toAccountId = draft.toAccountId
+  const paidBy = draft.paidBy
+  const newAttachments = draft.attachments.add
+
   const [attachmentWarn, setAttachmentWarn] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -89,29 +84,14 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
 
   useEffect(() => {
     if (open && transaction) {
-      setAmountStr((transaction.amount / 100).toFixed(2))
-      setNote(transaction.note)
-      setSelectedCatId(transaction.categoryId || null)
-      setSelectedAccountId(transaction.accountId ?? null)
-      setToAccountId(transaction.toAccountId ?? null)
-      setPaidBy(transaction.paidBy ?? null)
-      setTags(transaction.tags ?? [])
-      setTagInput('')
-      setToDelete([])
-      setNewAttachments([])
+      dispatch({ kind: 'seed', value: draftFromTransaction(transaction) })
       setAttachmentWarn('')
       setError('')
-      setDateStr(formatDateStr(transaction.date))
     }
   }, [open, transaction])
 
   function addTag() {
-    const t = tagInput
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, '')
-    if (t && !tags.includes(t) && tags.length < 10) setTags([...tags, t])
-    setTagInput('')
+    dispatch({ kind: 'commit-tag' })
   }
 
   async function handleAttachmentPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -139,67 +119,26 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
       const data = await fileToBase64(file)
       newAtts.push({ mimeType: file.type, data, sizeBytes: file.size })
     }
-    setNewAttachments((prev) => [...prev, ...newAtts])
+    dispatch({ kind: 'add-attachments', value: newAtts })
   }
 
   async function handleSave() {
-    if (!transaction) return
-    const amount = parseFloat(amountStr)
-    if (!amountStr || Number.isNaN(amount) || amount <= 0) {
-      setError('Enter a valid amount')
-      return
-    }
-    if (transaction.type !== 'transfer' && !selectedCatId) {
-      setError('Select a category')
-      return
-    }
+    if (!transaction || !currentUserId) return
     setLoading(true)
     setError('')
+
     try {
-      const date = parseDateStr(dateStr)
-
-      // Delete removed attachments
-      for (const id of toDelete) {
-        await db.attachments.delete(id)
-      }
-
-      // Save new attachments
-      const newIds: string[] = []
-      for (const att of newAttachments) {
-        const attachmentId = generateId()
-        await db.attachments.put({
-          attachmentId,
-          groupId: transaction.groupId,
-          txnId: transaction.txnId,
-          mimeType: att.mimeType,
-          data: att.data,
-          sizeBytes: att.sizeBytes,
-          createdAt: Date.now(),
-        })
-        newIds.push(attachmentId)
-      }
-
-      const remainingIds = (existingAttachments ?? [])
-        .filter((a) => !toDelete.includes(a.attachmentId))
-        .map((a) => a.attachmentId)
-
-      const newSeq =
-        activeGroupId && currentUserId
-          ? await incrementVectorClock(activeGroupId, currentUserId)
-          : undefined
-      await db.transactions.update(transaction.txnId, {
-        amount: toPaise(amount),
-        categoryId: transaction.type === 'transfer' ? '' : (selectedCatId ?? ''),
-        note: note.trim(),
-        date,
-        accountId: selectedAccountId,
-        toAccountId: transaction.type === 'transfer' ? toAccountId : null,
-        paidBy: transaction.type === 'transfer' ? null : (paidBy ?? currentUserId),
-        tags,
-        attachmentIds: [...remainingIds, ...newIds],
-        updatedAt: Date.now(),
-        ...(newSeq !== undefined && { authorSeq: newSeq }),
+      const result = await amendTransaction({
+        userId: currentUserId,
+        txnId: transaction.txnId,
+        draft: toTransactionDraft(draft, categories ?? []),
       })
+
+      if (!result.ok) {
+        setError(ledgerFailureMessage(result.failure))
+        return
+      }
+
       onClose()
     } catch (e) {
       setError(String(e))
@@ -210,8 +149,8 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
 
   const currencySymbol = currency === 'INR' ? '₹' : currency
 
-  const visibleExisting = (existingAttachments ?? []).filter(
-    (a) => !toDelete.includes(a.attachmentId),
+  const visibleExisting = (existingAttachments ?? []).filter((a) =>
+    draft.attachments.keep.includes(a.attachmentId),
   )
 
   return (
@@ -254,7 +193,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
               min="0"
               step="0.01"
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
+              onChange={(e) => dispatch({ kind: 'set-amount', value: e.target.value })}
               placeholder="0.00"
               className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
                          text-3xl font-mono font-bold text-text-primary
@@ -277,7 +216,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     <button
                       key={cat.categoryId}
                       type="button"
-                      onClick={() => setSelectedCatId(cat.categoryId)}
+                      onClick={() => dispatch({ kind: 'set-category', value: cat.categoryId })}
                       className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                         active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                       }`}
@@ -301,7 +240,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
           <Input
             type="text"
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => dispatch({ kind: 'set-note', value: e.target.value })}
             placeholder="Note (optional)"
             className="h-11 rounded-xl bg-surface-2 border-border text-sm
                        text-text-primary placeholder:text-text-tertiary
@@ -320,7 +259,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     #{tag}
                     <button
                       type="button"
-                      onClick={() => setTags(tags.filter((t) => t !== tag))}
+                      onClick={() => dispatch({ kind: 'remove-tag', tag })}
                       aria-label={`Remove ${tag}`}
                     >
                       <XIcon size={9} />
@@ -332,7 +271,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             <Input
               type="text"
               value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
+              onChange={(e) => dispatch({ kind: 'set-tag-input', value: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                   e.preventDefault()
@@ -382,7 +321,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     )}
                     <button
                       type="button"
-                      onClick={() => setToDelete((prev) => [...prev, att.attachmentId])}
+                      onClick={() => dispatch({ kind: 'drop-attachment', id: att.attachmentId })}
                       className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
                                  flex items-center justify-center"
                     >
@@ -409,9 +348,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     )}
                     <button
                       type="button"
-                      onClick={() =>
-                        setNewAttachments((prev) => prev.filter((_, idx) => idx !== i))
-                      }
+                      onClick={() => dispatch({ kind: 'drop-new-attachment', index: i })}
                       className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
                                  flex items-center justify-center"
                     >
@@ -441,7 +378,7 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setPaidBy(m.userId)}
+                      onClick={() => dispatch({ kind: 'set-paid-by', value: m.userId })}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                         active ? 'bg-accent text-black' : 'bg-surface-2 text-text-secondary'
                       }`}
@@ -477,7 +414,12 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                           <button
                             key={acc.accountId}
                             type="button"
-                            onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                            onClick={() =>
+                              dispatch({
+                                kind: 'set-account',
+                                value: active ? null : acc.accountId,
+                              })
+                            }
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
                             style={active ? { backgroundColor: acc.color } : {}}
                           >
@@ -501,7 +443,12 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                           <button
                             key={acc.accountId}
                             type="button"
-                            onClick={() => setToAccountId(active ? null : acc.accountId)}
+                            onClick={() =>
+                              dispatch({
+                                kind: 'set-to-account',
+                                value: active ? null : acc.accountId,
+                              })
+                            }
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
                             style={active ? { backgroundColor: acc.color } : {}}
                           >
@@ -526,7 +473,9 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
                         <button
                           key={acc.accountId}
                           type="button"
-                          onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                          onClick={() =>
+                            dispatch({ kind: 'set-account', value: active ? null : acc.accountId })
+                          }
                           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                             active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                           }`}
@@ -545,7 +494,11 @@ export default function TransactionEditSheet({ open, onClose, transaction, curre
             <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
               Date
             </p>
-            <DatePicker value={dateStr} onChange={setDateStr} className="w-full h-11" />
+            <DatePicker
+              value={dateStr}
+              onChange={(value) => dispatch({ kind: 'set-date', value })}
+              className="w-full h-11"
+            />
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

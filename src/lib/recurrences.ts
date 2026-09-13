@@ -1,4 +1,5 @@
 import { db } from '@/db/db'
+import { buildLedgerRow } from '@/lib/ledger/write'
 import { advanceDate, generateId, today } from '@/lib/utils'
 import { incrementVectorClock } from '@/sync/vector-clock'
 
@@ -21,16 +22,13 @@ export async function processRecurrences(groupId: string, userId: string): Promi
         if (existing.length === 0) {
           const newSeq = await incrementVectorClock(groupId, userId)
 
-          await db.transactions.put({
-            ...rec.template,
-            txnId: generateId(),
-            date: dueDate,
-            recurrenceId: rec.recurrenceId,
-            authorSeq: newSeq,
-            deletedAt: null,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          })
+          await db.transactions.put(
+            buildLedgerRow(
+              generateId(),
+              { ...rec.template, date: dueDate, recurrenceId: rec.recurrenceId },
+              newSeq,
+            ),
+          )
         }
 
         dueDate = advanceDate(dueDate, rec.frequency, rec.interval)

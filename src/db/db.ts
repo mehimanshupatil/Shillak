@@ -65,8 +65,13 @@ export class EncryptedTable<T extends Record<string, any>> {
     this.staged = new Map()
   }
 
-  /** Stops staging, returning replay actions to run inside a real transaction. */
-  endStaging(): Array<() => Promise<unknown>> {
+  /** Stops staging and throws away everything queued. */
+  discardStaged(): void {
+    this.staged = null
+  }
+
+  /** Stops staging, handing back the writes to replay inside a real transaction. */
+  collectStaged(): Array<() => Promise<unknown>> {
     const staged = this.staged
     this.staged = null
     if (!staged) return []
@@ -155,7 +160,12 @@ export class EncryptedTable<T extends Record<string, any>> {
     return Array.from(byId.values())
   }
 
+  /** Lowest key first. Staging-aware, like get/toArray/where/count. */
   async first(): Promise<T | undefined> {
+    if (this.staged) {
+      const all = await this.toArray()
+      return all.sort((a, b) => String(a[this.keyField]).localeCompare(String(b[this.keyField])))[0]
+    }
     const row = await this.table.orderBy('_id').first()
     if (!row) return undefined
     return this.dec(row)
@@ -169,7 +179,11 @@ export class EncryptedTable<T extends Record<string, any>> {
     return true
   }
 
-  // Soft-delete aware filter — always exclude deleted records
+  /**
+   * Filters the whole table with a predicate. Note this is a scan, not an index
+   * lookup: every row is decrypted to run the predicate. Nothing is excluded
+   * automatically — callers that want to skip voided rows say so themselves.
+   */
   async where(predicate: (record: T) => boolean): Promise<T[]> {
     const all = await this.toArray()
     return all.filter(predicate)
@@ -202,6 +216,9 @@ export class EncryptedTable<T extends Record<string, any>> {
    * store. Only used for PIN-change crash recovery — a pinCheck match alone
    * doesn't prove a key can decrypt real data, since pinCheck is an
    * independent ciphertext. Returns null if the table is empty (inconclusive).
+   *
+   * Reads committed rows only: a staged write was encrypted with the active
+   * key, so testing a candidate key against it would prove nothing.
    */
   async canDecryptWithKey(key: CryptoKey): Promise<boolean | null> {
     const rows = await this.table.limit(1).toArray()
@@ -218,8 +235,41 @@ export class EncryptedTable<T extends Record<string, any>> {
 
 // ─── ShillakDB ────────────────────────────────────────────────────────────────
 class ShillakDB extends Dexie {
-  // Unencrypted
+  private staging = false
+
+  /**
+   * Unencrypted bootstrap record. Not staged by `atomically`, so writing it
+   * inside an atomic block would commit immediately while everything around it
+   * waited for the replay — see ADR-0001. `keystore()` enforces that; this
+   * stays for reads, which are always safe.
+   */
   keystoreTable!: Dexie.Table<KeystoreRecord, number>
+
+  /**
+   * Write handle for the keystore. Refuses inside an atomic block rather than
+   * relying on every caller remembering the rule.
+   */
+  keystore(): Pick<Dexie.Table<KeystoreRecord, number>, 'put' | 'update' | 'delete'> {
+    const guard = () => {
+      if (this.staging) {
+        throw new Error('keystore is not staged — write it outside db.atomically, not inside')
+      }
+    }
+    return {
+      put: (...args: Parameters<Dexie.Table<KeystoreRecord, number>['put']>) => {
+        guard()
+        return this.keystoreTable.put(...args)
+      },
+      update: (...args: Parameters<Dexie.Table<KeystoreRecord, number>['update']>) => {
+        guard()
+        return this.keystoreTable.update(...args)
+      },
+      delete: (...args: Parameters<Dexie.Table<KeystoreRecord, number>['delete']>) => {
+        guard()
+        return this.keystoreTable.delete(...args)
+      },
+    } as Pick<Dexie.Table<KeystoreRecord, number>, 'put' | 'update' | 'delete'>
+  }
 
   // Raw encrypted row tables (internal — access via EncryptedTable wrappers below)
   private _users!: Dexie.Table<EncryptedRow, string>
@@ -291,6 +341,15 @@ class ShillakDB extends Dexie {
     })
   }
 
+  /**
+   * Replay order for an atomic block, and it is load-bearing.
+   *
+   * Categories are replayed before transactions because `useLiveQuery` fires
+   * the moment the real transaction commits — a transaction whose category
+   * hasn't landed yet renders as "Unknown". Accounts come before transactions
+   * for the same reason. `conflict.ts` relies on this; nothing else should
+   * reorder it casually.
+   */
   private encryptedTables(): Array<EncryptedTable<Record<string, unknown>>> {
     return [
       this.users,
@@ -322,22 +381,38 @@ class ShillakDB extends Dexie {
    * staged, so don't write to it from inside an atomic block.
    */
   async atomically<T>(fn: () => Promise<T>): Promise<T> {
+    // Staging is a single shared buffer per table, so a second block opened
+    // while one is in flight would overwrite it and the inner completion would
+    // discard the outer's writes. Throwing is loud; silently losing writes is
+    // not. Callers that need to compose should pass one block down, not nest.
+    if (this.staging) {
+      throw new Error('db.atomically is already running — atomic blocks cannot nest')
+    }
+
     const tables = this.encryptedTables()
+    this.staging = true
     for (const t of tables) t.beginStaging()
 
     let result: T
     try {
       result = await fn()
     } catch (e) {
-      for (const t of tables) t.endStaging() // discard staged writes
+      for (const t of tables) t.discardStaged()
+      this.staging = false
       throw e
     }
 
-    const replays = tables.flatMap((t) => t.endStaging())
+    const replays = tables.flatMap((t) => t.collectStaged())
+    this.staging = false
     await this.transaction('rw', this.tables, async () => {
       for (const replay of replays) await replay()
     })
     return result
+  }
+
+  /** True while an atomic block is open. Guards the unstaged keystore. */
+  get isStaging(): boolean {
+    return this.staging
   }
 
   /**

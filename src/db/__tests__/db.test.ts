@@ -153,3 +153,85 @@ describe('testKeyAgainstAnyData', () => {
     expect(await db.testKeyAgainstAnyData(wrongKey)).toBe(false)
   })
 })
+
+describe('atomic block guards', () => {
+  it('refuses to nest — the inner block would discard the outer’s staged writes', async () => {
+    await expect(
+      db.atomically(async () => {
+        await db.atomically(async () => {
+          await db.transactions.put(makeTxn())
+        })
+      }),
+    ).rejects.toThrow(/cannot nest/)
+  })
+
+  it('is usable again after a nesting attempt fails', async () => {
+    await db
+      .atomically(async () => {
+        await db.atomically(async () => {}).catch(() => {})
+      })
+      .catch(() => {})
+
+    const txn = makeTxn({ note: 'after nesting' })
+    await db.atomically(async () => {
+      await db.transactions.put(txn)
+    })
+    expect((await db.transactions.get(txn.txnId))?.note).toBe('after nesting')
+  })
+
+  it('is usable again after a block throws', async () => {
+    await expect(
+      db.atomically(async () => {
+        throw new Error('boom')
+      }),
+    ).rejects.toThrow('boom')
+
+    const txn = makeTxn({ note: 'after throw' })
+    await db.atomically(async () => {
+      await db.transactions.put(txn)
+    })
+    expect((await db.transactions.get(txn.txnId))?.note).toBe('after throw')
+  })
+
+  it('refuses a keystore write from inside an atomic block', async () => {
+    await expect(
+      db.atomically(async () => {
+        await db.keystore().put({
+          id: 1,
+          salt: 'x',
+          pinCheck: 'y',
+          pinChangeInProgress: false,
+        })
+      }),
+    ).rejects.toThrow(/not staged/)
+  })
+
+  it('allows a keystore write outside a block', async () => {
+    await db.keystore().put({ id: 1, salt: 'x', pinCheck: 'y', pinChangeInProgress: false })
+    expect((await db.keystoreTable.get(1))?.salt).toBe('x')
+  })
+
+  it('allows a keystore read from inside a block — only writes are unstaged', async () => {
+    const read = await db.atomically(async () => db.keystoreTable.get(1))
+    expect(read?.salt).toBe('x')
+  })
+
+  it('reports whether a block is open', async () => {
+    expect(db.isStaging).toBe(false)
+    await db.atomically(async () => {
+      expect(db.isStaging).toBe(true)
+    })
+    expect(db.isStaging).toBe(false)
+  })
+
+  it('first() sees a staged write, like get and toArray already did', async () => {
+    await db.budgets.deleteWhere(() => true)
+    await db.budgets.put(makeBudget({ budgetId: 'zzz-last' }))
+    const seen = await db.atomically(async () => {
+      await db.budgets.put(makeBudget({ budgetId: 'aaa-first', limit: 999 }))
+      return db.budgets.first()
+    })
+    expect(seen?.budgetId).toBe('aaa-first')
+    expect(seen?.limit).toBe(999)
+  })
+})

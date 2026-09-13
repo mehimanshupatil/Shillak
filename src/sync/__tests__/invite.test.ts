@@ -10,6 +10,7 @@ const mockDb = vi.hoisted(() => ({
   groups: { get: vi.fn(), put: vi.fn() },
   members: { where: vi.fn(), put: vi.fn() },
   users: { get: vi.fn() },
+  atomically: vi.fn((fn: () => Promise<unknown>) => fn()),
 }))
 
 vi.mock('@/db/db', () => ({ db: mockDb }))

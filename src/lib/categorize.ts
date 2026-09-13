@@ -1,3 +1,5 @@
+import type { Category } from '@/db/schema'
+
 /**
  * Map merchant/context keywords → category name (matches createDefaultCategories seeds).
  * Returns null if no confident match.
@@ -258,4 +260,73 @@ export function inferCategoryName(text: string): string | null {
     if (keywords.some((kw) => ctx.includes(kw))) return category
   }
   return null
+}
+
+// ─── Resolving a name to a Category ───────────────────────────────────────────
+
+/** Exact, case-insensitive name lookup within one Category type. */
+export function findCategoryByName(
+  categories: Category[],
+  type: 'expense' | 'income',
+  name: string,
+): Category | undefined {
+  const wanted = name.trim().toLowerCase()
+  if (!wanted) return undefined
+  return categories.find((c) => c.type === type && c.name.toLowerCase() === wanted)
+}
+
+/**
+ * Best guess at a category for an intake path where the user still gets to
+ * choose — a scanned receipt, a shared payment message. Returns null rather
+ * than falling back, so nothing is pre-selected on a guess that missed.
+ */
+export function suggestCategoryId(
+  categories: Category[],
+  type: 'expense' | 'income',
+  hint: string | null,
+  note: string,
+): string | null {
+  const fromHint = hint ? findCategoryByName(categories, type, hint) : undefined
+  if (fromHint) return fromHint.categoryId
+
+  const guessedName = inferCategoryName(note)
+  const guessed = guessedName ? findCategoryByName(categories, type, guessedName) : undefined
+  return guessed?.categoryId ?? null
+}
+
+export type CategoryMatchKind = 'explicit' | 'guessed' | 'fallback'
+
+export interface ResolvedCategory {
+  categoryId: string
+  matchKind: CategoryMatchKind
+}
+
+/**
+ * Resolve a category for one row: explicit column value > keyword-guessed from
+ * note > "Other"/"Other Income" fallback. Throws only if the space has zero
+ * categories of the needed type (shouldn't happen — seeded on space creation).
+ */
+export function resolveCategory(
+  categories: Category[],
+  type: 'expense' | 'income',
+  rawCategoryText: string | undefined,
+  note: string,
+): ResolvedCategory {
+  const byType = categories.filter((c) => c.type === type)
+
+  if (rawCategoryText?.trim()) {
+    const exact = byType.find((c) => c.name.toLowerCase() === rawCategoryText.trim().toLowerCase())
+    if (exact) return { categoryId: exact.categoryId, matchKind: 'explicit' }
+  }
+
+  const guessedName = inferCategoryName(note)
+  if (guessedName) {
+    const guessed = byType.find((c) => c.name.toLowerCase() === guessedName.toLowerCase())
+    if (guessed) return { categoryId: guessed.categoryId, matchKind: 'guessed' }
+  }
+
+  const fallback =
+    byType.find((c) => c.name === (type === 'expense' ? 'Other' : 'Other Income')) ?? byType[0]
+  if (!fallback) throw new Error(`No ${type} categories exist in this space`)
+  return { categoryId: fallback.categoryId, matchKind: 'fallback' }
 }

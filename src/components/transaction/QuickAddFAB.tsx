@@ -8,9 +8,8 @@ import {
   ScanIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useRef, useState } from 'react'
+import { useReducer, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CategoryIcon from '@/components/ui/CategoryIcon'
@@ -21,11 +20,18 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { db } from '@/db/db'
-import type { RecurrenceFrequency, TransactionType } from '@/db/schema'
-import { checkStorageQuota, isAttachmentTooLarge } from '@/lib/attachments'
+import type { RecurrenceFrequency } from '@/db/schema'
+import { checkStorageQuota, fileToBase64, isAttachmentTooLarge } from '@/lib/attachments'
+import {
+  draftReducer,
+  effectiveCategoryId,
+  emptyDraft,
+  toTransactionDraft,
+} from '@/lib/ledger/draft'
+import { ledgerFailureMessage } from '@/lib/ledger/messages'
+import { commitTransaction } from '@/lib/ledger/write'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { createQuickTransaction } from '@/lib/transactionIntake'
-import { ordinal, parseDateStr, todayLocalDateStr, toPaise, weekdayLabel } from '@/lib/utils'
+import { ordinal, parseDateStr, weekdayLabel } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
@@ -38,15 +44,6 @@ const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
 
 type PendingAttachment = { mimeType: string; data: string; sizeBytes: number }
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
 
 export default function QuickAddFAB() {
   const [open, setOpen] = useState(false)
@@ -82,24 +79,27 @@ export default function QuickAddFAB() {
 function QuickAddForm({ onClose }: { onClose: () => void }) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
-  const queryClient = useQueryClient()
 
-  const [txnType, setTxnType] = useState<TransactionType>('expense')
-  const [toAccountId, setToAccountId] = useState<string | null>(null)
-  const [amountStr, setAmountStr] = useState('')
-  const [note, setNote] = useState('')
-  const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [paidBy, setPaidBy] = useState<string | null>(null)
-  const [dateStr, setDateStr] = useState(todayLocalDateStr)
-  const [repeat, setRepeat] = useState(false)
-  const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
-  const [dayOfWeek, setDayOfWeek] = useState(() => new Date(parseDateStr(dateStr)).getUTCDay())
-  const [endDateStr, setEndDateStr] = useState('')
-  const [isFixed, setIsFixed] = useState(false)
-  const [tags, setTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [draft, dispatch] = useReducer(draftReducer, undefined, emptyDraft)
+  // Read-only aliases: the rules live in the reducer, the markup below just reads.
+  const {
+    type: txnType,
+    amount: amountStr,
+    note,
+    dateStr,
+    tags,
+    tagInput,
+    repeat,
+    frequency,
+    dayOfWeek,
+    endDateStr,
+    isFixed,
+  } = draft
+  const selectedAccountId = draft.accountId
+  const toAccountId = draft.toAccountId
+  const paidBy = draft.paidBy
+  const pendingAttachments = draft.attachments.add
+
   const [attachmentWarn, setAttachmentWarn] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -111,6 +111,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   const [pasteText, setPasteText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const attachmentInputRef = useRef<HTMLInputElement>(null)
+
+  // The weekly anchor follows the transaction date until the user picks one,
+  // so changing the date changes the default weekday with it.
+  const txnDate = parseDateStr(dateStr)
+  const shownDayOfWeek = dayOfWeek ?? new Date(txnDate).getUTCDay()
 
   const categories = useLiveQuery(
     () =>
@@ -148,16 +153,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   }, [members])
 
   function addTag() {
-    const t = tagInput
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, '')
-    if (t && !tags.includes(t) && tags.length < 10) setTags([...tags, t])
-    setTagInput('')
+    dispatch({ kind: 'commit-tag' })
   }
 
   function removeTag(tag: string) {
-    setTags(tags.filter((t) => t !== tag))
+    dispatch({ kind: 'remove-tag', tag })
   }
 
   async function handleAttachmentPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -185,7 +185,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       const data = await fileToBase64(file)
       newAtts.push({ mimeType: file.type, data, sizeBytes: file.size })
     }
-    setPendingAttachments((prev) => [...prev, ...newAtts])
+    dispatch({ kind: 'add-attachments', value: newAtts })
   }
 
   async function handleImageOCR(e: React.ChangeEvent<HTMLInputElement>) {
@@ -198,9 +198,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       const text = await extractTextFromImage(file, setOcrProgress)
       setOcrRawText(text)
       setOcrDebugOpen(true)
-      const parsed = parseReceiptText(text)
-      if (parsed.amount != null) setAmountStr(String(parsed.amount))
-      if (parsed.note) setNote(parsed.note)
+      dispatch({ kind: 'apply-parsed', parsed: parseReceiptText(text) })
     } catch {
       // silent — user can fill manually
     } finally {
@@ -219,73 +217,32 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
   }
 
   function applyParsedText(text: string) {
-    const parsed = parseReceiptText(text)
-    if (parsed.amount != null) setAmountStr(String(parsed.amount))
-    if (parsed.note) setNote(parsed.note)
+    dispatch({ kind: 'apply-parsed', parsed: parseReceiptText(text) })
     setPasteOpen(false)
     setPasteText('')
   }
 
+  const effectiveCatId = effectiveCategoryId(draft, categories ?? [])
+
   async function handleSubmit() {
-    if (!activeGroupId || !currentUserId) return
-    const amount = parseFloat(amountStr)
-    if (!amountStr || Number.isNaN(amount) || amount <= 0) {
-      setError('Enter a valid amount')
-      return
-    }
-    if (txnType === 'transfer') {
-      if (!selectedAccountId) {
-        setError('Select source account')
-        return
-      }
-      if (!toAccountId) {
-        setError('Select destination account')
-        return
-      }
-      if (selectedAccountId === toAccountId) {
-        setError('Source and destination must differ')
-        return
-      }
-    } else if (!selectedCatId) {
-      setError('Select a category')
-      return
-    }
-    if (!group) return
+    if (!activeGroupId || !currentUserId || !group) return
     setLoading(true)
     setError('')
 
     try {
-      const result = await createQuickTransaction({
+      const result = await commitTransaction({
         groupId: activeGroupId,
         userId: currentUserId,
-        type: txnType,
-        amount: toPaise(amount),
         currency: group.currency,
-        categoryId: txnType === 'transfer' ? '' : (selectedCatId ?? ''),
-        accountId: selectedAccountId,
-        toAccountId: txnType === 'transfer' ? toAccountId : null,
-        paidBy: txnType === 'transfer' ? null : (paidBy ?? currentUserId),
-        note: note.trim(),
-        tags,
-        date: parseDateStr(dateStr),
-        pendingAttachments,
-        recurrence: repeat
-          ? {
-              frequency,
-              dayOfWeek,
-              endDate: endDateStr ? parseDateStr(endDateStr) : null,
-              isFixed: txnType === 'expense' ? isFixed : false,
-            }
-          : null,
+        draft: toTransactionDraft(draft, categories ?? []),
       })
 
-      if (result.recurrenceId) {
-        queryClient.invalidateQueries({ queryKey: ['upcomingBills', activeGroupId] })
+      if (!result.ok) {
+        setError(ledgerFailureMessage(result.failure))
+        return
       }
 
-      setSelectedAccountId(null)
-      setToAccountId(null)
-      setPaidBy(null)
+      dispatch({ kind: 'reset' })
       onClose()
     } catch (e) {
       setError(String(e))
@@ -348,13 +305,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
             <button
               key={t}
               type="button"
-              onClick={() => {
-                setTxnType(t)
-                setSelectedCatId(null)
-                setSelectedAccountId(null)
-                setToAccountId(null)
-                setPaidBy(null)
-              }}
+              onClick={() => dispatch({ kind: 'set-type', value: t })}
               className={`flex-1 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
                 txnType === t
                   ? t === 'income'
@@ -485,9 +436,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                 )}
                 <button
                   type="button"
-                  onClick={() =>
-                    setPendingAttachments((prev) => prev.filter((_, idx) => idx !== i))
-                  }
+                  onClick={() => dispatch({ kind: 'drop-new-attachment', index: i })}
                   className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60
                              flex items-center justify-center"
                 >
@@ -511,7 +460,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           min="0"
           step="0.01"
           value={amountStr}
-          onChange={(e) => setAmountStr(e.target.value)}
+          onChange={(e) => dispatch({ kind: 'set-amount', value: e.target.value })}
           placeholder="0.00"
           className="h-16 rounded-2xl pl-10 pr-4 bg-surface-2
                      text-3xl font-mono font-bold text-text-primary
@@ -534,12 +483,12 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
           ) : (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {(categories ?? []).map((cat) => {
-                const active = selectedCatId === cat.categoryId
+                const active = effectiveCatId === cat.categoryId
                 return (
                   <button
                     key={cat.categoryId}
                     type="button"
-                    onClick={() => setSelectedCatId(cat.categoryId)}
+                    onClick={() => dispatch({ kind: 'set-category', value: cat.categoryId })}
                     className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                     }`}
@@ -564,7 +513,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
       <Input
         type="text"
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e) => dispatch({ kind: 'set-note', value: e.target.value })}
         placeholder="Note (optional)"
         className="h-11 rounded-xl bg-surface-2
                    border-border text-sm
@@ -592,7 +541,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         <Input
           type="text"
           value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
+          onChange={(e) => dispatch({ kind: 'set-tag-input', value: e.target.value })}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ',') {
               e.preventDefault()
@@ -622,7 +571,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => setPaidBy(m.userId)}
+                  onClick={() => dispatch({ kind: 'set-paid-by', value: m.userId })}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     active ? 'bg-accent text-black' : 'bg-surface-2 text-text-secondary'
                   }`}
@@ -658,7 +607,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                       <button
                         key={acc.accountId}
                         type="button"
-                        onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                        onClick={() =>
+                          dispatch({ kind: 'set-account', value: active ? null : acc.accountId })
+                        }
                         className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
                         style={active ? { backgroundColor: acc.color } : {}}
                       >
@@ -682,7 +633,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                       <button
                         key={acc.accountId}
                         type="button"
-                        onClick={() => setToAccountId(active ? null : acc.accountId)}
+                        onClick={() =>
+                          dispatch({ kind: 'set-to-account', value: active ? null : acc.accountId })
+                        }
                         className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'text-black' : 'bg-surface-2 text-text-secondary'}`}
                         style={active ? { backgroundColor: acc.color } : {}}
                       >
@@ -707,7 +660,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                     <button
                       key={acc.accountId}
                       type="button"
-                      onClick={() => setSelectedAccountId(active ? null : acc.accountId)}
+                      onClick={() =>
+                        dispatch({ kind: 'set-account', value: active ? null : acc.accountId })
+                      }
                       className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                         active ? 'text-black' : 'bg-surface-2 text-text-secondary'
                       }`}
@@ -726,7 +681,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
         <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
           Date
         </p>
-        <DatePicker value={dateStr} onChange={setDateStr} className="w-full h-11" />
+        <DatePicker
+          value={dateStr}
+          onChange={(value) => dispatch({ kind: 'set-date', value })}
+          className="w-full h-11"
+        />
       </div>
 
       {/* Repeat toggle + options — not available for transfers */}
@@ -737,7 +696,11 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
               <ArrowClockwiseIcon size={14} className="text-text-secondary" />
               <span className="text-sm font-medium text-text-primary">Repeat</span>
             </div>
-            <Switch checked={repeat} onCheckedChange={setRepeat} aria-label="Repeat transaction" />
+            <Switch
+              checked={repeat}
+              onCheckedChange={(value) => dispatch({ kind: 'set-repeat', value })}
+              aria-label="Repeat transaction"
+            />
           </div>
 
           {repeat && (
@@ -747,7 +710,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                   <button
                     key={f}
                     type="button"
-                    onClick={() => setFrequency(f)}
+                    onClick={() => dispatch({ kind: 'set-frequency', value: f })}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       frequency === f ? 'bg-accent text-black' : 'bg-surface-3 text-text-secondary'
                     }`}
@@ -764,9 +727,9 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                       <button
                         key={i}
                         type="button"
-                        onClick={() => setDayOfWeek(i)}
+                        onClick={() => dispatch({ kind: 'set-day-of-week', value: i })}
                         className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
-                          dayOfWeek === i
+                          shownDayOfWeek === i
                             ? 'bg-accent text-black'
                             : 'bg-surface-3 text-text-secondary'
                         }`}
@@ -780,7 +743,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
 
               {frequency === 'monthly' && (
                 <p className="text-xs text-text-secondary">
-                  Repeats monthly, on the {ordinal(Number(dateStr.split('-')[2]))}
+                  Repeats monthly, on the {ordinal(new Date(txnDate).getUTCDate())}
                 </p>
               )}
 
@@ -789,14 +752,14 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-2">
                   <DatePicker
                     value={endDateStr}
-                    onChange={setEndDateStr}
+                    onChange={(value) => dispatch({ kind: 'set-end-date', value })}
                     placeholder="Never"
                     className="h-8 text-xs px-2.5"
                   />
                   {endDateStr && (
                     <button
                       type="button"
-                      onClick={() => setEndDateStr('')}
+                      onClick={() => dispatch({ kind: 'set-end-date', value: '' })}
                       className="text-text-tertiary"
                       aria-label="Clear end date"
                     >
@@ -838,7 +801,7 @@ function QuickAddForm({ onClose }: { onClose: () => void }) {
                   </div>
                   <Switch
                     checked={isFixed}
-                    onCheckedChange={setIsFixed}
+                    onCheckedChange={(value) => dispatch({ kind: 'set-is-fixed', value })}
                     aria-label="Mark as fixed outflow"
                   />
                 </div>

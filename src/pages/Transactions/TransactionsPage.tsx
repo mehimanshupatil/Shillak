@@ -25,9 +25,11 @@ import {
 } from '@/components/ui/select'
 import { db } from '@/db/db'
 import type { Transaction } from '@/db/schema'
-import { formatCurrency, relativeDate } from '@/lib/utils'
+import type { Ledger } from '@/lib/ledger/read'
+import { boundFromInput, rowsMatching } from '@/lib/ledger/read'
+import { voidTransaction } from '@/lib/ledger/write'
+import { formatCurrency, relativeDate, toBaseCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
-import { incrementVectorClock } from '@/sync/vector-clock'
 
 type TypeFilter = 'all' | 'expense' | 'income'
 
@@ -47,6 +49,7 @@ export default function TransactionsPage() {
   const [editTxn, setEditTxn] = useState<Transaction | null>(null)
   const [editSheetOpen, setEditSheetOpen] = useState(false)
 
+  // One read of the Space's Ledger; the list below is a question over it.
   const transactions = useLiveQuery(
     () =>
       activeGroupId
@@ -90,41 +93,40 @@ export default function TransactionsPage() {
 
   const totalsOnly = (group?.visibility ?? 'full') === 'totals_only'
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    const fromMs = dateFrom ? new Date(dateFrom).getTime() : null
-    const toMs = dateTo ? new Date(dateTo).getTime() + 86_400_000 - 1 : null
+  const ledger: Ledger = useMemo(
+    () => ({ transactions: transactions ?? [], currency: group?.currency ?? 'INR' }),
+    [transactions, group?.currency],
+  )
 
-    return (transactions ?? [])
-      .filter((t) => {
-        if (totalsOnly && t.ownerId !== currentUserId) return false
-        if (typeFilter !== 'all' && t.type !== typeFilter) return false
-        if (categoryFilter && t.categoryId !== categoryFilter) return false
-        if (memberFilter && t.ownerId !== memberFilter) return false
-        if (fromMs !== null && t.date < fromMs) return false
-        if (toMs !== null && t.date > toMs) return false
-        if (tagFilter && !t.tags.includes(tagFilter.toLowerCase())) return false
-        if (q) {
-          const cat = catMap[t.categoryId]
-          if (!t.note.toLowerCase().includes(q) && !(cat?.name.toLowerCase().includes(q) ?? false))
-            return false
-        }
-        return true
-      })
-      .sort((a, b) => b.date - a.date)
-  }, [
-    transactions,
-    search,
-    typeFilter,
-    categoryFilter,
-    memberFilter,
-    dateFrom,
-    dateTo,
-    catMap,
-    totalsOnly,
-    currentUserId,
-    tagFilter,
-  ])
+  const filtered = useMemo(
+    () =>
+      rowsMatching(
+        ledger,
+        {
+          ...(search && { search }),
+          ...(typeFilter !== 'all' && { type: typeFilter }),
+          ...(categoryFilter && { categoryId: categoryFilter }),
+          ...(memberFilter && { ownerId: memberFilter }),
+          ...(tagFilter && { tag: tagFilter }),
+          range: { from: boundFromInput(dateFrom), to: boundFromInput(dateTo) },
+          ...(totalsOnly && currentUserId ? { onlyOwnedBy: currentUserId } : {}),
+        },
+        categories ?? [],
+      ),
+    [
+      ledger,
+      categories,
+      search,
+      typeFilter,
+      categoryFilter,
+      memberFilter,
+      tagFilter,
+      dateFrom,
+      dateTo,
+      totalsOnly,
+      currentUserId,
+    ],
+  )
 
   const grouped = useMemo(() => {
     const groups: Record<string, Transaction[]> = {}
@@ -151,13 +153,8 @@ export default function TransactionsPage() {
   }
 
   async function handleSoftDelete(txnId: string) {
-    if (!activeGroupId || !currentUserId) return
-    const newSeq = await incrementVectorClock(activeGroupId, currentUserId)
-    await db.transactions.update(txnId, {
-      deletedAt: Date.now(),
-      updatedAt: Date.now(),
-      authorSeq: newSeq,
-    })
+    if (!currentUserId) return
+    await voidTransaction({ userId: currentUserId, txnId })
   }
 
   function openEdit(txn: Transaction) {
@@ -401,7 +398,7 @@ export default function TransactionsPage() {
                           }`}
                         >
                           {txn.type === 'income' ? '+' : txn.type === 'transfer' ? '↔' : '-'}
-                          {formatCurrency(txn.amount, currency)}
+                          {formatCurrency(toBaseCurrency(txn, currency), currency)}
                         </span>
                         <Button
                           variant="ghost"

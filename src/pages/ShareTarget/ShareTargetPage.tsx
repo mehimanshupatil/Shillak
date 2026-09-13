@@ -8,8 +8,11 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
+import { suggestCategoryId } from '@/lib/categorize'
+import { ledgerFailureMessage } from '@/lib/ledger/messages'
+import { commitTransaction } from '@/lib/ledger/write'
 import { extractTextFromImage, parseReceiptText } from '@/lib/ocr'
-import { formatDateStr, generateId, parseDateStr, todayLocalDateStr, toPaise } from '@/lib/utils'
+import { formatDateStr, parseDateStr, todayLocalDateStr } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function ShareTargetPage() {
@@ -33,8 +36,8 @@ export default function ShareTargetPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [categoryHint, setCategoryHint] = useState<string | null>(null)
   const objectUrlRef = useRef<string | null>(null)
-  const pendingCategoryHintRef = useRef<string | null>(null)
 
   const categories = useLiveQuery(
     () =>
@@ -54,16 +57,10 @@ export default function ShareTargetPage() {
     [activeGroupId],
   )
 
-  // Apply category hint once categories are loaded from DB
-  useEffect(() => {
-    const hint = pendingCategoryHintRef.current
-    if (!hint || !categories?.length || selectedCatId) return
-    const match = categories.find((c) => c.name.toLowerCase() === hint.toLowerCase())
-    if (match) {
-      setSelectedCatId(match.categoryId)
-      pendingCategoryHintRef.current = null
-    }
-  }, [categories, selectedCatId])
+  // Derived, not applied by an effect: the suggestion simply appears once the
+  // categories arrive, and an explicit pick always wins over it.
+  const effectiveCatId =
+    selectedCatId ?? suggestCategoryId(categories ?? [], 'expense', categoryHint, note)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once on mount — URL params are stable for the lifetime of this page
   useEffect(() => {
@@ -75,8 +72,7 @@ export default function ShareTargetPage() {
         if (parsed.date !== null) {
           setDateStr(formatDateStr(parsed.date))
         }
-        // category hint applied after categories load — stored in a ref
-        pendingCategoryHintRef.current = parsed.categoryHint
+        setCategoryHint(parsed.categoryHint)
       }
       return
     }
@@ -104,7 +100,7 @@ export default function ShareTargetPage() {
         if (parsed.date !== null) {
           setDateStr(formatDateStr(parsed.date))
         }
-        pendingCategoryHintRef.current = parsed.categoryHint
+        setCategoryHint(parsed.categoryHint)
         setOcrStatus('done')
       } catch (e) {
         setOcrStatus('error')
@@ -118,48 +114,34 @@ export default function ShareTargetPage() {
   }, [])
 
   async function handleSubmit() {
-    if (!activeGroupId || !currentUserId) return
-    const amount = parseFloat(amountStr)
-    if (!amountStr || Number.isNaN(amount) || amount <= 0) {
-      setError('Enter a valid amount')
-      return
-    }
-    if (!selectedCatId) {
-      setError('Select a category')
-      return
-    }
+    if (!activeGroupId || !currentUserId || !group) return
     setLoading(true)
     setError('')
+
     try {
-      const grp = await db.groups.get(activeGroupId)
-      if (!grp) throw new Error('Group not found')
-      const newSeq = (grp.vectorClock[currentUserId] ?? 0) + 1
-      await db.groups.update(activeGroupId, {
-        vectorClock: { ...grp.vectorClock, [currentUserId]: newSeq },
-        updatedAt: Date.now(),
-      })
-      await db.transactions.put({
-        txnId: generateId(),
+      const result = await commitTransaction({
         groupId: activeGroupId,
-        ownerId: currentUserId,
-        authorSeq: newSeq,
-        categoryId: selectedCatId,
-        type: 'expense',
-        amount: toPaise(amount),
-        currency: grp.currency,
-        fxRate: null,
-        originalAmount: null,
-        note: note.trim(),
-        tags: [],
-        date: parseDateStr(dateStr),
-        attachmentIds: [],
-        recurrenceId: null,
-        accountId: selectedAccountId,
-        paidBy: currentUserId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        deletedAt: null,
+        userId: currentUserId,
+        currency: group.currency,
+        draft: {
+          type: 'expense',
+          amount: amountStr,
+          note,
+          tags: [],
+          date: parseDateStr(dateStr),
+          attachments: { keep: [], add: [] },
+          categoryId: effectiveCatId,
+          accountId: selectedAccountId,
+          paidBy: null,
+          repeat: null,
+        },
       })
+
+      if (!result.ok) {
+        setError(ledgerFailureMessage(result.failure))
+        return
+      }
+
       navigate('/')
     } catch (e) {
       setError(String(e))
@@ -282,7 +264,7 @@ export default function ShareTargetPage() {
         </p>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {(categories ?? []).map((cat) => {
-            const active = selectedCatId === cat.categoryId
+            const active = effectiveCatId === cat.categoryId
             return (
               <button
                 key={cat.categoryId}

@@ -66,7 +66,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
       // resolveUnlock() (crypto/keystore.ts) can find both candidates and
       // figure out — by testing against real data, not just pinCheck —
       // which one the data actually ended up under.
-      await db.keystoreTable.put({
+      await db.keystore().put({
         ...ks,
         pinChangeInProgress: true,
         pendingSalt: newSalt,
@@ -129,7 +129,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
       })
 
       // 7. Commit new keystore, clearing the pending checkpoint
-      await db.keystoreTable.put({
+      await db.keystore().put({
         id: 1,
         salt: newSalt,
         pinCheck: newPinCheck,
@@ -151,7 +151,7 @@ export default function ChangePinSheet({ open, onClose }: Props) {
         setKey(oldKey)
         const ks = await db.keystoreTable.get(1)
         if (ks?.pinChangeInProgress) {
-          await db.keystoreTable.put({
+          await db.keystore().put({
             ...ks,
             pinChangeInProgress: false,
             pendingSalt: null,

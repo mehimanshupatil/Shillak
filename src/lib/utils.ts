@@ -53,8 +53,11 @@ export function toBaseCurrency(
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-/** Strip time — returns midnight UTC unix ms for a given date. */
-function toDateOnly(date: Date | number): number {
+/**
+ * Strip time — returns midnight UTC unix ms for a given date. The canonical
+ * conversion: anything comparing or storing a transaction date goes through here.
+ */
+export function toDateOnly(date: Date | number): number {
   const d = typeof date === 'number' ? new Date(date) : date
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
 }
@@ -140,23 +143,47 @@ export function nextOccurrence(
 }
 
 // ─── Date display ─────────────────────────────────────────────────────────────
+//
+// Everything here formats a *date* — a midnight-UTC timestamp — so every
+// formatter pins timeZone: 'UTC'. Without it a reader west of UTC sees the
+// previous day. Instants (syncedAt, createdAt) are a different thing and are
+// formatted locally, at their call sites.
 
-function formatDateShort(unixMs: number): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-  }).format(new Date(unixMs))
+const DATE_SHORT_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  timeZone: 'UTC',
+})
+
+const DATE_FULL_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
+const WEEKDAY_FULL_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  weekday: 'long',
+  timeZone: 'UTC',
+})
+
+/** A midnight-UTC date → '15 Jun'. */
+export function formatDateShort(unixMs: number): string {
+  return DATE_SHORT_FORMATTER.format(new Date(unixMs))
 }
 
-/** Returns 'Today', 'Yesterday', or a short date. */
+/** A midnight-UTC date → '15 Jun 2026'. Never for an instant. */
+export function formatDateFull(unixMs: number): string {
+  return DATE_FULL_FORMATTER.format(new Date(unixMs))
+}
+
+/** Returns 'Today', 'Yesterday', a weekday name, or a short date. */
 export function relativeDate(unixMs: number): string {
-  const t = toDateOnly(new Date())
+  const t = today()
   const d = toDateOnly(new Date(unixMs))
   if (d === t) return 'Today'
   if (d === t - 86_400_000) return 'Yesterday'
-  if (d >= t - 6 * 86_400_000) {
-    return new Intl.DateTimeFormat('en-IN', { weekday: 'long' }).format(new Date(unixMs))
-  }
+  if (d >= t - 6 * 86_400_000) return WEEKDAY_FULL_FORMATTER.format(new Date(unixMs))
   return formatDateShort(unixMs)
 }
 

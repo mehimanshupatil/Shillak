@@ -1,15 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { Recurrence } from '@/db/schema'
 import { computeUpcomingBills } from '../upcomingBills'
 import { today } from '../utils'
 
 let recurrences: Recurrence[] = []
-
-const mockDb = vi.hoisted(() => ({
-  recurrences: { where: vi.fn() },
-}))
-
-vi.mock('@/db/db', () => ({ db: mockDb }))
 
 function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
   return {
@@ -44,72 +38,68 @@ function makeRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
 
 beforeEach(() => {
   recurrences = []
-  vi.clearAllMocks()
-  mockDb.recurrences.where.mockImplementation((pred: (r: Recurrence) => boolean) =>
-    Promise.resolve(recurrences.filter(pred)),
-  )
 })
 
 const DAY = 86_400_000
 
 describe('computeUpcomingBills', () => {
-  it('includes a recurrence due within the 30-day window', async () => {
+  it('includes a recurrence due within the 30-day window', () => {
     recurrences.push(makeRecurrence({ nextDue: today() + 10 * DAY }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(1)
     expect(result.upcoming[0]?.amount).toBe(50000)
     expect(result.overdue).toHaveLength(0)
   })
 
-  it('excludes a recurrence due beyond the 30-day window', async () => {
+  it('excludes a recurrence due beyond the 30-day window', () => {
     recurrences.push(makeRecurrence({ nextDue: today() + 40 * DAY }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(0)
   })
 
-  it('puts a recurrence with nextDue in the past into the overdue bucket, not upcoming', async () => {
+  it('puts a recurrence with nextDue in the past into the overdue bucket, not upcoming', () => {
     recurrences.push(makeRecurrence({ nextDue: today() - 3 * DAY }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.overdue).toHaveLength(1)
     expect(result.upcoming).toHaveLength(0)
   })
 
-  it('excludes income recurrences', async () => {
+  it('excludes income recurrences', () => {
     recurrences.push(
       makeRecurrence({
         nextDue: today() + 5 * DAY,
         template: { ...makeRecurrence().template, type: 'income' },
       }),
     )
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(0)
     expect(result.overdue).toHaveLength(0)
   })
 
-  it('excludes inactive recurrences', async () => {
+  it('excludes inactive recurrences', () => {
     recurrences.push(makeRecurrence({ nextDue: today() + 5 * DAY, active: false }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(0)
   })
 
-  it('does not filter by isFixed — includes discretionary recurrences too', async () => {
+  it('does not filter by isFixed — includes discretionary recurrences too', () => {
     recurrences.push(makeRecurrence({ nextDue: today() + 5 * DAY, isFixed: false }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.upcoming).toHaveLength(1)
   })
 
-  it('projects every occurrence landing in the window for a weekly recurrence', async () => {
+  it('projects every occurrence landing in the window for a weekly recurrence', () => {
     recurrences.push(
       makeRecurrence({ nextDue: today() + 2 * DAY, frequency: 'weekly', interval: 1 }),
     )
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     // weekly for 30 days from day 2: day 2, 9, 16, 23, 30 -> 5 occurrences (30 <= windowEnd)
     expect(result.upcoming.length).toBeGreaterThanOrEqual(4)
     const dates = result.upcoming.map((i) => i.date)
     expect(dates).toEqual([...dates].sort((a, b) => a - b))
   })
 
-  it('stops projecting once past endDate, even within the 30-day window', async () => {
+  it('stops projecting once past endDate, even within the 30-day window', () => {
     recurrences.push(
       makeRecurrence({
         nextDue: today() + 2 * DAY,
@@ -118,21 +108,21 @@ describe('computeUpcomingBills', () => {
         endDate: today() + 10 * DAY,
       }),
     )
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     // day 2 and day 9 are <= endDate (day 10); day 16 would exceed it
     expect(result.upcoming).toHaveLength(2)
   })
 
-  it('excludes a finished recurrence whose stale nextDue sits past endDate', async () => {
+  it('excludes a finished recurrence whose stale nextDue sits past endDate', () => {
     // Only the owner's device advances nextDue, so a peer's ended recurrence
     // keeps a past nextDue forever — it must not read as overdue here.
     recurrences.push(makeRecurrence({ nextDue: today() - 3 * DAY, endDate: today() - 10 * DAY }))
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     expect(result.overdue).toHaveLength(0)
     expect(result.upcoming).toHaveLength(0)
   })
 
-  it('sums upcomingTotal in base currency, using toBaseCurrency conversion', async () => {
+  it('sums upcomingTotal in base currency, using toBaseCurrency conversion', () => {
     recurrences.push(
       makeRecurrence({
         nextDue: today() + 5 * DAY,
@@ -145,7 +135,7 @@ describe('computeUpcomingBills', () => {
         },
       }),
     )
-    const result = await computeUpcomingBills('g1', 'INR')
+    const result = computeUpcomingBills(recurrences, 'INR', today())
     // toBaseCurrency: (originalAmount * fxRate) / 10000 = (10000 * 8300) / 10000 = 8300
     expect(result.upcomingTotal).toBe(8300)
   })

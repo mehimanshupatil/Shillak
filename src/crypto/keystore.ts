@@ -100,7 +100,7 @@ export async function resolveUnlock(pin: string, ks: KeystoreRecord): Promise<Un
 
   if (source === 'pending') {
     // Re-encryption completed before the crash — finish the change.
-    await db.keystoreTable.put({
+    await db.keystore().put({
       id: 1,
       salt: ks.pendingSalt as string,
       pinCheck: ks.pendingPinCheck as string,
@@ -112,7 +112,7 @@ export async function resolveUnlock(pin: string, ks: KeystoreRecord): Promise<Un
     return { key, resolvedPinChange: 'completed' }
   }
   // Re-encryption never happened — old key is still correct, abort the change.
-  await db.keystoreTable.put({
+  await db.keystore().put({
     ...ks,
     pinChangeInProgress: false,
     pendingSalt: null,

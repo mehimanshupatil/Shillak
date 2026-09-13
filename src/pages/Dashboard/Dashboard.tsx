@@ -24,20 +24,15 @@ import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
-import { useMonthlyRecap } from '@/hooks/useMonthlyRecap'
-import { useUpcomingBills } from '@/hooks/useUpcomingBills'
 import { computeDashboardMetrics } from '@/lib/dashboardMetrics'
+import type { Ledger } from '@/lib/ledger/read'
+import { monthRange, rowsMatching, statedIncomeBaseline } from '@/lib/ledger/read'
 import type { RecapBudgetItem, RecapCategoryItem, RecapGoalItem } from '@/lib/monthlyRecap'
+import { computeMonthlyRecap } from '@/lib/monthlyRecap'
+import { daysLabel, describeRecurrence } from '@/lib/recurrenceLabels'
 import type { UpcomingBillItem } from '@/lib/upcomingBills'
-import {
-  formatCurrency,
-  monthShort,
-  ordinal,
-  relativeDate,
-  toBaseCurrency,
-  today,
-  weekdayLabel,
-} from '@/lib/utils'
+import { computeUpcomingBills } from '@/lib/upcomingBills'
+import { formatCurrency, monthShort, relativeDate, toBaseCurrency, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function Dashboard() {
@@ -49,25 +44,19 @@ export default function Dashboard() {
   const [month, setMonth] = useState(now.getMonth()) // 0-indexed
 
   const startOfMonth = Date.UTC(year, month, 1)
-  const endOfMonth = Date.UTC(year, month + 1, 1) - 1
 
   const group = useLiveQuery(
     () => (activeGroupId ? db.groups.get(activeGroupId) : undefined),
     [activeGroupId],
   )
 
-  const allTransactions = useLiveQuery(
+  // One read of the Space's Ledger; every figure below is a question over it.
+  const ledgerTxns = useLiveQuery(
     () =>
       activeGroupId
-        ? db.transactions.where(
-            (t) =>
-              t.groupId === activeGroupId &&
-              t.deletedAt === null &&
-              t.date >= startOfMonth &&
-              t.date <= endOfMonth,
-          )
+        ? db.transactions.where((t) => t.groupId === activeGroupId && t.deletedAt === null)
         : [],
-    [activeGroupId, startOfMonth, endOfMonth],
+    [activeGroupId],
   )
 
   const budgets = useLiveQuery(
@@ -80,27 +69,16 @@ export default function Dashboard() {
     [activeGroupId],
   )
 
-  const recentTransactions = useLiveQuery(
-    () =>
-      activeGroupId
-        ? db.transactions
-            .where(
-              (t) =>
-                t.groupId === activeGroupId &&
-                t.deletedAt === null &&
-                t.date >= startOfMonth &&
-                t.date <= endOfMonth,
-            )
-            .then((txns) => txns.sort((a, b) => b.date - a.date).slice(0, 5))
-        : [],
-    [activeGroupId, startOfMonth, endOfMonth],
-  )
-
   const members = useLiveQuery(
     () =>
       activeGroupId
         ? db.members.where((m) => m.groupId === activeGroupId && m.status === 'active')
         : [],
+    [activeGroupId],
+  )
+
+  const goals = useLiveQuery(
+    () => (activeGroupId ? db.goals.where((g) => g.groupId === activeGroupId) : []),
     [activeGroupId],
   )
 
@@ -111,8 +89,21 @@ export default function Dashboard() {
   )
 
   const currency = group?.currency ?? 'INR'
+  const ledger: Ledger = useMemo(
+    () => ({ transactions: ledgerTxns ?? [], currency }),
+    [ledgerTxns, currency],
+  )
+  const monthRangeForView = useMemo(() => monthRange(startOfMonth), [startOfMonth])
+  const monthTransactions = useMemo(
+    () => rowsMatching(ledger, { range: monthRangeForView }),
+    [ledger, monthRangeForView],
+  )
+  const recentTransactions = monthTransactions.slice(0, 5)
 
-  const { data: upcomingBills } = useUpcomingBills(activeGroupId, currency)
+  const upcomingBills = useMemo(
+    () => computeUpcomingBills(allRecurrences ?? [], currency, today()),
+    [allRecurrences, currency],
+  )
 
   // Active recurrences (any type, any due date) not already surfaced by the 30-day
   // bill projection above — e.g. income recurrences, or an expense recurrence whose
@@ -130,7 +121,14 @@ export default function Dashboard() {
   // independent of whichever month the user is browsing above.
   const recapYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
   const recapMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1
-  const { data: monthlyRecap } = useMonthlyRecap(activeGroupId, currency, recapYear, recapMonth)
+  const monthlyRecap = useMemo(
+    () =>
+      computeMonthlyRecap(ledger, budgets ?? [], goals ?? [], {
+        year: recapYear,
+        month: recapMonth,
+      }),
+    [ledger, budgets, goals, recapYear, recapMonth],
+  )
   const recapKey = activeGroupId
     ? `shillak_recap_dismissed_${activeGroupId}_${recapYear}-${recapMonth}`
     : null
@@ -143,10 +141,10 @@ export default function Dashboard() {
   const forceRecap = import.meta.env.DEV && searchParams.has('forceRecap')
   const withinRecapWindow = now.getDate() <= 7 || forceRecap
 
-  // Sum of all members' stated monthly income — used as baseline when no income transactions
-  const memberIncomeBaseline = useMemo(
-    () => (members ?? []).reduce((s, m) => s + (m.monthlyIncome ?? 0), 0),
-    [members],
+  // Stated monthly income, used as a baseline when nothing has been logged.
+  const incomeBaseline = useMemo(
+    () => statedIncomeBaseline(members ?? [], currency),
+    [members, currency],
   )
 
   const {
@@ -160,13 +158,13 @@ export default function Dashboard() {
   } = useMemo(
     () =>
       computeDashboardMetrics(
-        allTransactions ?? [],
+        monthTransactions,
         allRecurrences ?? [],
         budgets ?? [],
         categories ?? [],
         currency,
       ),
-    [allTransactions, allRecurrences, budgets, categories, currency],
+    [monthTransactions, allRecurrences, budgets, categories, currency],
   )
 
   const catMap = useMemo(() => {
@@ -276,7 +274,7 @@ export default function Dashboard() {
         expenses={totalExpense}
         currency={currency}
         totalBudget={totalBudget}
-        incomeBaseline={memberIncomeBaseline}
+        incomeBaseline={incomeBaseline.amount}
       />
 
       {/* Fixed outflows breakdown */}
@@ -306,7 +304,7 @@ export default function Dashboard() {
         ))}
 
       {/* Monthly spend trend — card wrapper lives inside MonthlyBar */}
-      {activeGroupId && <MonthlyBar groupId={activeGroupId} currency={currency} />}
+      {activeGroupId && <MonthlyBar ledger={ledger} today={today()} />}
 
       {/* Budget bars per category */}
       {(budgets ?? []).length > 0 && (
@@ -416,8 +414,8 @@ export default function Dashboard() {
                       txn.type === 'income' ? 'text-income' : 'text-text-primary'
                     }`}
                   >
-                    {txn.type === 'income' ? '+' : '-'}
-                    {formatCurrency(txn.amount, currency)}
+                    {txn.type === 'income' ? '+' : txn.type === 'transfer' ? '↔' : '-'}
+                    {formatCurrency(toBaseCurrency(txn, currency), currency)}
                   </span>
                 </div>
               )
@@ -442,13 +440,6 @@ export default function Dashboard() {
 }
 
 // ─── Upcoming Bills Section ───────────────────────────────────────────────────
-
-function daysLabel(dueDate: number): string {
-  const daysUntil = Math.round((dueDate - today()) / 86_400_000)
-  if (daysUntil < 0) return `${Math.abs(daysUntil)}d overdue`
-  if (daysUntil === 0) return 'today'
-  return `in ${daysUntil}d`
-}
 
 function UpcomingBillsSection({
   overdue,
@@ -558,19 +549,6 @@ function UpcomingBillsSection({
   )
 }
 
-function describeRecurrence(rec: Recurrence): string {
-  switch (rec.frequency) {
-    case 'daily':
-      return 'Daily'
-    case 'weekly':
-      return `Weekly, ${weekdayLabel(rec.dayOfWeek ?? new Date(rec.nextDue).getUTCDay(), 'long')}`
-    case 'monthly':
-      return `Monthly, on the ${ordinal(new Date(rec.nextDue).getUTCDate())}`
-    case 'quarterly':
-      return 'Quarterly'
-  }
-}
-
 function RecurringRow({
   rec,
   currency,
@@ -650,7 +628,7 @@ function UpcomingBillRow({
           {bill.note || cat?.name || 'Unknown'}
         </p>
         <p className={`text-xs ${overdue ? 'text-danger' : 'text-text-tertiary'}`}>
-          {daysLabel(bill.date)}
+          {daysLabel(bill.date, today())}
         </p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">

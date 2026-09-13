@@ -44,15 +44,6 @@ export async function importIdentityBackup(file: File): Promise<{ user: User; re
     throw new Error('Invalid backup file — missing required fields')
   }
 
-  // Restore keystore — PIN will be verified on next PinScreen unlock
-  await db.keystoreTable.put({
-    id: 1,
-    salt: backup.salt,
-    pinCheck: backup.pinCheck,
-    pinChangeInProgress: false,
-  })
-
-  // Restore user record
   const user: User = {
     userId: backup.userId,
     displayName: backup.displayName,
@@ -60,7 +51,20 @@ export async function importIdentityBackup(file: File): Promise<{ user: User; re
     identityBackupHint: '',
     createdAt: backup.exportedAt,
   }
-  await db.users.put(user)
+
+  // The user record is encrypted and therefore stageable; the keystore is not,
+  // so it is written deliberately *after* the block closes — the same shape
+  // ChangePinSheet uses, and now enforced rather than remembered.
+  await db.atomically(async () => {
+    await db.users.put(user)
+  })
+
+  await db.keystore().put({
+    id: 1,
+    salt: backup.salt,
+    pinCheck: backup.pinCheck,
+    pinChangeInProgress: false,
+  })
 
   return { user, requiresPin: true }
 }

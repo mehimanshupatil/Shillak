@@ -1,5 +1,4 @@
 import { ArrowClockwiseIcon, InfoIcon, PushPinIcon, XIcon } from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import {
   AlertDialog,
@@ -39,7 +38,6 @@ interface Props {
 }
 
 export default function RecurrenceSheet({ open, onClose, recurrence, currency }: Props) {
-  const queryClient = useQueryClient()
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
   const [dayOfWeek, setDayOfWeek] = useState(0)
   const [endDateStr, setEndDateStr] = useState('')
@@ -85,7 +83,6 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
           note: note.trim(),
         }),
       )
-      queryClient.invalidateQueries({ queryKey: ['upcomingBills', recurrence.groupId] })
       onClose()
     } catch (e) {
       setError(String(e))
@@ -102,7 +99,6 @@ export default function RecurrenceSheet({ open, onClose, recurrence, currency }:
         active: false,
         endDate: Date.now(),
       })
-      queryClient.invalidateQueries({ queryKey: ['upcomingBills', recurrence.groupId] })
       onClose()
     } catch (e) {
       setError(String(e))

@@ -10,8 +10,10 @@ import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
 import { db } from '@/db/db'
 import type { Account } from '@/db/schema'
-import { useNetWorthTrend } from '@/hooks/useNetWorthTrend'
-import { formatCurrency, monthShort, toBaseCurrency } from '@/lib/utils'
+import type { Ledger } from '@/lib/ledger/read'
+import { accountBalances } from '@/lib/ledger/read'
+import { computeNetWorthTrend } from '@/lib/netWorthTrend'
+import { formatCurrency, monthShort, today } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 const netWorthChartConfig = { netWorth: { label: 'Net worth' } } satisfies ChartConfig
@@ -33,7 +35,8 @@ export default function AccountsPage() {
     [activeGroupId],
   )
 
-  const allTxns = useLiveQuery(
+  // One read of the Space's Ledger; the balances below are a question over it.
+  const ledgerTxns = useLiveQuery(
     () =>
       activeGroupId
         ? db.transactions.where((t) => t.groupId === activeGroupId && t.deletedAt === null)
@@ -44,27 +47,17 @@ export default function AccountsPage() {
   const currency = group?.currency ?? 'INR'
   const sorted = (accounts ?? []).sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const { data: netWorthTrend } = useNetWorthTrend(activeGroupId, currency)
+  const ledger: Ledger = useMemo(
+    () => ({ transactions: ledgerTxns ?? [], currency }),
+    [ledgerTxns, currency],
+  )
 
-  const accountBalances = useMemo(() => {
-    const balances: Record<string, number> = {}
-    for (const acc of sorted) {
-      let balance = acc.openingBalance ?? 0
-      for (const t of allTxns ?? []) {
-        let delta = 0
-        if (t.accountId === acc.accountId) {
-          if (t.type === 'income') delta = toBaseCurrency(t, currency)
-          else delta = -toBaseCurrency(t, currency) // expense or transfer-out
-        } else if (t.toAccountId === acc.accountId && t.type === 'transfer') {
-          delta = toBaseCurrency(t, currency)
-        }
-        // Credit accounts track "amount owed" — a charge increases it, a payment decreases it.
-        balance += acc.type === 'credit' ? -delta : delta
-      }
-      balances[acc.accountId] = balance
-    }
-    return balances
-  }, [sorted, allTxns, currency])
+  const balances = useMemo(() => accountBalances(ledger, sorted), [ledger, sorted])
+
+  const netWorthTrend = useMemo(
+    () => computeNetWorthTrend(ledger, sorted, today()),
+    [ledger, sorted],
+  )
 
   async function handleDelete(acc: Account) {
     const txns = await db.transactions.where(
@@ -122,13 +115,13 @@ export default function AccountsPage() {
                 <p className="text-sm text-text-primary">{acc.name}</p>
                 <p className="text-[10px] text-text-tertiary capitalize">{acc.type}</p>
               </div>
-              {accountBalances[acc.accountId] !== undefined && (
+              {balances[acc.accountId] !== undefined && (
                 <span
                   className={`text-sm font-mono font-medium shrink-0 ${
-                    (accountBalances[acc.accountId] ?? 0) < 0 ? 'text-danger' : 'text-text-primary'
+                    (balances[acc.accountId] ?? 0) < 0 ? 'text-danger' : 'text-text-primary'
                   }`}
                 >
-                  {formatCurrency(accountBalances[acc.accountId] ?? 0, currency)}
+                  {formatCurrency(balances[acc.accountId] ?? 0, currency)}
                 </span>
               )}
               {acc.isDefault && <Badge>default</Badge>}

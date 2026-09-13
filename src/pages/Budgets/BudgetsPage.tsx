@@ -17,7 +17,18 @@ import CategoryIcon from '@/components/ui/CategoryIcon'
 import { Progress } from '@/components/ui/progress'
 import { db } from '@/db/db'
 import type { Budget, SavingsGoal } from '@/db/schema'
-import { formatCompact, formatCurrency, groupColor, monthShort, toBaseCurrency } from '@/lib/utils'
+import type { GoalPace } from '@/lib/goalPace'
+import { goalPace } from '@/lib/goalPace'
+import type { Ledger } from '@/lib/ledger/read'
+import { earnedInCategory, monthlySpendByCategory, spendByCategory } from '@/lib/ledger/read'
+import {
+  formatCompact,
+  formatCurrency,
+  formatDateFull,
+  groupColor,
+  monthShort,
+  today,
+} from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
 
 export default function BudgetsPage() {
@@ -64,49 +75,21 @@ export default function BudgetsPage() {
     [activeGroupId],
   )
 
-  // Lifetime income transactions — for auto-deriving savings goal progress
-  const incomeTxns = useLiveQuery(
+  // One read of the Space's Ledger; every figure below is a question over it.
+  const ledgerTxns = useLiveQuery(
     () =>
       activeGroupId
-        ? db.transactions.where(
-            (t) => t.groupId === activeGroupId && t.deletedAt === null && t.type === 'income',
-          )
+        ? db.transactions.where((t) => t.groupId === activeGroupId && t.deletedAt === null)
         : [],
     [activeGroupId],
   )
 
-  const transactions = useLiveQuery(
-    () =>
-      activeGroupId
-        ? db.transactions.where(
-            (t) =>
-              t.groupId === activeGroupId &&
-              t.deletedAt === null &&
-              t.type === 'expense' &&
-              t.date >= windowStart &&
-              t.date <= windowEnd,
-          )
-        : [],
-    [activeGroupId, windowStart, windowEnd],
-  )
-
-  // 6-month history for sparklines (monthly mode only)
-  const sixMonthsAgo = Date.UTC(year, month - 5, 1)
-  const historicTxns = useLiveQuery(
-    () =>
-      activeGroupId && activePeriod === 'monthly'
-        ? db.transactions.where(
-            (t) =>
-              t.groupId === activeGroupId &&
-              t.deletedAt === null &&
-              t.type === 'expense' &&
-              t.date >= sixMonthsAgo,
-          )
-        : [],
-    [activeGroupId, sixMonthsAgo, activePeriod],
-  )
-
   const currency = group?.currency ?? 'INR'
+  const ledger: Ledger = useMemo(
+    () => ({ transactions: ledgerTxns ?? [], currency }),
+    [ledgerTxns, currency],
+  )
+  const viewRange = useMemo(() => ({ from: windowStart, to: windowEnd }), [windowStart, windowEnd])
 
   const catMap = useMemo(() => {
     const m: Record<string, { name: string; color: string; icon: string }> = {}
@@ -118,11 +101,11 @@ export default function BudgetsPage() {
 
   const categorySpend = useMemo(() => {
     const spend: Record<string, number> = {}
-    ;(transactions ?? []).forEach((t) => {
-      spend[t.categoryId] = (spend[t.categoryId] ?? 0) + toBaseCurrency(t, currency)
-    })
+    for (const entry of spendByCategory(ledger, viewRange)) {
+      spend[entry.categoryId] = entry.amount
+    }
     return spend
-  }, [transactions, currency])
+  }, [ledger, viewRange])
 
   const activeBudgets = useMemo(
     () => (budgets ?? []).filter((b) => b.period === activePeriod),
@@ -133,15 +116,14 @@ export default function BudgetsPage() {
   // since the goal was created (goal.createdAt) — avoids counting pre-goal income
   const goalSavedMap = useMemo(() => {
     const map: Record<string, number> = {}
-    const txns = incomeTxns ?? []
     for (const goal of goals ?? []) {
       if (!goal.categoryId) continue
-      map[goal.goalId] = txns
-        .filter((t) => t.categoryId === goal.categoryId && t.date >= (goal.createdAt ?? 0))
-        .reduce((s, t) => s + toBaseCurrency(t, currency), 0)
+      map[goal.goalId] = earnedInCategory(ledger, goal.categoryId, {
+        from: goal.createdAt ?? 0,
+      })
     }
     return map
-  }, [goals, incomeTxns, currency])
+  }, [goals, ledger])
 
   const totalBudget = useMemo(() => activeBudgets.reduce((s, b) => s + b.limit, 0), [activeBudgets])
   const totalSpend = useMemo(
@@ -198,56 +180,22 @@ export default function BudgetsPage() {
 
   // Deadline pace status per goal
   const goalPaceStatuses = useMemo(() => {
-    const nowMs = Date.now()
-    const statuses: Record<
-      string,
-      { status: 'done' | 'overdue' | 'behind' | 'on-track'; monthlyNeeded: number | null }
-    > = {}
+    const statuses: Record<string, GoalPace> = {}
     for (const goal of goals ?? []) {
-      const effectiveSaved = goalSavedMap[goal.goalId] ?? goal.saved
-      if (effectiveSaved >= goal.target) {
-        statuses[goal.goalId] = { status: 'done', monthlyNeeded: null }
-        continue
-      }
-      if (!goal.deadline) continue
-      if (nowMs > goal.deadline) {
-        statuses[goal.goalId] = { status: 'overdue', monthlyNeeded: null }
-        continue
-      }
-      const msRemaining = goal.deadline - nowMs
-      const monthsRemaining = msRemaining / (30.44 * 86_400_000)
-      const monthlyNeeded =
-        monthsRemaining > 0 ? Math.ceil((goal.target - effectiveSaved) / monthsRemaining) : null
-      const totalDuration = goal.deadline - goal.createdAt
-      const elapsed = nowMs - goal.createdAt
-      const timeProgress = totalDuration > 0 ? elapsed / totalDuration : 0
-      const amountProgress = goal.target > 0 ? effectiveSaved / goal.target : 0
-      statuses[goal.goalId] = {
-        status: amountProgress >= timeProgress - 0.05 ? 'on-track' : 'behind',
-        monthlyNeeded,
-      }
+      const pace = goalPace(goal, goalSavedMap[goal.goalId] ?? goal.saved, today())
+      if (pace) statuses[goal.goalId] = pace
     }
     return statuses
   }, [goals, goalSavedMap])
 
   // Per-category spend per month over last 6 months [oldest → newest]
-  const sparkData = useMemo(() => {
-    if (activePeriod === 'yearly') return {}
-    const data: Record<string, number[]> = {}
-    for (let i = 0; i < 6; i++) {
-      const mMonth = (((month - 5 + i) % 12) + 12) % 12
-      const mYear = year + Math.floor((month - 5 + i) / 12)
-      const mStart = Date.UTC(mYear, mMonth, 1)
-      const mEnd = Date.UTC(mYear, mMonth + 1, 1) - 1
-      for (const t of historicTxns ?? []) {
-        if (t.date < mStart || t.date > mEnd) continue
-        if (!data[t.categoryId]) data[t.categoryId] = Array(6).fill(0)
-        const row = data[t.categoryId]
-        if (row) row[i] = (row[i] ?? 0) + toBaseCurrency(t, currency)
-      }
-    }
-    return data
-  }, [historicTxns, month, year, activePeriod, currency])
+  const sparkData = useMemo(
+    () =>
+      activePeriod === 'yearly'
+        ? {}
+        : monthlySpendByCategory(ledger, { today: startOfMonth, months: 6 }),
+    [ledger, startOfMonth, activePeriod],
+  )
 
   const alerts = useMemo(() => {
     return activeBudgets
@@ -507,12 +455,7 @@ export default function BudgetsPage() {
                       <p className="text-sm font-semibold text-text-primary">{goal.name}</p>
                       {goal.deadline && (
                         <p className="text-xs text-text-tertiary mt-0.5">
-                          by{' '}
-                          {new Date(goal.deadline).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
+                          by {formatDateFull(goal.deadline)}
                         </p>
                       )}
                       {autoTracked && (

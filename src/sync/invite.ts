@@ -152,8 +152,15 @@ export function isInvite(qrData: string): boolean {
 
 // ─── Join group ───────────────────────────────────────────────────────────────
 
-/** Called after user confirms join. Creates group + member records. */
+/**
+ * Called after user confirms join. Creates group + member records — both or
+ * neither, so a failure partway can't leave a Space with no Member in it.
+ */
 export async function joinGroupFromInvite(invite: InvitePayload, userId: string): Promise<void> {
+  return db.atomically(() => joinGroupFromInviteUnguarded(invite, userId))
+}
+
+async function joinGroupFromInviteUnguarded(invite: InvitePayload, userId: string): Promise<void> {
   const existing = await db.groups.get(invite.groupId)
 
   if (!existing) {

@@ -1,8 +1,10 @@
 import Papa from 'papaparse'
 import { db } from '@/db/db'
 import type { Category, Transaction } from '@/db/schema'
-import { inferCategoryName } from '@/lib/categorize'
-import { generateId, toPaise } from '@/lib/utils'
+import { resolveCategory } from '@/lib/categorize'
+import type { LedgerRowSpec } from '@/lib/ledger/write'
+import { commitMany } from '@/lib/ledger/write'
+import { toPaise } from '@/lib/utils'
 
 // ─── Parsing ──────────────────────────────────────────────────────────────────
 
@@ -179,45 +181,6 @@ export function amountToPaiseAndType(rupees: number): {
   return { amountPaise: toPaise(Math.abs(rupees)), type: rupees < 0 ? 'expense' : 'income' }
 }
 
-// ─── Category resolution ──────────────────────────────────────────────────────
-
-export type CategoryMatchKind = 'explicit' | 'guessed' | 'fallback'
-
-export interface ResolvedCategory {
-  categoryId: string
-  matchKind: CategoryMatchKind
-}
-
-/**
- * Resolve a category for one row: explicit column value > keyword-guessed from
- * note > "Other"/"Other Income" fallback. Throws only if the space has zero
- * categories of the needed type (shouldn't happen — seeded on space creation).
- */
-export function resolveCategory(
-  categories: Category[],
-  type: 'expense' | 'income',
-  rawCategoryText: string | undefined,
-  note: string,
-): ResolvedCategory {
-  const byType = categories.filter((c) => c.type === type)
-
-  if (rawCategoryText?.trim()) {
-    const exact = byType.find((c) => c.name.toLowerCase() === rawCategoryText.trim().toLowerCase())
-    if (exact) return { categoryId: exact.categoryId, matchKind: 'explicit' }
-  }
-
-  const guessedName = inferCategoryName(note)
-  if (guessedName) {
-    const guessed = byType.find((c) => c.name.toLowerCase() === guessedName.toLowerCase())
-    if (guessed) return { categoryId: guessed.categoryId, matchKind: 'guessed' }
-  }
-
-  const fallback =
-    byType.find((c) => c.name === (type === 'expense' ? 'Other' : 'Other Income')) ?? byType[0]
-  if (!fallback) throw new Error(`No ${type} categories exist in this space`)
-  return { categoryId: fallback.categoryId, matchKind: 'fallback' }
-}
-
 // ─── Duplicate detection ──────────────────────────────────────────────────────
 
 export function isDuplicateTransaction(
@@ -233,6 +196,78 @@ export function isDuplicateTransaction(
   )
 }
 
+// ─── Preview ──────────────────────────────────────────────────────────────────
+
+export interface PreviewRow {
+  ok: true
+  date: number
+  note: string
+  amountPaise: number
+  type: 'expense' | 'income'
+  categoryId: string
+  isDuplicate: boolean
+}
+
+export interface PreviewRowError {
+  ok: false
+  raw: string
+}
+
+/**
+ * Turns mapped CSV cells into the rows the user approves before importing.
+ *
+ * This is the verdict a person actually sees, so it has to agree with the one
+ * the commit applies — it calls `isDuplicateTransaction` rather than repeating
+ * the rule. The two used to disagree about trailing whitespace in a note.
+ */
+export function buildPreviewRows(
+  dataRows: string[][],
+  mapping: ColumnMapping,
+  amountMode: AmountMode,
+  dateFormat: DateFormat,
+  categories: Category[],
+  existing: Array<{ date: number; amount: number; note: string }>,
+): { rows: Array<PreviewRow | PreviewRowError>; categoryOverride: Record<number, string> } {
+  const rows: Array<PreviewRow | PreviewRowError> = []
+  const categoryOverride: Record<number, string> = {}
+  const seen = [...existing]
+
+  dataRows.forEach((cells, i) => {
+    const dateRaw = mapping.date !== null ? (cells[mapping.date] ?? '') : ''
+    const date = parseDateWithFormat(dateRaw, dateFormat)
+
+    let rupees: number | null = null
+    if (amountMode === 'signed') {
+      const raw = mapping.amount !== null ? (cells[mapping.amount] ?? '') : ''
+      rupees = parseAmountValue(raw)
+    } else {
+      const debitRaw = mapping.debit !== null ? (cells[mapping.debit] ?? '') : ''
+      const creditRaw = mapping.credit !== null ? (cells[mapping.credit] ?? '') : ''
+      const debit = parseAmountValue(debitRaw)
+      const credit = parseAmountValue(creditRaw)
+      if (debit && debit !== 0) rupees = -Math.abs(debit)
+      else if (credit && credit !== 0) rupees = Math.abs(credit)
+    }
+
+    if (date === null || rupees === null) {
+      rows.push({ ok: false, raw: cells.join(', ') })
+      return
+    }
+
+    const note = mapping.note !== null ? (cells[mapping.note] ?? '').trim() : ''
+    const rawCategory = mapping.category !== null ? cells[mapping.category] : undefined
+    const { amountPaise, type } = amountToPaiseAndType(rupees)
+    const { categoryId } = resolveCategory(categories, type, rawCategory, note)
+    const isDuplicate = isDuplicateTransaction({ date, amount: amountPaise, note }, seen)
+    if (!isDuplicate) seen.push({ date, amount: amountPaise, note })
+
+    categoryOverride[i] = categoryId
+    rows.push({ ok: true, date, note, amountPaise, type, categoryId, isDuplicate })
+  })
+
+  return { rows, categoryOverride }
+}
+
 // ─── Import commit ────────────────────────────────────────────────────────────
 
 export interface ResolvedCsvRow {
@@ -245,10 +280,9 @@ export interface ResolvedCsvRow {
 }
 
 /**
- * Write resolved rows as transactions in one batch: a single vector-clock bump
- * covering the whole import (not one DB round-trip per row) followed by one
- * bulkPut. Rows that exactly match an existing transaction (date+amount+note)
- * are silently skipped and counted.
+ * Write resolved rows as transactions in one atomic batch. Rows that exactly
+ * match an existing transaction (date+amount+note) are silently skipped and
+ * counted, including against rows earlier in the same import.
  */
 export async function commitCsvImport(
   groupId: string,
@@ -256,15 +290,9 @@ export async function commitCsvImport(
   currency: string,
   rows: ResolvedCsvRow[],
 ): Promise<{ imported: number; skipped: number }> {
-  const [group, existing] = await Promise.all([
-    db.groups.get(groupId),
-    db.transactions.where((t) => t.groupId === groupId && t.deletedAt === null),
-  ])
-  if (!group) throw new Error('Group not found')
+  const existing = await db.transactions.where((t) => t.groupId === groupId && t.deletedAt === null)
 
-  const now = Date.now()
-  let seq = group.vectorClock[userId] ?? 0
-  const toInsert: Transaction[] = []
+  const specs: LedgerRowSpec[] = []
   const seen: Array<{ date: number; amount: number; note: string }> = existing
   let skipped = 0
 
@@ -273,12 +301,9 @@ export async function commitCsvImport(
       skipped++
       continue
     }
-    seq += 1
-    toInsert.push({
-      txnId: generateId(),
+    specs.push({
       groupId,
       ownerId: userId,
-      authorSeq: seq,
       categoryId: row.categoryId,
       type: row.type,
       amount: row.amount,
@@ -291,24 +316,15 @@ export async function commitCsvImport(
       attachmentIds: [],
       recurrenceId: null,
       accountId: row.accountId,
+      toAccountId: null,
       paidBy: userId,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
     })
     // Dedupe subsequent rows in the same import against ones we just staged too.
     seen.push({ date: row.date, amount: row.amount, note: row.note })
   }
 
-  if (toInsert.length > 0) {
-    await db.groups.update(groupId, {
-      vectorClock: { ...group.vectorClock, [userId]: seq },
-      updatedAt: now,
-    })
-    await db.transactions.bulkPut(toInsert)
-  }
-
-  return { imported: toInsert.length, skipped }
+  const written = await commitMany({ groupId, userId, rows: specs })
+  return { imported: written.length, skipped }
 }
 
 // ─── AI-assisted reformatting template ────────────────────────────────────────

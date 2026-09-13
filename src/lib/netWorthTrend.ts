@@ -1,6 +1,6 @@
-import { db } from '@/db/db'
-import type { AccountType, Transaction } from '@/db/schema'
-import { toBaseCurrency, today } from '@/lib/utils'
+import type { Account, Transaction } from '@/db/schema'
+import type { Ledger } from '@/lib/ledger/read'
+import { balanceDelta } from '@/lib/ledger/read'
 
 const WINDOW_MONTHS = 12
 
@@ -14,39 +14,21 @@ export interface NetWorthTrendResult {
   points: NetWorthPoint[]
 }
 
-function monthBuckets(now: Date): Array<{ year: number; month: number; cutoff: number }> {
+function monthBuckets(now: number): Array<{ year: number; month: number; cutoff: number }> {
+  const anchor = new Date(now)
+  const nowYear = anchor.getUTCFullYear()
+  const nowMonth = anchor.getUTCMonth()
+
   const buckets: Array<{ year: number; month: number; cutoff: number }> = []
   for (let i = WINDOW_MONTHS - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const year = d.getFullYear()
-    const month = d.getMonth()
+    const d = new Date(Date.UTC(nowYear, nowMonth - i, 1))
+    const year = d.getUTCFullYear()
+    const month = d.getUTCMonth()
     const isCurrentMonth = i === 0
-    const cutoff = isCurrentMonth ? today() : Date.UTC(year, month + 1, 1) - 1
+    const cutoff = isCurrentMonth ? now : Date.UTC(year, month + 1, 1) - 1
     buckets.push({ year, month, cutoff })
   }
   return buckets
-}
-
-/**
- * Signed delta this transaction contributes to `accountId`'s running balance.
- * For credit accounts the running balance means "amount owed", so the sign is
- * flipped relative to an asset account: a charge increases what's owed, a
- * payment (transfer-in) decreases it.
- */
-function deltaFor(
-  txn: Transaction,
-  accountId: string,
-  accountType: AccountType,
-  currency: string,
-): number {
-  const amount = toBaseCurrency(txn, currency)
-  let delta = 0
-  if (txn.accountId === accountId) {
-    delta = txn.type === 'income' ? amount : -amount // expense or transfer-out
-  } else if (txn.toAccountId === accountId && txn.type === 'transfer') {
-    delta = amount
-  }
-  return accountType === 'credit' ? -delta : delta
 }
 
 /**
@@ -54,18 +36,16 @@ function deltaFor(
  * each month-end for the trailing 12 months. Single running-balance pass per
  * account. An account contributes nothing to months before its createdAt —
  * omitted, not zeroed, so it doesn't show as a phantom $0 account.
+ *
+ * `now` is a midnight-UTC date supplied by the caller; nothing here reads the clock.
  */
-export async function computeNetWorthTrend(
-  groupId: string,
-  currency: string,
-): Promise<NetWorthTrendResult> {
-  const now = new Date()
+export function computeNetWorthTrend(
+  ledger: Ledger,
+  accounts: Account[],
+  now: number,
+): NetWorthTrendResult {
   const buckets = monthBuckets(now)
-
-  const [accounts, transactions] = await Promise.all([
-    db.accounts.where((a) => a.groupId === groupId),
-    db.transactions.where((t) => t.groupId === groupId && t.deletedAt === null),
-  ])
+  const transactions = ledger.transactions
 
   const netWorthByBucket = new Array(buckets.length).fill(0) as number[]
   const anyAccountByBucket = new Array(buckets.length).fill(false) as boolean[]
@@ -81,7 +61,7 @@ export async function computeNetWorthTrend(
     for (let b = 0; b < buckets.length; b++) {
       const bucket = buckets[b] as { year: number; month: number; cutoff: number }
       while (idx < relevant.length && (relevant[idx] as Transaction).date <= bucket.cutoff) {
-        running += deltaFor(relevant[idx] as Transaction, account.accountId, account.type, currency)
+        running += balanceDelta(relevant[idx] as Transaction, account, ledger)
         idx++
       }
       if (bucket.cutoff < account.createdAt) continue // account didn't exist yet — omit

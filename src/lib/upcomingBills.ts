@@ -1,6 +1,5 @@
-import { db } from '@/db/db'
 import type { Recurrence } from '@/db/schema'
-import { advanceDate, toBaseCurrency, today } from '@/lib/utils'
+import { advanceDate, toBaseCurrency } from '@/lib/utils'
 
 const WINDOW_DAYS = 30
 const DAY_MS = 86_400_000
@@ -36,22 +35,23 @@ function toItem(rec: Recurrence, date: number, currency: string): UpcomingBillIt
  * distinct overdue bucket for recurrences whose owner hasn't caught up
  * processRecurrences yet (nextDue already in the past). Projects every
  * occurrence landing in the window, not just the next one.
+ *
+ * `now` is a midnight-UTC date supplied by the caller — nothing here reads the
+ * clock, so the projection is the same every time it is asked.
  */
-export async function computeUpcomingBills(
-  groupId: string,
+export function computeUpcomingBills(
+  recurrences: Recurrence[],
   currency: string,
-): Promise<UpcomingBillsResult> {
-  const now = today()
+  now: number,
+): UpcomingBillsResult {
   const windowEnd = now + WINDOW_DAYS * DAY_MS
-
-  const recurrences = await db.recurrences.where(
-    (r) => r.groupId === groupId && r.active && r.template.type === 'expense',
-  )
 
   const overdue: UpcomingBillItem[] = []
   const upcoming: UpcomingBillItem[] = []
 
   for (const rec of recurrences) {
+    if (!rec.active || rec.template.type !== 'expense') continue
+
     // Past endDate the recurrence is finished: neither overdue nor upcoming.
     // nextDue can still sit in the past here — only the owner's device runs
     // processRecurrences, so a peer's ended recurrence never advances locally.

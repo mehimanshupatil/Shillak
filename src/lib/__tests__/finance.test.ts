@@ -85,33 +85,6 @@ describe('toBaseCurrency', () => {
   })
 })
 
-// ─── Transfer excluded from expense/income totals ─────────────────────────────
-
-describe('transfer type exclusion', () => {
-  const txns: Array<Pick<Transaction, 'type' | 'amount'>> = [
-    { type: 'expense', amount: 5000 },
-    { type: 'income', amount: 20000 },
-    { type: 'transfer', amount: 8000 },
-  ]
-
-  it('expense filter excludes transfers', () => {
-    const total = txns.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-    expect(total).toBe(5000)
-  })
-
-  it('income filter excludes transfers', () => {
-    const total = txns.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-    expect(total).toBe(20000)
-  })
-
-  it('transfer is not expense and not income', () => {
-    const transfer = txns.find((t) => t.type === 'transfer')
-    expect(transfer).toBeDefined()
-    expect(transfer?.type === 'expense').toBe(false)
-    expect(transfer?.type === 'income').toBe(false)
-  })
-})
-
 // ─── parseDateStr — UTC midnight ──────────────────────────────────────────────
 
 describe('parseDateStr', () => {
@@ -197,59 +170,5 @@ describe('nextWeekday', () => {
     const mon = nextWeekday(wed, 1) // Monday (day 1) — already passed this week
     const d = new Date(mon)
     expect(d.getUTCDate()).toBe(20)
-  })
-})
-
-// ─── Goal pace logic ──────────────────────────────────────────────────────────
-
-describe('goal pace calculation', () => {
-  function calcPace(
-    saved: number,
-    target: number,
-    createdAt: number,
-    deadline: number,
-    now = Date.now(),
-  ): 'done' | 'overdue' | 'behind' | 'on-track' {
-    if (saved >= target) return 'done'
-    if (now > deadline) return 'overdue'
-    const totalDuration = deadline - createdAt
-    const elapsed = now - createdAt
-    const timeProgress = totalDuration > 0 ? elapsed / totalDuration : 0
-    const amountProgress = target > 0 ? saved / target : 0
-    return amountProgress >= timeProgress - 0.05 ? 'on-track' : 'behind'
-  }
-
-  it('done when saved >= target', () => {
-    const now = Date.now()
-    expect(calcPace(100000, 100000, now - 1000, now + 1000, now)).toBe('done')
-    expect(calcPace(120000, 100000, now - 1000, now + 1000, now)).toBe('done')
-  })
-
-  it('overdue when now > deadline and not done', () => {
-    const past = Date.now() - 86_400_000
-    expect(calcPace(50000, 100000, past - 86_400_000, past, Date.now())).toBe('overdue')
-  })
-
-  it('on-track when amount progress matches time progress', () => {
-    // 50% through time, 50% through amount — on track
-    const start = Date.now() - 50
-    const end = Date.now() + 50
-    const now = (start + end) / 2
-    expect(calcPace(50000, 100000, start, end, now)).toBe('on-track')
-  })
-
-  it('behind when amount lags time by more than 5%', () => {
-    // 60% through time, only 40% through amount
-    const start = Date.now() - 60
-    const end = Date.now() + 40
-    const now = start + 60
-    expect(calcPace(40000, 100000, start, end, now)).toBe('behind')
-  })
-
-  it('on-track with 5% tolerance (49% amount, 50% time)', () => {
-    const start = 0
-    const end = 1000
-    const now = 500
-    expect(calcPace(45000, 100000, start, end, now)).toBe('on-track') // 45% ≥ 50% - 5% = 45%
   })
 })

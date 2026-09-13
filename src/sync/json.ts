@@ -1,8 +1,13 @@
 import { db } from '@/db/db'
+import type { Group } from '@/db/schema'
+import { applyDelta } from '@/sync/conflict'
+import type { SyncDelta } from '@/sync/vector-clock'
 
 interface GroupSnapshot {
   version: 1
   exportedAt: number
+  /** Who took the Snapshot. Absent in files written before this was recorded. */
+  exportedBy?: string
   groupId: string
   group: object
   members: object[]
@@ -14,7 +19,10 @@ interface GroupSnapshot {
   accounts: object[]
 }
 
-export async function exportGroupSnapshot(groupId: string): Promise<GroupSnapshot> {
+export async function exportGroupSnapshot(
+  groupId: string,
+  exportedBy: string,
+): Promise<GroupSnapshot> {
   const [group, members, categories, transactions, recurrences, budgets, goals, accounts] =
     await Promise.all([
       db.groups.get(groupId),
@@ -32,6 +40,7 @@ export async function exportGroupSnapshot(groupId: string): Promise<GroupSnapsho
   return {
     version: 1,
     exportedAt: Date.now(),
+    exportedBy,
     groupId,
     group,
     members,
@@ -55,8 +64,17 @@ export function downloadSnapshot(snapshot: GroupSnapshot, groupName: string): vo
   URL.revokeObjectURL(url)
 }
 
+/**
+ * Restores a Snapshot by handing it to the same apply path a Sync session uses.
+ *
+ * It used to be eight hand-written `put` loops: no clock merge, no conflict
+ * detection, no admin invariant, no SyncEvent, and no atomicity — so a
+ * half-finished import left a Space in a state nothing else in the app could
+ * produce. `applyDelta` already advertised a `'json'` method it had no caller for.
+ */
 export async function importGroupSnapshot(
   file: File,
+  currentUserId: string,
 ): Promise<{ imported: number; groupId: string }> {
   const text = await file.text()
   const snapshot = JSON.parse(text) as GroupSnapshot
@@ -64,43 +82,38 @@ export async function importGroupSnapshot(
   if (snapshot.version !== 1) throw new Error('Unsupported snapshot version')
   if (!snapshot.groupId) throw new Error('Invalid snapshot: missing groupId')
 
+  const incomingGroup = snapshot.group as Group | undefined
+
+  // Restoring onto a device that has never seen this Space: the group row has to
+  // exist before the apply, which merges clocks into it and enforces the admin
+  // invariant against it. See ADR-0002 for why a Snapshot can carry it at all.
   const existing = await db.groups.get(snapshot.groupId)
-
-  // Merge strategy: put all records (last-write wins by updatedAt for conflicts)
-  let imported = 0
-
   if (!existing) {
-    await db.groups.put(snapshot.group as Parameters<typeof db.groups.put>[0])
-    imported++
+    if (!incomingGroup) throw new Error('Invalid snapshot: missing space')
+    await db.groups.put(incomingGroup)
   }
 
-  for (const m of snapshot.members) {
-    await db.members.put(m as Parameters<typeof db.members.put>[0])
-    imported++
+  const delta: SyncDelta = {
+    fromUserId: snapshot.exportedBy ?? '',
+    vectorClock: incomingGroup?.vectorClock ?? {},
+    ...(incomingGroup && { group: incomingGroup }),
+    transactions: (snapshot.transactions ?? []) as SyncDelta['transactions'],
+    categories: (snapshot.categories ?? []) as SyncDelta['categories'],
+    members: (snapshot.members ?? []) as SyncDelta['members'],
+    users: [],
+    budgets: (snapshot.budgets ?? []) as SyncDelta['budgets'],
+    goals: (snapshot.goals ?? []) as SyncDelta['goals'],
+    recurrences: (snapshot.recurrences ?? []) as SyncDelta['recurrences'],
+    accounts: (snapshot.accounts ?? []) as SyncDelta['accounts'],
   }
-  for (const c of snapshot.categories) {
-    await db.categories.put(c as Parameters<typeof db.categories.put>[0])
-    imported++
-  }
-  for (const t of snapshot.transactions) {
-    await db.transactions.put(t as Parameters<typeof db.transactions.put>[0])
-    imported++
-  }
-  for (const r of snapshot.recurrences) {
-    await db.recurrences.put(r as Parameters<typeof db.recurrences.put>[0])
-    imported++
-  }
-  for (const b of snapshot.budgets) {
-    await db.budgets.put(b as Parameters<typeof db.budgets.put>[0])
-    imported++
-  }
-  for (const g of snapshot.goals) {
-    await db.goals.put(g as Parameters<typeof db.goals.put>[0])
-    imported++
-  }
-  for (const a of snapshot.accounts ?? []) {
-    await db.accounts.put(a as Parameters<typeof db.accounts.put>[0])
-    imported++
-  }
-  return { imported, groupId: snapshot.groupId }
+
+  const result = await applyDelta(
+    delta,
+    snapshot.groupId,
+    crypto.randomUUID(),
+    'json',
+    currentUserId,
+  )
+
+  return { imported: result.recordsApplied, groupId: snapshot.groupId }
 }

@@ -1,46 +1,5 @@
-import type { Recurrence, RecurrenceFrequency, RecurrenceTemplate } from '@/db/schema'
+import type { Recurrence, RecurrenceFrequency } from '@/db/schema'
 import { nextOccurrence, today } from '@/lib/utils'
-
-interface BuildInput {
-  recurrenceId: string
-  groupId: string
-  ownerId: string
-  frequency: RecurrenceFrequency
-  dayOfWeek: number
-  txnDate: number
-  endDate: number | null
-  isFixed: boolean
-  template: RecurrenceTemplate
-}
-
-/** Builds a new Recurrence anchored to the originating transaction's date. */
-export function buildRecurrenceTemplate({
-  recurrenceId,
-  groupId,
-  ownerId,
-  frequency,
-  dayOfWeek,
-  txnDate,
-  endDate,
-  isFixed,
-  template,
-}: BuildInput): Recurrence {
-  return {
-    recurrenceId,
-    groupId,
-    ownerId,
-    template,
-    frequency,
-    interval: 1,
-    dayOfWeek: frequency === 'weekly' ? dayOfWeek : undefined,
-    nextDue: nextOccurrence(txnDate, frequency, dayOfWeek),
-    lastGeneratedAt: txnDate,
-    endDate,
-    active: true,
-    isFixed,
-    createdAt: Date.now(),
-  }
-}
 
 export interface RecurrenceEditPatch {
   frequency: RecurrenceFrequency

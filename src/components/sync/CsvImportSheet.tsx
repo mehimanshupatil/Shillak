@@ -27,8 +27,8 @@ import { db } from '@/db/db'
 import type { Account, Category } from '@/db/schema'
 import {
   type AmountMode,
-  amountToPaiseAndType,
   autoDetectColumns,
+  buildPreviewRows,
   type ColumnMapping,
   commitCsvImport,
   DATE_FORMATS,
@@ -36,11 +36,10 @@ import {
   downloadImportTemplateGuide,
   guessAmountMode,
   guessDateFormat,
-  parseAmountValue,
+  type PreviewRow,
+  type PreviewRowError,
   parseCsvText,
-  parseDateWithFormat,
   type ResolvedCsvRow,
-  resolveCategory,
 } from '@/lib/csvImport'
 import { formatCurrency } from '@/lib/utils'
 import useAppStore from '@/stores/app.store'
@@ -48,21 +47,6 @@ import useAppStore from '@/stores/app.store'
 interface Props {
   open: boolean
   onClose: () => void
-}
-
-interface PreviewRow {
-  ok: true
-  date: number
-  note: string
-  amountPaise: number
-  type: 'expense' | 'income'
-  categoryId: string
-  isDuplicate: boolean
-}
-
-interface PreviewRowError {
-  ok: false
-  raw: string
 }
 
 type Step =
@@ -83,60 +67,6 @@ type Step =
   | { step: 'error'; message: string }
 
 const NONE = '__none__'
-
-function buildRows(
-  dataRows: string[][],
-  mapping: ColumnMapping,
-  amountMode: AmountMode,
-  dateFormat: DateFormat,
-  categories: Category[],
-  existing: Array<{ date: number; amount: number; note: string }>,
-): { rows: Array<PreviewRow | PreviewRowError>; categoryOverride: Record<number, string> } {
-  const rows: Array<PreviewRow | PreviewRowError> = []
-  const categoryOverride: Record<number, string> = {}
-  const seen = [...existing]
-
-  dataRows.forEach((cells, i) => {
-    const dateRaw = mapping.date !== null ? (cells[mapping.date] ?? '') : ''
-    const date = parseDateWithFormat(dateRaw, dateFormat)
-
-    let rupees: number | null = null
-    if (amountMode === 'signed') {
-      const raw = mapping.amount !== null ? (cells[mapping.amount] ?? '') : ''
-      rupees = parseAmountValue(raw)
-    } else {
-      const debitRaw = mapping.debit !== null ? (cells[mapping.debit] ?? '') : ''
-      const creditRaw = mapping.credit !== null ? (cells[mapping.credit] ?? '') : ''
-      const debit = parseAmountValue(debitRaw)
-      const credit = parseAmountValue(creditRaw)
-      if (debit && debit !== 0) rupees = -Math.abs(debit)
-      else if (credit && credit !== 0) rupees = Math.abs(credit)
-    }
-
-    if (date === null || rupees === null) {
-      rows.push({ ok: false, raw: cells.join(', ') })
-      return
-    }
-
-    const note = mapping.note !== null ? (cells[mapping.note] ?? '').trim() : ''
-    const rawCategory = mapping.category !== null ? cells[mapping.category] : undefined
-    const { amountPaise, type } = amountToPaiseAndType(rupees)
-    const { categoryId } = resolveCategory(categories, type, rawCategory, note)
-    const isDuplicate = seen.some(
-      (t) =>
-        t.date === date &&
-        t.amount === amountPaise &&
-        t.note.trim().toLowerCase() === note.toLowerCase(),
-    )
-    if (!isDuplicate) seen.push({ date, amount: amountPaise, note })
-
-    categoryOverride[i] = categoryId
-    rows.push({ ok: true, date, note, amountPaise, type, categoryId, isDuplicate })
-  })
-
-  return { rows, categoryOverride }
-}
-
 export default function CsvImportSheet({ open, onClose }: Props) {
   const activeGroupId = useAppStore((s) => s.activeGroupId)
   const currentUserId = useAppStore((s) => s.currentUserId)
@@ -191,7 +121,7 @@ export default function CsvImportSheet({ open, onClose }: Props) {
     const existing = await db.transactions.where(
       (t) => t.groupId === activeGroupId && t.deletedAt === null,
     )
-    const { rows, categoryOverride } = buildRows(
+    const { rows, categoryOverride } = buildPreviewRows(
       dataRows,
       mapping,
       amountMode,

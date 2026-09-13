@@ -1,59 +1,31 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { Bar, BarChart, Tooltip, XAxis } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart'
 import { ChartContainer } from '@/components/ui/chart'
-import { db } from '@/db/db'
-import { formatCurrency, monthShort, toBaseCurrency } from '@/lib/utils'
+import type { Ledger } from '@/lib/ledger/read'
+import { monthlyTotals } from '@/lib/ledger/read'
+import { formatCurrency, monthShort } from '@/lib/utils'
 
-const NOW_YEAR = new Date().getFullYear()
-const NOW_MONTH = new Date().getMonth()
+const MONTHS = 6
 
 interface Props {
-  groupId: string
-  currency: string
+  ledger: Ledger
+  /** Midnight-UTC date the trailing window ends on. Passed in, never read here. */
+  today: number
 }
 
 const chartConfig = { amount: { label: 'Spent' } } satisfies ChartConfig
 
-export default function MonthlyBar({ groupId, currency }: Props) {
-  const windowStart = useMemo(() => {
-    const d = new Date(NOW_YEAR, NOW_MONTH - 5, 1)
-    return Date.UTC(d.getFullYear(), d.getMonth(), 1)
-  }, [])
-
-  const transactions = useLiveQuery(
+export default function MonthlyBar({ ledger, today }: Props) {
+  const data = useMemo(
     () =>
-      db.transactions.where(
-        (t) =>
-          t.groupId === groupId &&
-          t.deletedAt === null &&
-          t.type === 'expense' &&
-          t.date >= windowStart,
-      ),
-    [groupId, windowStart],
+      monthlyTotals(ledger, { today, months: MONTHS }).map((bucket, i) => ({
+        month: monthShort(bucket.month),
+        amount: bucket.expense,
+        fill: i === MONTHS - 1 ? 'var(--color-accent)' : 'var(--color-surface-3)',
+      })),
+    [ledger, today],
   )
-
-  const data = useMemo(() => {
-    const buckets: Array<{ month: string; amount: number; fill: string }> = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(NOW_YEAR, NOW_MONTH - i, 1)
-      buckets.push({
-        month: monthShort(d.getMonth()),
-        amount: 0,
-        fill: i === 0 ? 'var(--color-accent)' : 'var(--color-surface-3)',
-      })
-    }
-    for (const txn of transactions ?? []) {
-      const d = new Date(txn.date)
-      const monthsAgo = (NOW_YEAR - d.getUTCFullYear()) * 12 + (NOW_MONTH - d.getUTCMonth())
-      if (monthsAgo >= 0 && monthsAgo <= 5) {
-        const bucket = buckets[5 - monthsAgo]
-        if (bucket) bucket.amount += toBaseCurrency(txn, currency)
-      }
-    }
-    return buckets
-  }, [transactions, currency])
 
   if (data.filter((b) => b.amount > 0).length < 2) return null
 
@@ -80,7 +52,7 @@ export default function MonthlyBar({ groupId, currency }: Props) {
                 <div className="px-2.5 py-1.5 rounded-lg bg-surface-2 border border-border text-xs">
                   <p className="font-medium text-text-primary">{item.payload.month}</p>
                   <p className="font-mono text-text-secondary">
-                    {formatCurrency(item.value as number, currency)}
+                    {formatCurrency(item.value as number, ledger.currency)}
                   </p>
                 </div>
               )

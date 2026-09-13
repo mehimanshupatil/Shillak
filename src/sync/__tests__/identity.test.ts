@@ -5,12 +5,14 @@ import { exportIdentityBackup, importIdentityBackup } from '../identity'
 let users: User[] = []
 let keystore: KeystoreRecord | undefined
 
+const keystoreWrites = vi.hoisted(() => ({ put: vi.fn() }))
 const mockDb = vi.hoisted(() => ({
   users: { get: vi.fn(), put: vi.fn() },
   keystoreTable: { get: vi.fn(), put: vi.fn() },
+  atomically: vi.fn((fn: () => Promise<unknown>) => fn()),
 }))
 
-vi.mock('@/db/db', () => ({ db: mockDb }))
+vi.mock('@/db/db', () => ({ db: { ...mockDb, keystore: () => keystoreWrites } }))
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -50,7 +52,7 @@ beforeEach(() => {
     return Promise.resolve(u.userId)
   })
   mockDb.keystoreTable.get.mockImplementation(() => Promise.resolve(keystore))
-  mockDb.keystoreTable.put.mockImplementation((k: KeystoreRecord) => {
+  keystoreWrites.put.mockImplementation((k: KeystoreRecord) => {
     keystore = k
     return Promise.resolve(k.id)
   })
@@ -117,6 +119,6 @@ describe('importIdentityBackup', () => {
     // Only users + keystoreTable are touched — no groups/transactions/etc mock exists,
     // and none of the calls above reference them.
     expect(mockDb.users.put).toHaveBeenCalledTimes(1)
-    expect(mockDb.keystoreTable.put).toHaveBeenCalledTimes(1)
+    expect(keystoreWrites.put).toHaveBeenCalledTimes(1)
   })
 })
